@@ -20,16 +20,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const carouselPrev = document.querySelector('.carousel-prev');
     const carouselNext = document.querySelector('.carousel-next');
     const carouselIndicators = document.querySelector('.carousel-indicators');
+    const carouselWrapper = document.querySelector('.carousel-wrapper');
     
     // Carousel variables
     let currentIndex = 0;
     let autoScrollInterval;
+    let animationId;
     let itemsPerView = calculateItemsPerView();
     let visibleItems = document.querySelectorAll('.favorites-item[style*="display: block"], .favorites-item:not([style*="display"])');
+    let isDragging = false;
+    let startPosition = 0;
+    let currentTranslate = 0;
+    let prevTranslate = 0;
+    let scrollSpeed = 0.5; // Pixels per frame for continuous scrolling
     
     // Initialize carousel
     function initCarousel() {
         visibleItems = Array.from(document.querySelectorAll('.favorites-item[style*="display: block"], .favorites-item:not([style*="display"])'));
+        
+        if (visibleItems.length === 0) return;
+        
+        // Create infinite scroll effect by cloning items
+        createInfiniteScroll();
         
         // Create indicators
         carouselIndicators.innerHTML = '';
@@ -50,8 +62,36 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set first item as active
         updateActiveItems();
         
-        // Start auto-scroll
-        startAutoScroll();
+        // Start continuous auto-scroll
+        startContinuousScroll();
+    }
+    
+    // Create infinite scroll effect
+    function createInfiniteScroll() {
+        // Remove any previously cloned items
+        carousel.querySelectorAll('.cloned').forEach(item => item.remove());
+        
+        // Clone items for infinite scroll
+        if (visibleItems.length > 0) {
+            // Clone first set of items and add to end
+            visibleItems.forEach(item => {
+                const clone = item.cloneNode(true);
+                clone.classList.add('cloned');
+                carousel.appendChild(clone);
+            });
+            
+            // Clone last set of items and add to beginning
+            [...visibleItems].reverse().forEach(item => {
+                const clone = item.cloneNode(true);
+                clone.classList.add('cloned');
+                carousel.insertBefore(clone, carousel.firstChild);
+            });
+            
+            // Set initial position to first real item
+            currentTranslate = -visibleItems[0].offsetWidth * visibleItems.length;
+            carousel.style.transform = `translateX(${currentTranslate}px)`;
+            prevTranslate = currentTranslate;
+        }
     }
     
     // Calculate items per view based on viewport width
@@ -68,12 +108,86 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update carousel on window resize
     window.addEventListener('resize', () => {
         itemsPerView = calculateItemsPerView();
+        stopContinuousScroll();
         initCarousel();
     });
     
-    // Go to specific slide
+    // Continuous scroll animation
+    function continuousScroll() {
+        // Move carousel left continuously
+        currentTranslate -= scrollSpeed;
+        carousel.style.transform = `translateX(${currentTranslate}px)`;
+        
+        // Calculate item width including gap
+        const itemWidth = visibleItems[0].offsetWidth + parseInt(getComputedStyle(carousel).columnGap);
+        const totalWidth = itemWidth * visibleItems.length;
+        
+        // Check if we've scrolled past a complete set of items
+        if (Math.abs(currentTranslate) >= totalWidth + Math.abs(prevTranslate)) {
+            // Reset to beginning of the real items
+            currentTranslate = prevTranslate;
+            carousel.style.transform = `translateX(${currentTranslate}px)`;
+        }
+        
+        // Update which items are active based on scroll position
+        updateActiveItemsOnScroll();
+        
+        // Continue animation
+        animationId = requestAnimationFrame(continuousScroll);
+    }
+    
+    // Start continuous scrolling
+    function startContinuousScroll() {
+        stopContinuousScroll();
+        animationId = requestAnimationFrame(continuousScroll);
+    }
+    
+    // Stop continuous scrolling
+    function stopContinuousScroll() {
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+    }
+    
+    // Update active items based on scroll position
+    function updateActiveItemsOnScroll() {
+        if (visibleItems.length === 0) return;
+        
+        const itemWidth = visibleItems[0].offsetWidth + parseInt(getComputedStyle(carousel).columnGap);
+        const offset = Math.abs(currentTranslate - prevTranslate);
+        const index = Math.floor(offset / itemWidth) % visibleItems.length;
+        
+        // Update indicator
+        document.querySelectorAll('.carousel-indicator').forEach((indicator, i) => {
+            indicator.classList.toggle('active', i === index);
+        });
+        
+        // Update which items have active class
+        const allItems = carousel.querySelectorAll('.favorites-item');
+        const startIndex = visibleItems.length; // Start after the cloned items at beginning
+        
+        allItems.forEach((item, i) => {
+            const position = i - startIndex;
+            const adjustedPosition = ((position % visibleItems.length) + visibleItems.length) % visibleItems.length;
+            const isActive = adjustedPosition === index || 
+                            adjustedPosition === (index + 1) % visibleItems.length || 
+                            adjustedPosition === (index + 2) % visibleItems.length;
+            
+            item.classList.toggle('active', isActive && itemsPerView > 1);
+            
+            // If only showing one item at a time, only the current one is active
+            if (itemsPerView === 1) {
+                item.classList.toggle('active', adjustedPosition === index);
+            }
+        });
+    }
+    
+    // Go to specific slide for indicator clicks
     function goToSlide(index) {
         if (visibleItems.length === 0) return;
+        
+        stopContinuousScroll();
         
         currentIndex = index;
         const maxIndex = Math.ceil(visibleItems.length / itemsPerView) - 1;
@@ -84,20 +198,35 @@ document.addEventListener('DOMContentLoaded', function() {
             currentIndex = 0;
         }
         
-        // Move carousel
-        const slideWidth = visibleItems[0].offsetWidth + parseInt(getComputedStyle(carousel).columnGap);
-        carousel.style.transform = `translateX(-${currentIndex * itemsPerView * slideWidth}px)`;
+        // Calculate position
+        const itemWidth = visibleItems[0].offsetWidth + parseInt(getComputedStyle(carousel).columnGap);
+        const newPosition = prevTranslate - (currentIndex * itemsPerView * itemWidth);
+        
+        // Animate to position
+        carousel.style.transition = 'transform 0.5s ease';
+        carousel.style.transform = `translateX(${newPosition}px)`;
         
         // Update indicators
         document.querySelectorAll('.carousel-indicator').forEach((indicator, i) => {
             indicator.classList.toggle('active', i === currentIndex);
         });
         
-        // Update active item styling
+        // Update active items
         updateActiveItems();
         
-        // Reset auto-scroll timer
-        resetAutoScroll();
+        // After animation completes, resume continuous scroll
+        setTimeout(() => {
+            carousel.style.transition = 'none';
+            currentTranslate = newPosition;
+            prevTranslate = newPosition;
+            carousel.style.transform = `translateX(${currentTranslate}px)`;
+            
+            // Resume continuous scroll
+            setTimeout(() => {
+                carousel.style.transition = 'transform 0.5s ease';
+                startContinuousScroll();
+            }, 50);
+        }, 500);
     }
     
     // Update which items have the active class
@@ -108,63 +237,107 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Previous slide
+    // Previous slide button
     carouselPrev.addEventListener('click', () => {
         goToSlide(currentIndex - 1);
     });
     
-    // Next slide
+    // Next slide button
     carouselNext.addEventListener('click', () => {
         goToSlide(currentIndex + 1);
     });
     
-    // Start auto-scrolling
-    function startAutoScroll() {
-        stopAutoScroll();
-        autoScrollInterval = setInterval(() => {
-            goToSlide(currentIndex + 1);
-        }, 5000); // Change slide every 5 seconds
+    // Setup mouse drag events
+    carouselWrapper.addEventListener('mousedown', dragStart);
+    carouselWrapper.addEventListener('mouseup', dragEnd);
+    carouselWrapper.addEventListener('mouseleave', dragEnd);
+    carouselWrapper.addEventListener('mousemove', drag);
+    
+    // Setup touch events
+    carouselWrapper.addEventListener('touchstart', dragStart, { passive: true });
+    carouselWrapper.addEventListener('touchend', dragEnd, { passive: true });
+    carouselWrapper.addEventListener('touchmove', drag, { passive: true });
+    
+    // Handle drag start
+    function dragStart(e) {
+        stopContinuousScroll();
+        
+        // Save the starting position
+        startPosition = getPositionX(e);
+        isDragging = true;
+        
+        // Remove transition during drag for smooth movement
+        carousel.style.transition = 'none';
     }
     
-    // Stop auto-scrolling
-    function stopAutoScroll() {
-        if (autoScrollInterval) {
-            clearInterval(autoScrollInterval);
+    // Handle drag movement
+    function drag(e) {
+        if (!isDragging) return;
+        
+        const currentPosition = getPositionX(e);
+        const diff = currentPosition - startPosition;
+        carousel.style.transform = `translateX(${currentTranslate + diff}px)`;
+    }
+    
+    // Handle drag end
+    function dragEnd(e) {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        
+        // Apply transition for smooth settling
+        carousel.style.transition = 'transform 0.5s ease';
+        
+        // Calculate how far the user dragged
+        const currentPosition = getPositionX(e);
+        const diff = currentPosition - startPosition;
+        
+        // If the drag was significant, move to next/prev slide
+        const itemWidth = visibleItems[0].offsetWidth;
+        if (Math.abs(diff) > itemWidth / 4) {
+            if (diff > 0) {
+                // Dragged right, go to previous slide
+                currentTranslate += itemWidth;
+            } else {
+                // Dragged left, go to next slide
+                currentTranslate -= itemWidth;
+            }
         }
+        
+        // Update the transform
+        carousel.style.transform = `translateX(${currentTranslate}px)`;
+        
+        // After transition completes, check for loop reset
+        setTimeout(() => {
+            // Reset transition
+            carousel.style.transition = 'none';
+            
+            // Check if we need to loop around
+            const totalWidth = itemWidth * visibleItems.length;
+            
+            // If scrolled too far left, jump to right end
+            if (Math.abs(currentTranslate - prevTranslate) > totalWidth) {
+                currentTranslate = prevTranslate;
+                carousel.style.transform = `translateX(${currentTranslate}px)`;
+            }
+            
+            // Resume transition
+            setTimeout(() => {
+                carousel.style.transition = 'transform 0.5s ease';
+                // Resume auto-scrolling
+                startContinuousScroll();
+            }, 50);
+        }, 500);
     }
     
-    // Reset auto-scroll timer (after manual interaction)
-    function resetAutoScroll() {
-        stopAutoScroll();
-        startAutoScroll();
+    // Get position X from mouse or touch event
+    function getPositionX(e) {
+        return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
     }
     
     // Pause auto-scroll when hovering over carousel
-    carousel.addEventListener('mouseenter', stopAutoScroll);
-    carousel.addEventListener('mouseleave', startAutoScroll);
-    
-    // Touch events for swiping on mobile
-    let touchStartX = 0;
-    let touchEndX = 0;
-    
-    carousel.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-    
-    carousel.addEventListener('touchend', (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        handleSwipe();
-    }, { passive: true });
-    
-    function handleSwipe() {
-        if (touchEndX < touchStartX) {
-            // Swipe left, go to next slide
-            goToSlide(currentIndex + 1);
-        } else if (touchEndX > touchStartX) {
-            // Swipe right, go to previous slide
-            goToSlide(currentIndex - 1);
-        }
-    }
+    carouselWrapper.addEventListener('mouseenter', stopContinuousScroll);
+    carouselWrapper.addEventListener('mouseleave', startContinuousScroll);
 
     // Dark mode toggle
     if (localStorage.getItem('darkMode') === 'enabled') {
@@ -260,6 +433,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Reinitialize carousel after filtering
             setTimeout(() => {
+                stopContinuousScroll();
                 initCarousel();
             }, 350);
         });
@@ -287,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Trigger initial animations
     setTimeout(() => {
         animateOnScroll('.timeline-item', 'fadeInUp');
-        initCarousel(); // Initialize carousel
+        initCarousel(); // Initialize carousel with new features
     }, 300);
 
     // Add CSS animation classes dynamically

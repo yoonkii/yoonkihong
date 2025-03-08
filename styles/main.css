@@ -749,6 +749,14 @@ footer {
     position: relative;
     width: 100%;
     padding: 1rem 0;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+}
+
+.carousel-wrapper:active {
+    cursor: grabbing;
 }
 
 .favorites-carousel {
@@ -757,6 +765,7 @@ footer {
     gap: 1.5rem;
     column-gap: 1.5rem;
     padding: 1rem 0.5rem;
+    will-change: transform;
 }
 
 .favorites-item {
@@ -769,11 +778,19 @@ footer {
     transition: var(--transition);
     opacity: 0.7;
     transform: scale(0.95);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+}
+
+.favorites-item.cloned {
+    /* Same styles as regular items */
 }
 
 .favorites-item.active {
     opacity: 1;
     transform: scale(1);
+    z-index: 1;
 }
 
 .favorites-item:hover {
