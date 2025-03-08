@@ -11,9 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const burger = document.querySelector('.burger');
     const navLinks = document.querySelector('.nav-links');
     const navItems = document.querySelectorAll('.nav-links li');
+    const navAnchors = document.querySelectorAll('.nav-links a');
     const checkbox = document.getElementById('checkbox');
     const filterBtns = document.querySelectorAll('.filter-btn');
     const favoritesItems = document.querySelectorAll('.favorites-item');
+    const sections = document.querySelectorAll('section, header.hero');
     
     // Carousel Elements
     const carousel = document.querySelector('.favorites-carousel');
@@ -33,6 +35,38 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentTranslate = 0;
     let prevTranslate = 0;
     let scrollSpeed = 0.5; // Pixels per frame for continuous scrolling
+    
+    // Function to highlight active section in navigation
+    function highlightActiveSection() {
+        // Get current scroll position
+        let scrollPosition = window.scrollY + nav.offsetHeight + 50;
+        
+        // Check which section is currently in view
+        sections.forEach((section) => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.offsetHeight;
+            const sectionId = section.getAttribute('id');
+            
+            if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                // Remove active class from all navigation links
+                navAnchors.forEach((item) => {
+                    item.classList.remove('active');
+                });
+                
+                // Add active class to the corresponding navigation link
+                const activeLink = document.querySelector(`.nav-links a[href="#${sectionId}"]`);
+                if (activeLink) {
+                    activeLink.classList.add('active');
+                }
+            }
+        });
+    }
+    
+    // Add scroll event listener to highlight active section
+    window.addEventListener('scroll', highlightActiveSection);
+    
+    // Call once on page load to set initial active section
+    highlightActiveSection();
     
     // Initialize carousel
     function initCarousel() {
@@ -372,6 +406,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (navLinks.classList.contains('nav-active')) {
                     toggleNav();
                 }
+                
+                // Update active class
+                navAnchors.forEach(item => item.classList.remove('active'));
+                this.classList.add('active');
             }
         });
     });
