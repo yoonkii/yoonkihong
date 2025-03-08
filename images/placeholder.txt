@@ -1,0 +1,7 @@
+This directory is for storing profile and portfolio images.
+
+Replace the placeholder images with your own:
+- Add a profile photo (recommended size: 500x500px) named "profile.jpg" or "profile.png"
+- Add portfolio project images in the portfolio/ subdirectory (recommended size: 800x600px)
+
+The site is currently using CSS-based placeholders, which you can replace with actual images by modifying the corresponding HTML elements. 
