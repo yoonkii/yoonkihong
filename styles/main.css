@@ -736,23 +736,50 @@ footer {
     flex-wrap: wrap;
 }
 
-.favorites-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 2rem;
+/* Carousel styles */
+.carousel-container {
+    position: relative;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0 0 2rem;
+}
+
+.carousel-wrapper {
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    padding: 1rem 0;
+}
+
+.favorites-carousel {
+    display: flex;
+    transition: transform 0.5s ease;
+    gap: 1.5rem;
+    column-gap: 1.5rem;
+    padding: 1rem 0.5rem;
 }
 
 .favorites-item {
+    flex: 0 0 auto;
+    width: 320px;
     background-color: var(--bg-color);
     border-radius: var(--border-radius);
     overflow: hidden;
     box-shadow: var(--box-shadow);
     transition: var(--transition);
+    opacity: 0.7;
+    transform: scale(0.95);
+}
+
+.favorites-item.active {
+    opacity: 1;
+    transform: scale(1);
 }
 
 .favorites-item:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    opacity: 1;
 }
 
 .favorites-image {
@@ -770,4 +797,73 @@ footer {
 
 .favorites-info p {
     margin-bottom: 0;
+}
+
+.carousel-navigation {
+    position: absolute;
+    top: 50%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    z-index: 10;
+    transform: translateY(-50%);
+    padding: 0 1rem;
+}
+
+.carousel-prev, .carousel-next {
+    background-color: var(--bg-color);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--primary-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: var(--transition);
+}
+
+.carousel-prev:hover, .carousel-next:hover {
+    background-color: var(--primary-color);
+    color: white;
+    transform: scale(1.1);
+}
+
+.carousel-indicators {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.carousel-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--border-color);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.carousel-indicator.active {
+    background-color: var(--primary-color);
+    transform: scale(1.2);
+}
+
+@media screen and (max-width: 768px) {
+    .favorites-item {
+        width: 280px;
+    }
+    
+    .carousel-navigation {
+        padding: 0 0.5rem;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .favorites-item {
+        width: 260px;
+    }
 } 

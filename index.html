@@ -132,7 +132,7 @@
         </div>
     </section> -->
     
-    <!-- New Favorites Section -->
+    <!-- New Favorites Section with Carousel -->
     <section class="favorites" id="favorites">
         <div class="container">
             <h2 class="section-title">Favorites</h2>
@@ -142,72 +142,84 @@
                 <button class="filter-btn" data-filter="movies">Movies & Shows</button>
                 <button class="filter-btn" data-filter="music">Music</button>
             </div>
-            <div class="favorites-grid">
-                <div class="favorites-item" data-category="games">
-                    <div class="favorites-image">
-                        <div class="image-placeholder">
-                            <span>Baldur's Gate 3</span>
+            
+            <div class="carousel-container">
+                <div class="carousel-navigation">
+                    <button class="carousel-prev"><i class="fas fa-chevron-left"></i></button>
+                    <button class="carousel-next"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="carousel-wrapper">
+                    <div class="favorites-carousel">
+                        <div class="favorites-item" data-category="games">
+                            <div class="favorites-image">
+                                <div class="image-placeholder">
+                                    <span>Baldur's Gate 3</span>
+                                </div>
+                            </div>
+                            <div class="favorites-info">
+                                <h3>Baldur's Gate 3</h3>
+                                <p>An immersive RPG experience with an engaging story and characters.</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="favorites-info">
-                        <h3>Baldur's Gate 3</h3>
-                        <p>An immersive RPG experience with an engaging story and characters.</p>
+                        <div class="favorites-item" data-category="games">
+                            <div class="favorites-image">
+                                <div class="image-placeholder">
+                                    <span>The Legend of Zelda</span>
+                                </div>
+                            </div>
+                            <div class="favorites-info">
+                                <h3>The Legend of Zelda</h3>
+                                <p>A timeless Nintendo classic with amazing world-building and puzzle elements.</p>
+                            </div>
+                        </div>
+                        <div class="favorites-item" data-category="movies">
+                            <div class="favorites-image">
+                                <div class="image-placeholder">
+                                    <span>Inception</span>
+                                </div>
+                            </div>
+                            <div class="favorites-info">
+                                <h3>Inception</h3>
+                                <p>Christopher Nolan's mind-bending thriller about dreams within dreams.</p>
+                            </div>
+                        </div>
+                        <div class="favorites-item" data-category="movies">
+                            <div class="favorites-image">
+                                <div class="image-placeholder">
+                                    <span>Breaking Bad</span>
+                                </div>
+                            </div>
+                            <div class="favorites-info">
+                                <h3>Breaking Bad</h3>
+                                <p>The critically acclaimed series about a high school teacher turned drug kingpin.</p>
+                            </div>
+                        </div>
+                        <div class="favorites-item" data-category="music">
+                            <div class="favorites-image">
+                                <div class="image-placeholder">
+                                    <span>Radiohead</span>
+                                </div>
+                            </div>
+                            <div class="favorites-info">
+                                <h3>Radiohead</h3>
+                                <p>Innovative rock band known for their experimental sound and evolution.</p>
+                            </div>
+                        </div>
+                        <div class="favorites-item" data-category="music">
+                            <div class="favorites-image">
+                                <div class="image-placeholder">
+                                    <span>Kendrick Lamar</span>
+                                </div>
+                            </div>
+                            <div class="favorites-info">
+                                <h3>Kendrick Lamar</h3>
+                                <p>Critically acclaimed rapper known for his storytelling and social commentary.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="favorites-item" data-category="games">
-                    <div class="favorites-image">
-                        <div class="image-placeholder">
-                            <span>The Legend of Zelda</span>
-                        </div>
-                    </div>
-                    <div class="favorites-info">
-                        <h3>The Legend of Zelda</h3>
-                        <p>A timeless Nintendo classic with amazing world-building and puzzle elements.</p>
-                    </div>
-                </div>
-                <div class="favorites-item" data-category="movies">
-                    <div class="favorites-image">
-                        <div class="image-placeholder">
-                            <span>Inception</span>
-                        </div>
-                    </div>
-                    <div class="favorites-info">
-                        <h3>Inception</h3>
-                        <p>Christopher Nolan's mind-bending thriller about dreams within dreams.</p>
-                    </div>
-                </div>
-                <div class="favorites-item" data-category="movies">
-                    <div class="favorites-image">
-                        <div class="image-placeholder">
-                            <span>Breaking Bad</span>
-                        </div>
-                    </div>
-                    <div class="favorites-info">
-                        <h3>Breaking Bad</h3>
-                        <p>The critically acclaimed series about a high school teacher turned drug kingpin.</p>
-                    </div>
-                </div>
-                <div class="favorites-item" data-category="music">
-                    <div class="favorites-image">
-                        <div class="image-placeholder">
-                            <span>Radiohead</span>
-                        </div>
-                    </div>
-                    <div class="favorites-info">
-                        <h3>Radiohead</h3>
-                        <p>Innovative rock band known for their experimental sound and evolution.</p>
-                    </div>
-                </div>
-                <div class="favorites-item" data-category="music">
-                    <div class="favorites-image">
-                        <div class="image-placeholder">
-                            <span>Kendrick Lamar</span>
-                        </div>
-                    </div>
-                    <div class="favorites-info">
-                        <h3>Kendrick Lamar</h3>
-                        <p>Critically acclaimed rapper known for his storytelling and social commentary.</p>
-                    </div>
+                <div class="carousel-indicators">
+                    <!-- Indicators will be added dynamically -->
                 </div>
             </div>
         </div>
@@ -266,7 +278,7 @@
                 </div>
             </div>
             <div class="copyright">
-                <p>&copy; 2023 Yoonki Hong. All rights reserved.</p>
+                <p>&copy; 2025 Yoonki Hong. All rights reserved.</p>
             </div>
         </div>
     </footer>

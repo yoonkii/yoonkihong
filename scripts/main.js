@@ -14,6 +14,157 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkbox = document.getElementById('checkbox');
     const filterBtns = document.querySelectorAll('.filter-btn');
     const favoritesItems = document.querySelectorAll('.favorites-item');
+    
+    // Carousel Elements
+    const carousel = document.querySelector('.favorites-carousel');
+    const carouselPrev = document.querySelector('.carousel-prev');
+    const carouselNext = document.querySelector('.carousel-next');
+    const carouselIndicators = document.querySelector('.carousel-indicators');
+    
+    // Carousel variables
+    let currentIndex = 0;
+    let autoScrollInterval;
+    let itemsPerView = calculateItemsPerView();
+    let visibleItems = document.querySelectorAll('.favorites-item[style*="display: block"], .favorites-item:not([style*="display"])');
+    
+    // Initialize carousel
+    function initCarousel() {
+        visibleItems = Array.from(document.querySelectorAll('.favorites-item[style*="display: block"], .favorites-item:not([style*="display"])'));
+        
+        // Create indicators
+        carouselIndicators.innerHTML = '';
+        const totalIndicators = Math.ceil(visibleItems.length / itemsPerView);
+        
+        for (let i = 0; i < totalIndicators; i++) {
+            const indicator = document.createElement('div');
+            indicator.classList.add('carousel-indicator');
+            if (i === 0) indicator.classList.add('active');
+            
+            indicator.addEventListener('click', () => {
+                goToSlide(i);
+            });
+            
+            carouselIndicators.appendChild(indicator);
+        }
+        
+        // Set first item as active
+        updateActiveItems();
+        
+        // Start auto-scroll
+        startAutoScroll();
+    }
+    
+    // Calculate items per view based on viewport width
+    function calculateItemsPerView() {
+        if (window.innerWidth < 768) {
+            return 1;
+        } else if (window.innerWidth < 1200) {
+            return 2;
+        } else {
+            return 3;
+        }
+    }
+    
+    // Update carousel on window resize
+    window.addEventListener('resize', () => {
+        itemsPerView = calculateItemsPerView();
+        initCarousel();
+    });
+    
+    // Go to specific slide
+    function goToSlide(index) {
+        if (visibleItems.length === 0) return;
+        
+        currentIndex = index;
+        const maxIndex = Math.ceil(visibleItems.length / itemsPerView) - 1;
+        
+        if (currentIndex < 0) {
+            currentIndex = maxIndex;
+        } else if (currentIndex > maxIndex) {
+            currentIndex = 0;
+        }
+        
+        // Move carousel
+        const slideWidth = visibleItems[0].offsetWidth + parseInt(getComputedStyle(carousel).columnGap);
+        carousel.style.transform = `translateX(-${currentIndex * itemsPerView * slideWidth}px)`;
+        
+        // Update indicators
+        document.querySelectorAll('.carousel-indicator').forEach((indicator, i) => {
+            indicator.classList.toggle('active', i === currentIndex);
+        });
+        
+        // Update active item styling
+        updateActiveItems();
+        
+        // Reset auto-scroll timer
+        resetAutoScroll();
+    }
+    
+    // Update which items have the active class
+    function updateActiveItems() {
+        visibleItems.forEach((item, index) => {
+            const isActive = index >= currentIndex * itemsPerView && index < (currentIndex + 1) * itemsPerView;
+            item.classList.toggle('active', isActive);
+        });
+    }
+    
+    // Previous slide
+    carouselPrev.addEventListener('click', () => {
+        goToSlide(currentIndex - 1);
+    });
+    
+    // Next slide
+    carouselNext.addEventListener('click', () => {
+        goToSlide(currentIndex + 1);
+    });
+    
+    // Start auto-scrolling
+    function startAutoScroll() {
+        stopAutoScroll();
+        autoScrollInterval = setInterval(() => {
+            goToSlide(currentIndex + 1);
+        }, 5000); // Change slide every 5 seconds
+    }
+    
+    // Stop auto-scrolling
+    function stopAutoScroll() {
+        if (autoScrollInterval) {
+            clearInterval(autoScrollInterval);
+        }
+    }
+    
+    // Reset auto-scroll timer (after manual interaction)
+    function resetAutoScroll() {
+        stopAutoScroll();
+        startAutoScroll();
+    }
+    
+    // Pause auto-scroll when hovering over carousel
+    carousel.addEventListener('mouseenter', stopAutoScroll);
+    carousel.addEventListener('mouseleave', startAutoScroll);
+    
+    // Touch events for swiping on mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    carousel.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    
+    carousel.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+    
+    function handleSwipe() {
+        if (touchEndX < touchStartX) {
+            // Swipe left, go to next slide
+            goToSlide(currentIndex + 1);
+        } else if (touchEndX > touchStartX) {
+            // Swipe right, go to previous slide
+            goToSlide(currentIndex - 1);
+        }
+    }
 
     // Dark mode toggle
     if (localStorage.getItem('darkMode') === 'enabled') {
@@ -106,13 +257,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     }, 300);
                 }
             });
+            
+            // Reinitialize carousel after filtering
+            setTimeout(() => {
+                initCarousel();
+            }, 350);
         });
     });
 
     // Animate elements on scroll
     window.addEventListener('scroll', () => {
         animateOnScroll('.timeline-item', 'fadeInUp');
-        animateOnScroll('.favorites-item', 'fadeInUp');
     });
 
     // Helper function for scroll animations
@@ -132,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Trigger initial animations
     setTimeout(() => {
         animateOnScroll('.timeline-item', 'fadeInUp');
-        animateOnScroll('.favorites-item', 'fadeInUp');
+        initCarousel(); // Initialize carousel
     }, 300);
 
     // Add CSS animation classes dynamically
