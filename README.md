@@ -46,12 +46,11 @@ To customize this website for your own use:
 
 - Fonts: Inter from Google Fonts
 - Icons: Font Awesome
-- Design Inspiration: Apple.com
 
 ## License
 
-This project is available for personal and commercial use.
+This project is available for personal use.
 
 ---
 
-Created by Yoonki Hong © 2023 
+Created by Yoonki Hong © 2025
