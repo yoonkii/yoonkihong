@@ -1,4 +1,4 @@
-# Yoonki Hong - Personal Profile Website
+Personal Profile Website
 
 A single-page profile website.
 
