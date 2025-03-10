@@ -1,17 +1,6 @@
 # Yoonki Hong - Personal Profile Website
 
-This is a modern, responsive single-page profile website that showcases Yoonki Hong's professional identity and work. The site is inspired by Apple's clean design aesthetic, featuring smooth animations and a user-friendly interface.
-
-## Features
-
-- **Modern Apple-inspired Design**: Clean, minimalist layout with careful attention to typography and whitespace
-- **Responsive Layout**: Fully responsive design that works beautifully on all devices
-- **Dark/Light Mode Toggle**: Users can switch between light and dark themes
-- **Smooth Scrolling Navigation**: Seamless navigation between different sections of the page
-- **Interactive Portfolio Gallery**: Filterable portfolio items by category
-- **Animated Timeline**: Visually appealing experience timeline
-- **Skill Proficiency Visualization**: Animated skill bars that show proficiency levels
-- **Optimized Performance**: Fast-loading and efficient code structure
+A single-page profile website.
 
 ## Technologies Used
 
