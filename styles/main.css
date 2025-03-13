@@ -365,15 +365,14 @@ nav.scrolled {
     border-radius: 50%;
     overflow: hidden;
     box-shadow: var(--box-shadow);
-    background-color: var(--primary-color);
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .profile-image img {
-    width: 90%;
-    height: 90%;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     border-radius: 50%;
 }
