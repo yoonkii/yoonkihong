@@ -107,22 +107,28 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Clone items for infinite scroll
         if (visibleItems.length > 0) {
-            // Clone first set of items and add to end
-            visibleItems.forEach(item => {
-                const clone = item.cloneNode(true);
-                clone.classList.add('cloned');
-                carousel.appendChild(clone);
-            });
+            // Clone first set of items and add to end (twice to ensure enough items)
+            const firstSet = [...visibleItems];
+            for (let i = 0; i < 2; i++) {
+                firstSet.forEach(item => {
+                    const clone = item.cloneNode(true);
+                    clone.classList.add('cloned');
+                    carousel.appendChild(clone);
+                });
+            }
             
-            // Clone last set of items and add to beginning
-            [...visibleItems].reverse().forEach(item => {
-                const clone = item.cloneNode(true);
-                clone.classList.add('cloned');
-                carousel.insertBefore(clone, carousel.firstChild);
-            });
+            // Clone last set of items and add to beginning (twice to ensure enough items)
+            const lastSet = [...visibleItems].reverse();
+            for (let i = 0; i < 2; i++) {
+                lastSet.forEach(item => {
+                    const clone = item.cloneNode(true);
+                    clone.classList.add('cloned');
+                    carousel.insertBefore(clone, carousel.firstChild);
+                });
+            }
             
             // Set initial position to first real item
-            currentTranslate = -visibleItems[0].offsetWidth * visibleItems.length;
+            currentTranslate = -visibleItems[0].offsetWidth * visibleItems.length * 2;
             carousel.style.transform = `translateX(${currentTranslate}px)`;
             prevTranslate = currentTranslate;
         }
@@ -157,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalWidth = itemWidth * visibleItems.length;
         
         // Check if we've scrolled past a complete set of items
-        if (Math.abs(currentTranslate) >= totalWidth + Math.abs(prevTranslate)) {
+        if (Math.abs(currentTranslate - prevTranslate) >= totalWidth) {
             // Reset to beginning of the real items
             currentTranslate = prevTranslate;
             carousel.style.transform = `translateX(${currentTranslate}px)`;
@@ -349,8 +355,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Check if we need to loop around
             const totalWidth = itemWidth * visibleItems.length;
             
-            // If scrolled too far left, jump to right end
-            if (Math.abs(currentTranslate - prevTranslate) > totalWidth) {
+            // If scrolled too far left or right, jump to the opposite end
+            const distanceScrolled = Math.abs(currentTranslate - prevTranslate);
+            if (distanceScrolled > totalWidth) {
                 currentTranslate = prevTranslate;
                 carousel.style.transform = `translateX(${currentTranslate}px)`;
             }
