@@ -360,17 +360,22 @@ nav.scrolled {
 }
 
 .profile-image {
-    width: 320px;
-    height: 320px;
+    width: 280px;
+    height: 280px;
     border-radius: 50%;
     overflow: hidden;
     box-shadow: var(--box-shadow);
+    background-color: var(--primary-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .profile-image img {
-    width: 100%;
-    height: 100%;
+    width: 90%;
+    height: 90%;
     object-fit: cover;
+    border-radius: 50%;
 }
 
 .about-text {
@@ -739,6 +744,11 @@ footer {
         width: 250px;
         height: 250px;
         font-size: 2.5rem;
+    }
+    
+    .profile-image {
+        width: 250px;
+        height: 250px;
     }
 }
 
