@@ -359,6 +359,20 @@ nav.scrolled {
     box-shadow: var(--box-shadow);
 }
 
+.profile-image {
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+}
+
+.profile-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .about-text {
     flex: 2;
 }
