@@ -1,7 +1,7 @@
 /**
  * Main JavaScript for Yoonki Hong's profile website
  * Includes functionality for smooth scrolling, dark mode toggle,
- * favorites filtering, and mobile navigation
+ * portfolio carousel, and mobile navigation
  */
 
 // Wait for the DOM to be fully loaded
@@ -13,12 +13,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const navItems = document.querySelectorAll('.nav-links li');
     const navAnchors = document.querySelectorAll('.nav-links a');
     const checkbox = document.getElementById('checkbox');
-    const filterBtns = document.querySelectorAll('.filter-btn');
-    const favoritesItems = document.querySelectorAll('.favorites-item');
+    const portfolioItems = document.querySelectorAll('.portfolio-item');
     const sections = document.querySelectorAll('section, header.hero');
     
     // Carousel Elements
-    const carousel = document.querySelector('.favorites-carousel');
+    const carousel = document.querySelector('.portfolio-carousel');
     const carouselPrev = document.querySelector('.carousel-prev');
     const carouselNext = document.querySelector('.carousel-next');
     const carouselIndicators = document.querySelector('.carousel-indicators');
@@ -29,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let autoScrollInterval;
     let animationId;
     let itemsPerView = calculateItemsPerView();
-    let visibleItems = document.querySelectorAll('.favorites-item[style*="display: block"], .favorites-item:not([style*="display"])');
+    let visibleItems = document.querySelectorAll('.portfolio-item');
     let isDragging = false;
     let startPosition = 0;
     let currentTranslate = 0;
@@ -70,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize carousel
     function initCarousel() {
-        visibleItems = Array.from(document.querySelectorAll('.favorites-item[style*="display: block"], .favorites-item:not([style*="display"])'));
+        visibleItems = Array.from(document.querySelectorAll('.portfolio-item'));
         
         if (visibleItems.length === 0) return;
         
@@ -204,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Update which items have active class
-        const allItems = carousel.querySelectorAll('.favorites-item');
+        const allItems = carousel.querySelectorAll('.portfolio-item');
         const startIndex = visibleItems.length; // Start after the cloned items at beginning
         
         allItems.forEach((item, i) => {
@@ -449,41 +448,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Favorites filtering
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Remove active class from all buttons
-            filterBtns.forEach(btn => btn.classList.remove('active'));
-            
-            // Add active class to clicked button
-            this.classList.add('active');
-            
-            const filterValue = this.getAttribute('data-filter');
-            
-            favoritesItems.forEach(item => {
-                if (filterValue === 'all' || item.getAttribute('data-category') === filterValue) {
-                    item.style.display = 'block';
-                    setTimeout(() => {
-                        item.style.opacity = '1';
-                        item.style.transform = 'scale(1)';
-                    }, 10);
-                } else {
-                    item.style.opacity = '0';
-                    item.style.transform = 'scale(0.8)';
-                    setTimeout(() => {
-                        item.style.display = 'none';
-                    }, 300);
-                }
-            });
-            
-            // Reinitialize carousel after filtering
-            setTimeout(() => {
-                stopContinuousScroll();
-                initCarousel();
-            }, 350);
-        });
-    });
-
     // Animate elements on scroll
     window.addEventListener('scroll', () => {
         animateOnScroll('.timeline-item', 'fadeInUp');
@@ -535,7 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
             transform: rotate(45deg) translate(-5px, -6px);
         }
         
-        .favorites-item {
+        .portfolio-item {
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
         
