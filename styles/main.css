@@ -541,14 +541,18 @@ nav.scrolled {
 }
 
 .portfolio-image {
-    height: 200px;
+    height: 180px;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .portfolio-image img {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
 }
 
 .image-placeholder {
@@ -769,8 +773,16 @@ footer {
         transform: translateX(0%);
     }
     
-    .portfolio-carousel {
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    .portfolio-item {
+        width: 280px;
+    }
+    
+    .portfolio-image {
+        height: 160px;
+    }
+    
+    .carousel-navigation {
+        padding: 0 0.5rem;
     }
 }
 
@@ -796,6 +808,14 @@ footer {
     .profile-image {
         width: 250px;
         height: 250px;
+    }
+    
+    .portfolio-item {
+        width: 260px;
+    }
+    
+    .portfolio-image {
+        height: 150px;
     }
 }
 
