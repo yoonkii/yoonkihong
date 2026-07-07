@@ -1,175 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Yoonki Hong - Product Marketing Manager in Tech">
-    <meta name="keywords" content="Yoonki Hong, Product Marketing, Google, San Francisco">
-    <title>Yoonki Hong | Product Marketing Manager</title>
-    <link rel="stylesheet" href="styles/main.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>YH</text></svg>">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Yoonki World — an explorable portfolio</title>
+  <meta name="description" content="Yoonki Hong's portfolio as a tiny Pokemon-style world. Walk around, meet the creatures — every one of them is a real app he shipped. GTM at Google by day, builder by night.">
+  <meta name="theme-color" content="#10305c">
+  <link rel="icon" href="images/game/creatures/egg.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
 </head>
-<body>
-    <div class="theme-switch-wrapper">
-        <label class="theme-switch" for="checkbox">
-            <input type="checkbox" id="checkbox" />
-            <div class="slider round"></div>
-        </label>
+<body class="game-body">
+  <noscript>
+    <div class="noscript-box">
+      This portfolio is a small game and needs JavaScript.
+      No worries — there is a <a href="classic.html">classic version</a> too.
     </div>
+  </noscript>
 
-    <header class="hero" id="home">
-        <nav>
-            <div class="logo">YH</div>
-            <ul class="nav-links">
-                <li><a href="#home">Home</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#portfolio">Portfolio</a></li>
-                <li><a href="#experience">Experience</a></li>
-            </ul>
-            <div class="burger">
-                <div class="line1"></div>
-                <div class="line2"></div>
-                <div class="line3"></div>
-            </div>
-        </nav>
-        <div class="hero-content">
-            <h1>Yoonki Hong</h1>
-            <p class="tagline">Hi, nice to meet you!</p>
-            <div class="location">
-                <i class="fas fa-map-marker-alt"></i>
-                <span>San Francisco</span>
-            </div>
-            <div class="hero-cta">
-                <a href="#about" class="cta-button">Discover More</a>
-            </div>
-        </div>
-    </header>
+  <div id="stage">
+    <canvas id="game" width="480" height="320" aria-label="Yoonki World — use arrow keys to walk around"></canvas>
+  </div>
 
-    <section class="about" id="about">
-        <div class="container">
-            <h2 class="section-title">About Me</h2>
-            <div class="about-content">
-                <div class="about-image">
-                    <div class="profile-image">
-                        <img src="images/profile.jpg" alt="Yoonki Hong" />
-                    </div>
-                </div>
-                <div class="about-text">
-                    <p>Hi, thanks for stopping by! I'm originally from Seoul, South Korea, and now I currently live in San Francisco. I love building, launching, and growing innovative products that bridge the gap between cutting-edge technology and user needs. My expertise lies in transforming complex technical concepts into clear, compelling stories that resonate with users and drive business growth.</p>
-                    <p>When I'm not working, you'll likely find me exploring the latest in technology and AI, enjoying music, or diving into video games. I'd love to connect—feel free to reach out!</p>
-                    <div class="social-links">
-                        <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener noreferrer">
-                            <i class="fab fa-linkedin"></i>
-                        </a>
-                        <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener noreferrer">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+  <!-- HUD -->
+  <div id="hud">
+    <button id="btn-mute" type="button" aria-label="Sound" aria-pressed="false">SOUND: ON</button>
+    <button id="btn-help" type="button" aria-label="Controls help">?</button>
+    <a id="btn-classic" href="classic.html">CLASSIC SITE</a>
+  </div>
 
-    <!-- Portfolio Section with Static Display -->
-    <section class="portfolio" id="portfolio">
-        <div class="container">
-            <h2 class="section-title">Portfolio</h2>
-            
-            <div class="portfolio-grid">
-                <div class="portfolio-item">
-                    <a href="https://yoonkihong.com" target="_blank" rel="noopener noreferrer">
-                        <div class="portfolio-image">
-                            <img src="images/portfolio/portfolio 2 - my website.png" alt="My Profile Page">
-                        </div>
-                        <div class="portfolio-info">
-                            <h3>My Profile Page</h3>
-                            <p>You're looking at it!</p>
-                        </div>
-                    </a>
-                </div>
-                <div class="portfolio-item">
-                    <a href="https://macrodocrefinement.com" target="_blank" rel="noopener noreferrer">
-                        <div class="portfolio-image">
-                            <img src="images/portfolio/porfolio 1 - macrodocrefinement.png" alt="Macro Doc Refinement">
-                        </div>
-                        <div class="portfolio-info">
-                            <h3>Macro Doc Refinement</h3>
-                            <p>A tool for easily refining text in the style of your choice</p>
-                        </div>
-                    </a>
-                </div>
-                <div class="portfolio-item">
-                    <div class="portfolio-image">
-                        <div class="image-placeholder">
-                            <span>TBD</span>
-                        </div>
-                    </div>
-                    <div class="portfolio-info">
-                        <h3>Coming Soon</h3>
-                        <p>Future project in development</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+  <!-- NPC / sign dialog -->
+  <div id="dialog" class="gba-box" tabindex="-1" hidden>
+    <div id="dlg-name"></div>
+    <p id="dlg-text" role="status" aria-live="polite"></p>
+    <div id="dlg-links" hidden>
+      <a href="classic.html">CLASSIC SITE</a>
+      <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener">LINKEDIN</a>
+      <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener">INSTAGRAM</a>
+    </div>
+    <div id="dlg-more" aria-hidden="true">&#9660;</div>
+  </div>
 
-    <section class="experience" id="experience">
-        <div class="container">
-            <h2 class="section-title">Experience</h2>
-            <div class="timeline">
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-date">2021 - Present</div>
-                        <h3>GTM Manager</h3>
-                        <h4>Google</h4>
-                    </div>
-                </div>
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-date">2018 - 2021</div>
-                        <h3>Product Marketing Manager</h3>
-                        <h4>Google Korea</h4>
-                    </div>
-                </div>
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-date">2014 - 2018</div>
-                        <h3>Growth Product Manager</h3>
-                        <h4>LINE</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+  <!-- Encounter screen -->
+  <div id="encounter" hidden>
+    <div class="enc-scene">
+      <div class="enc-plate">
+        <span id="enc-name"></span>
+        <span id="enc-tag">WILD</span>
+      </div>
+      <div class="enc-foe">
+        <img id="enc-sprite" alt="" draggable="false">
+        <div id="enc-fallback" style="display:none"></div>
+        <div class="enc-ground foe-ground"></div>
+      </div>
+      <div class="enc-ally-wrap">
+        <img id="enc-ally" src="images/game/player/up.png" alt="" draggable="false">
+        <div class="enc-ground ally-ground"></div>
+      </div>
+    </div>
+    <div class="enc-panel gba-box" tabindex="-1">
+      <p id="enc-text" role="status" aria-live="polite"></p>
+      <div id="enc-menu"></div>
+    </div>
+  </div>
 
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-info">
-                    <p>Yoonki Hong</p>
-                    <p>Product Marketing Manager</p>
-                    <p>San Francisco, CA</p>
-                </div>
-                <div class="footer-social">
-                    <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener noreferrer">
-                        <i class="fab fa-linkedin"></i>
-                    </a>
-                    <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener noreferrer">
-                        <i class="fab fa-instagram"></i>
-                    </a>
-                </div>
-            </div>
-            <div class="copyright">
-                <p>&copy; 2025 Yoonki Hong. All rights reserved.</p>
-            </div>
-        </div>
-    </footer>
+  <!-- transition FX layer -->
+  <div id="fx" class="fx" aria-hidden="true"></div>
 
-    <script src="scripts/main.js"></script>
+  <!-- first-time hint -->
+  <div id="hint" hidden>
+    <div class="hint-card gba-box">
+      <strong>HOW TO PLAY</strong>
+      <span class="kb-only">Arrow keys / WASD — walk &nbsp;&middot;&nbsp; Z or ENTER — talk &amp; interact &nbsp;&middot;&nbsp; X or ESC — back</span>
+      <span class="touch-only">D-pad — walk &nbsp;&middot;&nbsp; A — talk &amp; interact &nbsp;&middot;&nbsp; B — back</span>
+      <em>Walk up to a creature, a building, or Yoonki and interact!</em>
+    </div>
+  </div>
+
+  <!-- help overlay -->
+  <div id="help" hidden>
+    <div class="help-card gba-box" tabindex="-1">
+      <strong>CONTROLS</strong>
+      <ul>
+        <li><b>Move</b> — arrow keys / WASD, or the on-screen D-pad</li>
+        <li><b>Interact</b> — Z, ENTER or SPACE (A button)</li>
+        <li><b>Back / close</b> — X or ESC (B button)</li>
+        <li><b>Tap</b> a direction to turn in place, <b>hold</b> to walk</li>
+      </ul>
+      <p>Every creature and building on the island is a real project.
+         Face one and interact to meet it. Eggs in the nursery are projects
+         still hatching. Talk to YOONKI outside the house for the full story.</p>
+      <p><a href="classic.html">Prefer a simple site? View the classic version</a></p>
+      <button id="help-close" type="button">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- touch controls (coarse pointers only, via CSS) -->
+  <div id="touch-ui" aria-hidden="true">
+    <div class="dpad">
+      <button type="button" tabindex="-1" class="dp up" data-dir="up">&#9650;</button>
+      <button type="button" tabindex="-1" class="dp left" data-dir="left">&#9664;</button>
+      <button type="button" tabindex="-1" class="dp right" data-dir="right">&#9654;</button>
+      <button type="button" tabindex="-1" class="dp down" data-dir="down">&#9660;</button>
+    </div>
+    <div class="ab">
+      <button type="button" tabindex="-1" class="ab-btn b" data-btn="b">B</button>
+      <button type="button" tabindex="-1" class="ab-btn a" data-btn="a">A</button>
+    </div>
+  </div>
+
+  <!-- start screen -->
+  <div id="title-screen">
+    <div class="title-inner">
+      <div class="title-crest">
+        <img src="images/game/player/down.png" alt="" class="title-hero" draggable="false">
+      </div>
+      <h1 class="game-title">YOONKI<br>WORLD</h1>
+      <p class="title-sub">an explorable portfolio &middot; GTM @ Google by day, builder by night</p>
+      <div class="load-wrap" aria-hidden="true">
+        <div class="load-bar"><div id="load-fill"></div></div>
+        <div id="load-label">LOADING... 0%</div>
+      </div>
+      <button id="press-start" type="button" hidden>&#9658; PRESS START</button>
+      <a class="title-classic" href="classic.html">prefer a simple site? &rarr; view classic version</a>
+    </div>
+  </div>
+
+  <script src="data/projects.js"></script>
+  <script src="scripts/game.js"></script>
+  <script src="scripts/main.js"></script>
 </body>
-</html> 
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yoonki Hong — GTM at Google, builder by night</title>
+  <meta name="description" content="Yoonki Hong is a GTM manager at Google San Francisco who ships AI apps, games, and music on the side. This is the quiet version of his portfolio — the loud version is a playable world.">
+  <link rel="icon" href="images/game/creatures/egg.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="classic-body">
+  <a class="game-banner" href="index.html">
+    <span class="banner-dot" aria-hidden="true"></span>
+    This site is also a game — walk around it, meet the creatures &rarr; <strong>Play it</strong>
+  </a>
+
+  <main class="classic-wrap">
+    <header class="hero">
+      <p class="hero-kicker">Yoonki Hong</p>
+      <h1>GTM at Google San&nbsp;Francisco by day.<br>Builder of small, playful things by night.</h1>
+      <p class="hero-sub">Seoul &rarr; San Francisco &middot; a decade of taking products to market &middot; ships real AI apps, games, and music on the side</p>
+    </header>
+
+    <section class="about" aria-labelledby="about-h">
+      <h2 id="about-h">About</h2>
+      <div class="about-grid">
+        <img src="images/profile-448.jpg" alt="Portrait of Yoonki Hong" class="about-photo" width="112" height="112" loading="lazy" decoding="async">
+        <div>
+          <p>I lead go-to-market at Google in San Francisco, where I've spent the last few years turning products into launches and launches into growth. Before that I did product marketing at Google Korea and growth PM work at LINE in Seoul — ten years of sitting exactly where product meets market.</p>
+          <p>The part of me that doesn't fit in a job title builds things. I ship AI apps, arcade games, and AI-produced music — everything in the projects list below is something I actually made and put into the world. When I'm not building, I'm reading about AI, making songs, or playing video games for "research".</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="projects" aria-labelledby="projects-h">
+      <h2 id="projects-h">Projects</h2>
+      <ul id="project-list" class="project-grid"></ul>
+    </section>
+
+    <section class="experience" aria-labelledby="exp-h">
+      <h2 id="exp-h">Experience</h2>
+      <ol class="exp-list">
+        <li>
+          <span class="exp-when">2021 — now</span>
+          <div><strong>Google, San Francisco</strong><br>GTM Manager</div>
+        </li>
+        <li>
+          <span class="exp-when">2018 — 2021</span>
+          <div><strong>Google Korea</strong><br>Product Marketing Manager</div>
+        </li>
+        <li>
+          <span class="exp-when">2014 — 2018</span>
+          <div><strong>LINE, Seoul</strong><br>Growth Product Manager</div>
+        </li>
+      </ol>
+    </section>
+
+    <footer class="classic-footer">
+      <nav aria-label="Social links">
+        <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener">Instagram</a>
+        <a href="index.html">Play the game</a>
+      </nav>
+      <p>&copy; <span id="year">2026</span> Yoonki Hong &middot; hand-built, no frameworks</p>
+    </footer>
+  </main>
+
+  <script src="data/projects.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      document.getElementById('year').textContent = String(new Date().getFullYear());
+      var list = document.getElementById('project-list');
+      (window.PROJECTS || []).forEach(function (p) {
+        var li = document.createElement('li');
+        li.className = 'project-card' + (p.url ? '' : ' soon');
+        var img = document.createElement('img');
+        img.className = 'project-sprite';
+        img.alt = '';
+        img.width = 56; img.height = 56;
+        img.src = (p.kind === 'egg' || !p.sprite) ? 'images/game/creatures/egg.png' : p.sprite;
+        var body = document.createElement('div');
+        body.className = 'project-body';
+        var h3 = document.createElement('h3');
+        if (p.url) {
+          var a = document.createElement('a');
+          a.href = p.url;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.textContent = p.name;
+          h3.appendChild(a);
+        } else {
+          h3.textContent = p.name;
+          var soon = document.createElement('span');
+          soon.className = 'soon-pill';
+          soon.textContent = 'coming soon';
+          h3.appendChild(soon);
+        }
+        var tag = document.createElement('p');
+        tag.className = 'project-tagline';
+        tag.textContent = p.tagline;
+        body.appendChild(h3);
+        body.appendChild(tag);
+        li.appendChild(img);
+        li.appendChild(body);
+        list.appendChild(li);
+      });
+    })();
+  </script>
+</body>
+</html>

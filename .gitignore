@@ -1,0 +1,6 @@
+.env.local
+.env
+.claude/
+node_modules/
+.DS_Store
+.gstack/
