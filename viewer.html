@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YW Voxel Viewer</title>
+  <meta name="robots" content="noindex">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #10305c; }
+    #view { display: block; width: 100vw; height: 100vh; }
+    .panel {
+      position: fixed; top: 14px; left: 14px; z-index: 2;
+      background: #2B3440; color: #FFF3D6;
+      border: 2px solid #F3E3C6; border-radius: 8px;
+      padding: 10px 14px; max-width: min(340px, calc(100vw - 48px));
+      font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+      box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    }
+    .panel h1 { margin: 0 0 2px; font-size: 12px; letter-spacing: .12em; }
+    .panel .sub { opacity: .75; }
+    .panel a { color: #FFB88A; text-decoration: none; }
+    .panel a:hover { text-decoration: underline; }
+    .panel ul { margin: 6px 0 0; padding: 0 0 0 4px; list-style: none; }
+    .panel li::before { content: '\25B8 '; color: #FFB88A; }
+    .err { color: #FF8E72; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div class="panel" id="panel">
+    <h1>YW VOXEL VIEWER</h1>
+    <div class="sub" id="info">loading&hellip;</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { buildMesh, getModel, listModels } from './scripts/voxel/voxel.js';
+    import { createRig, createGroundPlate, placeQuarterCamera } from './scripts/voxel/rig.js';
+    import './scripts/voxel/models/index.js';
+
+    const params = new URLSearchParams(location.search);
+    const wanted = params.get('model');
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const info = document.getElementById('info');
+
+    const rig = createRig({
+      canvas: document.getElementById('view'),
+      preserveDrawingBuffer: params.has('debug')
+    });
+
+    // standard grass plate, top surface at y = 0
+    rig.scene.add(createGroundPlate(7, 7));
+
+    // ---- model selection ------------------------------------------------
+    const names = listModels();
+    let mesh = null;
+
+    function listHTML(msg) {
+      const items = names.map(n =>
+        '<li><a href="?model=' + encodeURIComponent(n) + '">' + n + '</a></li>').join('');
+      return (msg || 'Registered models:') + '<ul>' + items + '</ul>' +
+        '<div class="sub">usage: viewer.html?model=&lt;name&gt;</div>';
+    }
+
+    if (wanted && getModel(wanted)) {
+      mesh = buildMesh(wanted);
+      info.innerHTML = '<b>' + wanted + '</b> &mdash; <a href="viewer.html">all models</a>';
+    } else if (wanted) {
+      info.innerHTML = listHTML('<span class="err">unknown model "' + wanted + '"</span>');
+    } else {
+      info.innerHTML = listHTML();
+    }
+
+    const pivot = new THREE.Group();
+    rig.scene.add(pivot);
+    if (mesh) pivot.add(mesh);
+
+    // ---- frame the subject on the standard quarter axis ------------------
+    let target = new THREE.Vector3(0, 0.4, 0);
+    let dist = 9;
+    if (mesh) {
+      mesh.geometry.computeBoundingBox();
+      const bb = mesh.geometry.boundingBox;
+      const sphere = mesh.geometry.boundingSphere;
+      target = new THREE.Vector3(0, (bb.max.y - bb.min.y) * 0.45, 0);
+      dist = Math.max(6, sphere.radius * 4.0);
+    }
+    placeQuarterCamera(rig.camera, target, dist);   // canonical az 45 / el 35
+
+    addEventListener('resize', () => rig.setSize(innerWidth, innerHeight));
+    rig.setSize(innerWidth, innerHeight);
+
+    // ---- slow turntable ---------------------------------------------------
+    const SPEED = 0.35;   // rad/s  (~18s per revolution)
+    let last = performance.now();
+    function tick(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (!reduced) pivot.rotation.y += SPEED * dt;
+      rig.render();
+      window.__ready = true;
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // ---- debug hooks (headless verification) ------------------------------
+    window.__vx = { rig, pivot, names, THREE };
+    window.__sample = function () {
+      rig.render();
+      const gl = rig.renderer.getContext();
+      const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+      const samples = [];
+      let nonBlank = 0;
+      const buf = new Uint8Array(4);
+      for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+        gl.readPixels(Math.floor(w * (i + 0.5) / 5), Math.floor(h * (j + 0.5) / 5),
+          1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        samples.push([buf[0], buf[1], buf[2]]);
+        if (buf[0] + buf[1] + buf[2] > 24) nonBlank++;
+      }
+      return { nonBlank, samples };
+    };
+  </script>
+</body>
+</html>

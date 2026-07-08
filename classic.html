@@ -35,9 +35,19 @@
       </div>
     </section>
 
-    <section class="projects" aria-labelledby="projects-h">
-      <h2 id="projects-h">Projects</h2>
-      <ul id="project-list" class="project-grid"></ul>
+    <section class="projects" aria-labelledby="products-h">
+      <h2 id="products-h">Products</h2>
+      <ul id="product-list" class="project-grid"></ul>
+    </section>
+
+    <section class="projects" aria-labelledby="demos-h" id="demos-section" hidden>
+      <h2 id="demos-h">Demos &amp; Experiments</h2>
+      <ul id="demo-list" class="project-grid"></ul>
+    </section>
+
+    <section class="projects" aria-labelledby="soon-h" id="soon-section" hidden>
+      <h2 id="soon-h">Coming soon</h2>
+      <ul id="soon-list" class="project-grid"></ul>
     </section>
 
     <section class="experience" aria-labelledby="exp-h">
@@ -73,8 +83,7 @@
     (function () {
       'use strict';
       document.getElementById('year').textContent = String(new Date().getFullYear());
-      var list = document.getElementById('project-list');
-      (window.PROJECTS || []).forEach(function (p) {
+      function makeCard(p) {
         var li = document.createElement('li');
         li.className = 'project-card' + (p.url ? '' : ' soon');
         var img = document.createElement('img');
@@ -106,8 +115,20 @@
         body.appendChild(tag);
         li.appendChild(img);
         li.appendChild(body);
-        list.appendChild(li);
+        return li;
+      }
+      // Group by category: products / demos & experiments / coming soon (eggs)
+      var products = document.getElementById('product-list');
+      var demos = document.getElementById('demo-list');
+      var soonList = document.getElementById('soon-list');
+      var demoCount = 0, soonCount = 0;
+      (window.PROJECTS || []).forEach(function (p) {
+        if (p.kind === 'egg') { soonList.appendChild(makeCard(p)); soonCount++; }
+        else if ((p.category || 'product') === 'demo') { demos.appendChild(makeCard(p)); demoCount++; }
+        else { products.appendChild(makeCard(p)); }
       });
+      if (demoCount) document.getElementById('demos-section').hidden = false;
+      if (soonCount) document.getElementById('soon-section').hidden = false;
     })();
   </script>
 </body>

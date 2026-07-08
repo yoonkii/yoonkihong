@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>GLB viewer — YOONKI WORLD</title>
+<!--
+  Turntable verification harness for GLB assets (docs/GLB_PIPELINE.md).
+  Renders with the GAME's rig: same sky dome, same sun/hemi lights, same
+  ACES tonemapping + exposure, same ortho quarter-view camera — a model
+  approved here lights identically in-game.
+
+  Usage:
+    glbviewer.html?model=<name>         load assets/3d/<name>.glb
+    &ref=0                              hide the voxel reference model
+    &spin=0                             stop the turntable
+    &h=<num>                            override the contract target height
+  Drag horizontally to rotate manually.
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #4FA8E8; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  #hud {
+    position: fixed; left: 12px; top: 12px; z-index: 2;
+    font: 12px/1.5 ui-monospace, Menlo, monospace; color: #fff;
+    background: rgba(20, 35, 50, 0.72); border-radius: 8px;
+    padding: 10px 14px; max-width: 340px; white-space: pre-wrap;
+  }
+  #hud b { color: #F7D75E; }
+  #hud .bad { color: #FF8E72; font-weight: bold; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="hud">loading…</div>
+<canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { createSkyDome, createLights } from './scripts/game3d/sky.js';
+import { makeBlobShadow } from './scripts/game3d/actors.js';
+import { loadGLB, targetHeightFor, TARGET_HEIGHTS } from './scripts/game3d/glbassets.js';
+import { buildMesh, getModel } from './scripts/voxel/voxel.js';
+import { createGroundPlate } from './scripts/voxel/rig.js';
+import './scripts/voxel/models/index.js';
+
+const Q = new URLSearchParams(location.search);
+const NAME = Q.get('model') || 'funnify';
+const SHOW_REF = Q.get('ref') !== '0';
+const SPIN = Q.get('spin') !== '0';
+const H_OVERRIDE = Q.get('h') ? parseFloat(Q.get('h')) : null;
+const hud = document.getElementById('hud');
+
+/* GLB name -> current voxel model (side-by-side drop-in comparison) */
+const VOXEL_REF = {
+  macrodoc: 'creature_macrodoc', mathstreet: 'creature_mathstreet',
+  mathwings: 'creature_mathwings', funnify: 'creature_funnify',
+  bld_about_house: 'about_house', bld_macrodoc: 'macrodoc',
+  bld_mathstreet: 'mathstreet', bld_mathwings: 'mathwings',
+  bld_funnify: 'funnify',
+  tree_a: 'tree_oak', tree_b: 'tree_pine',
+  fountain: 'fountain', egg: 'egg_spotted'
+};
+const REF_SCALE = { egg: 1.5 };   // voxel egg is placed at 1.5x in-game
+
+/* ---- renderer: EXACTLY the game's settings (game3d.js) -------------- */
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+const scene = new THREE.Scene();
+const sky = createSkyDome();
+scene.add(sky);
+const lights = createLights(new THREE.Vector3(0, 0, 0));
+scene.add(lights.sun, lights.sun.target, lights.hemi);
+
+/* ---- ground: the standard grass plate, top surface at y = 0 --------- */
+const ground = createGroundPlate(9, 9, 11);
+scene.add(ground);
+
+/* ---- ortho quarter-view camera (const.js CAM: az 45 / el 35) -------- */
+const CAM = { azimuth: 45, elevation: 35, dist: 60 };
+function dirFromAngles(azimuthDeg, elevationDeg) {
+  const az = THREE.MathUtils.degToRad(azimuthDeg);
+  const el = THREE.MathUtils.degToRad(elevationDeg);
+  return new THREE.Vector3(
+    Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
+}
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 220);
+const targetH = H_OVERRIDE != null ? H_OVERRIDE : targetHeightFor(NAME);
+let sep = 0;                               // set once we know what to show
+function frame() {
+  const aspect = window.innerWidth / window.innerHeight;
+  const hh = Math.max(1.4, targetH * 0.85, (sep + targetH * 0.9) / aspect);
+  camera.left = -hh * aspect; camera.right = hh * aspect;
+  camera.top = hh; camera.bottom = -hh;
+  camera.updateProjectionMatrix();
+  const look = new THREE.Vector3(0, targetH * 0.42, 0);
+  camera.position.copy(look).addScaledVector(dirFromAngles(CAM.azimuth, CAM.elevation), CAM.dist);
+  camera.lookAt(look);
+}
+function resize() {
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  frame();
+}
+window.addEventListener('resize', resize);
+
+/* ---- target-height gauge: floating crossbar at the contract height --- */
+function heightGauge(h, x) {
+  const g = new THREE.Group();
+  const mat = new THREE.LineBasicMaterial({ color: 0xFFF3D6, transparent: true, opacity: 0.85 });
+  const pts = [
+    new THREE.Vector3(x - 0.55, h, 0.6), new THREE.Vector3(x + 0.55, h, 0.6),
+    new THREE.Vector3(x - 0.55, 0, 0.6), new THREE.Vector3(x - 0.55, h, 0.6)
+  ];
+  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), mat));
+  return g;
+}
+
+/* ---- pivots (turntable) ---------------------------------------------- */
+const glbPivot = new THREE.Group();
+const refPivot = new THREE.Group();
+scene.add(glbPivot, refPivot);
+
+/* ---- load ------------------------------------------------------------- */
+const status = { glb: 'loading', tris: 0, raw: 0 };
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function paintHUD(extra) {
+  const known = TARGET_HEIGHTS[NAME] != null;
+  hud.innerHTML =
+    '<b>' + esc(NAME) + '.glb</b>  (assets/3d/)\n' +
+    'status: ' + (status.glb === 'ok'
+      ? 'loaded — ' + status.tris + ' tris, raw h ' + status.raw.toFixed(3)
+      : '<span class="bad">' + esc(status.glb) + '</span>') + '\n' +
+    'target height: ' + targetH.toFixed(4) + ' wu ' +
+    (H_OVERRIDE != null ? '(override)' : known ? '(contract)' : '(default — not in contract)') + '\n' +
+    (extra || '') +
+    'rig: game sky/lights, ACES 1.1, ortho 45/35\n' +
+    'drag = rotate · ?spin=0 · ?ref=0 · ?h=N';
+}
+paintHUD();
+
+let refMesh = null;
+if (SHOW_REF && VOXEL_REF[NAME] && getModel(VOXEL_REF[NAME])) {
+  refMesh = buildMesh(VOXEL_REF[NAME]);
+  refMesh.castShadow = false; refMesh.receiveShadow = false;
+  const s = REF_SCALE[NAME] || 1;
+  refMesh.scale.setScalar(s);
+  refPivot.add(refMesh);
+}
+
+const model = await loadGLB(NAME, {
+  height: H_OVERRIDE != null ? H_OVERRIDE : undefined,
+  onProgress: (k) => { status.glb = 'loading ' + Math.round(k * 100) + '%'; paintHUD(); }
+});
+
+if (model) {
+  status.glb = 'ok';
+  status.raw = model.userData.rawHeight;
+  let tris = 0;
+  model.traverse(o => {
+    if (o.isMesh && o.geometry) {
+      const g = o.geometry;
+      tris += (g.index ? g.index.count : g.attributes.position.count) / 3;
+    }
+  });
+  status.tris = Math.round(tris);
+  glbPivot.add(model);
+  glbPivot.add(makeBlobShadow(Math.max(0.3, targetH * 0.32)));
+} else {
+  status.glb = 'MISSING / failed — game would keep the voxel model';
+}
+
+/* layout: voxel ref on the left, GLB on the right (or centered if alone) */
+if (refMesh && model) {
+  sep = Math.max(1.1, targetH * 0.75);
+  refPivot.position.x = -sep;
+  glbPivot.position.x = sep;
+} else if (refMesh && !model) {
+  sep = 0; refPivot.position.x = 0;
+}
+scene.add(heightGauge(targetH, (model ? glbPivot.position.x : refPivot.position.x)));
+resize();
+paintHUD(refMesh ? 'reference: voxel "' + esc(VOXEL_REF[NAME]) + '" (left)\n' : '');
+
+/* ---- turntable + drag -------------------------------------------------- */
+let yaw = 0, dragging = false, lastX = 0, spinning = SPIN;
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', (e) => { dragging = true; spinning = false; lastX = e.clientX; });
+window.addEventListener('pointerup', () => { dragging = false; });
+window.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  yaw += (e.clientX - lastX) * 0.012;
+  lastX = e.clientX;
+});
+
+let last = performance.now();
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (spinning) yaw += dt * 0.6;
+  glbPivot.rotation.y = yaw;
+  refPivot.rotation.y = yaw;
+  sky.position.copy(camera.position);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(loop);
+
+/* ---- headless verification hooks ---------------------------------------- */
+window.__glbviewer = {
+  THREE, scene, renderer, camera, model, status,
+  sample() {
+    renderer.render(scene, camera);
+    const gl = renderer.getContext();
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+    const buf = new Uint8Array(4);
+    let nonBlank = 0;
+    const samples = [];
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+      gl.readPixels(Math.floor(w * (i + 0.5) / 5), Math.floor(h * (j + 0.5) / 5),
+        1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      samples.push([buf[0], buf[1], buf[2]]);
+      if (buf[0] + buf[1] + buf[2] > 24) nonBlank++;
+    }
+    return { nonBlank, samples };
+  }
+};
+</script>
+</body>
+</html>

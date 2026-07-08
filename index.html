@@ -4,13 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Yoonki World — an explorable portfolio</title>
-  <meta name="description" content="Yoonki Hong's portfolio as a tiny Pokemon-style world. Walk around, meet the creatures — every one of them is a real app he shipped. GTM at Google by day, builder by night.">
-  <meta name="theme-color" content="#10305c">
+  <meta name="description" content="Yoonki Hong's portfolio as a tiny voxel world. Walk around, meet the creatures — every one of them is a real app he shipped. GTM at Google by day, builder by night.">
+  <meta name="theme-color" content="#4FA8E8">
   <link rel="icon" href="images/game/creatures/egg.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/main.css?v=20260709a">
+  <!-- kick off the render-critical three.js fetches with the HTML instead of
+       waiting for the game3d.js -> three -> core discovery waterfall -->
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.core.min.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/meshopt_decoder.module.js">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body class="game-body">
   <noscript>
@@ -21,11 +35,26 @@
   </noscript>
 
   <div id="stage">
-    <canvas id="game" width="480" height="320" aria-label="Yoonki World — use arrow keys to walk around"></canvas>
+    <canvas id="game" aria-label="Yoonki World — walk around with arrow keys or WASD"></canvas>
+  </div>
+
+  <!-- LOW-tier CSS vignette (free, replaces the post-processing vignette) -->
+  <div id="vignette" aria-hidden="true" hidden></div>
+
+  <!-- WebGL-unavailable fallback -->
+  <div id="fallback" hidden>
+    <div class="fallback-card gba-box">
+      <strong>NO 3D POWERS DETECTED</strong>
+      <p>This little world needs WebGL, and your browser said no.
+         The good news: everything here also lives on a perfectly nice
+         normal page.</p>
+      <a class="fallback-link" href="classic.html">&#9658; VIEW THE CLASSIC SITE</a>
+    </div>
   </div>
 
   <!-- HUD -->
   <div id="hud">
+    <span id="hud-progress" title="Projects visited" hidden>0/4</span>
     <button id="btn-mute" type="button" aria-label="Sound" aria-pressed="false">SOUND: ON</button>
     <button id="btn-help" type="button" aria-label="Controls help">?</button>
     <a id="btn-classic" href="classic.html">CLASSIC SITE</a>
@@ -43,22 +72,11 @@
     <div id="dlg-more" aria-hidden="true">&#9660;</div>
   </div>
 
-  <!-- Encounter screen -->
+  <!-- Encounter overlay (the 3D scene stays visible behind it) -->
   <div id="encounter" hidden>
-    <div class="enc-scene">
-      <div class="enc-plate">
-        <span id="enc-name"></span>
-        <span id="enc-tag">WILD</span>
-      </div>
-      <div class="enc-foe">
-        <img id="enc-sprite" alt="" draggable="false">
-        <div id="enc-fallback" style="display:none"></div>
-        <div class="enc-ground foe-ground"></div>
-      </div>
-      <div class="enc-ally-wrap">
-        <img id="enc-ally" src="images/game/player/up.png" alt="" draggable="false">
-        <div class="enc-ground ally-ground"></div>
-      </div>
+    <div class="enc-plate gba-box">
+      <span id="enc-name"></span>
+      <span id="enc-tag">WILD</span>
     </div>
     <div class="enc-panel gba-box" tabindex="-1">
       <p id="enc-text" role="status" aria-live="polite"></p>
@@ -73,9 +91,9 @@
   <div id="hint" hidden>
     <div class="hint-card gba-box">
       <strong>HOW TO PLAY</strong>
-      <span class="kb-only">Arrow keys / WASD — walk &nbsp;&middot;&nbsp; Z or ENTER — talk &amp; interact &nbsp;&middot;&nbsp; X or ESC — back</span>
-      <span class="touch-only">D-pad — walk &nbsp;&middot;&nbsp; A — talk &amp; interact &nbsp;&middot;&nbsp; B — back</span>
-      <em>Walk up to a creature, a building, or Yoonki and interact!</em>
+      <span class="kb-only">Arrows / WASD — walk &nbsp;&middot;&nbsp; Z, ENTER or SPACE — interact &nbsp;&middot;&nbsp; X or ESC — back</span>
+      <span class="touch-only">Left stick — walk &nbsp;&middot;&nbsp; A — interact &nbsp;&middot;&nbsp; B — back</span>
+      <em>Walk up to anything with a "!" over it. Push the crates. Bother the bowling pins.</em>
     </div>
   </div>
 
@@ -84,14 +102,15 @@
     <div class="help-card gba-box" tabindex="-1">
       <strong>CONTROLS</strong>
       <ul>
-        <li><b>Move</b> — arrow keys / WASD, or the on-screen D-pad</li>
-        <li><b>Interact</b> — Z, ENTER or SPACE (A button)</li>
+        <li><b>Move</b> — arrow keys / WASD, or the on-screen stick</li>
+        <li><b>Interact</b> — Z, ENTER or SPACE (A button) near a "!"</li>
         <li><b>Back / close</b> — X or ESC (B button)</li>
-        <li><b>Tap</b> a direction to turn in place, <b>hold</b> to walk</li>
       </ul>
-      <p>Every creature and building on the island is a real project.
-         Face one and interact to meet it. Eggs in the nursery are projects
-         still hatching. Talk to YOONKI outside the house for the full story.</p>
+      <p>Every creature and building on the island is a real project —
+         walk up and interact to meet it. Eggs in the nursery are projects
+         still hatching, and the DEMO LAB in the corner is where experiments
+         brew. Talk to YOONKI by the fountain for the full story.
+         Visit every wild project and something nice happens.</p>
       <p><a href="classic.html">Prefer a simple site? View the classic version</a></p>
       <button id="help-close" type="button">CLOSE</button>
     </div>
@@ -99,11 +118,8 @@
 
   <!-- touch controls (coarse pointers only, via CSS) -->
   <div id="touch-ui" aria-hidden="true">
-    <div class="dpad">
-      <button type="button" tabindex="-1" class="dp up" data-dir="up">&#9650;</button>
-      <button type="button" tabindex="-1" class="dp left" data-dir="left">&#9664;</button>
-      <button type="button" tabindex="-1" class="dp right" data-dir="right">&#9654;</button>
-      <button type="button" tabindex="-1" class="dp down" data-dir="down">&#9660;</button>
+    <div id="joy">
+      <div id="joy-knob"></div>
     </div>
     <div class="ab">
       <button type="button" tabindex="-1" class="ab-btn b" data-btn="b">B</button>
@@ -129,7 +145,17 @@
   </div>
 
   <script src="data/projects.js"></script>
-  <script src="scripts/game.js"></script>
-  <script src="scripts/main.js"></script>
+  <script>
+    // Boot watchdog: if the module graph never arrives (ancient browser,
+    // no importmap, CDN block), fall back to the friendly card.
+    window.__ywBootTimer = setTimeout(function () {
+      if (window.__ywBooted) return;
+      var f = document.getElementById('fallback');
+      var t = document.getElementById('title-screen');
+      if (t) t.hidden = true;
+      if (f) f.hidden = false;
+    }, 15000);
+  </script>
+  <script type="module" src="scripts/game3d.js"></script>
 </body>
 </html>

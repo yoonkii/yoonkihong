@@ -12,6 +12,11 @@
         kind     (optional) 'creature' (default) or 'egg'.
                  'egg' items live in the fenced nursery garden on the map and
                  can't be visited until they get a url + kind:'creature'.
+        category (optional) 'product' (default) or 'demo'.
+                 'product' = polished production services (main map zones).
+                 'demo' = experiments/prototypes — they live together in the
+                 Demo Lab zone on the map and under "Demos & Experiments"
+                 on classic.html.
         sprite   (optional) path to a 192x192 transparent PNG creature.
                  If omitted, the egg sprite is used automatically.
         building (optional) path to a 192x192 transparent PNG building.
@@ -30,6 +35,7 @@ window.PROJECTS = [
     tagline: "Your text, refined in real time — in seven voices.",
     desc: "MACRODOC lurks in quiet office basements, sorting messy sentences into mysteriously pleasing rows. Feed it up to 10,000 characters and it hums politely, returning your words polished for LinkedIn, X, Instagram, or Substack. It can speak in seven voices — from an eerily polite Severance-style corporate drone to full Gen Z chaos — and you can even teach it new ones.",
     kind: "creature",
+    category: "product",
     sprite: "images/game/creatures/macrodoc.png",
     building: "images/game/buildings/macrodoc.png"
   },
@@ -40,6 +46,7 @@ window.PROJECTS = [
     tagline: "Trade smart. Climb higher.",
     desc: "A wild MathStreet appeared! This speedy math platformer sends a little trader leaping up a Wall Street skyline — solve arithmetic problems fast to jump higher while a market crash rises from below. Quick answers earn combo bonuses, and leaderboards decide who's the sharpest trader on the street.",
     kind: "creature",
+    category: "product",
     sprite: "images/game/creatures/mathstreet.png",
     building: "images/game/buildings/mathstreet.png"
   },
@@ -50,6 +57,7 @@ window.PROJECTS = [
     tagline: "Your brain is the button — solve math, stay airborne.",
     desc: "Spotted soaring over a midnight city skyline, this arcade game keeps a tiny caped hero aloft only as long as you keep solving math — every correct answer is a wing-flap, every miss is pure gravity. The problems evolve as you climb, from single-digit addition all the way to multiplication and division, with a global top-20 leaderboard waiting at the top of the sky.",
     kind: "creature",
+    category: "product",
     sprite: "images/game/creatures/mathwings.png",
     building: "images/game/buildings/mathwings.png"
   },
@@ -60,6 +68,7 @@ window.PROJECTS = [
     tagline: "Make study fun — AI quizzes you battle with friends.",
     desc: "A playful spirit born wherever studying turns into a game. It spins any text or topic into quiz cards with its AI magic, then challenges friends to real-time quiz battles. Trainers report that dull textbooks mysteriously become fun after it scurries past.",
     kind: "creature",
+    category: "product",
     sprite: "images/game/creatures/funnify.png",
     building: "images/game/buildings/funnify.png"
   },

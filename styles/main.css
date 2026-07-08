@@ -1,5 +1,5 @@
 /* ==========================================================================
-   yoonkihong.com — YOONKI WORLD (game) + classic one-pager
+   yoonkihong.com — YOONKI WORLD (3D voxel game) + classic one-pager
    Vanilla CSS, no build step. Geist everywhere; Press Start 2P only for
    the start-screen title.
    ========================================================================== */
@@ -24,7 +24,7 @@ img { max-width: 100%; }
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #10305c;
+  background: #8ecdf0;
   font-family: "Geist", system-ui, sans-serif;
   color: var(--ink);
   overscroll-behavior: none;
@@ -46,18 +46,22 @@ img { max-width: 100%; }
   max-width: 90vw;
 }
 
-#stage {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
+#stage { position: absolute; inset: 0; }
 #game {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  background: #10305c;
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+/* LOW-tier CSS vignette (free replacement for the post-processing one) */
+#vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(115% 90% at 50% 46%,
+    transparent 55%, rgba(30, 45, 70, 0.22) 100%);
 }
 
 /* ---------- shared GBA box ---------- */
@@ -69,6 +73,44 @@ img { max-width: 100%; }
   color: var(--ink);
 }
 
+/* ---------- WebGL fallback ---------- */
+#fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 4px),
+    radial-gradient(120% 90% at 50% 10%, #1c4a86 0%, #123468 55%, #0c2148 100%);
+}
+.fallback-card {
+  max-width: 420px;
+  padding: 22px 24px;
+  text-align: center;
+}
+.fallback-card strong {
+  font-family: "Geist Mono", monospace;
+  letter-spacing: 0.1em;
+}
+.fallback-card p { font-size: 14.5px; line-height: 1.55; }
+.fallback-link {
+  display: inline-block;
+  font-family: "Geist Mono", monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+  background: #3c4a74;
+  border: 3px solid var(--gba-border);
+  border-radius: 8px;
+  box-shadow: 0 2px 0 var(--gba-border);
+  padding: 9px 16px;
+  text-decoration: none;
+}
+.fallback-link:active { transform: translateY(2px); box-shadow: none; }
+
 /* ---------- HUD ---------- */
 #hud {
   position: fixed;
@@ -79,7 +121,7 @@ img { max-width: 100%; }
   gap: 8px;
   align-items: center;
 }
-#hud button, #hud a {
+#hud button, #hud a, #hud span {
   font-family: "Geist Mono", monospace;
   font-size: 11px;
   font-weight: 600;
@@ -94,11 +136,19 @@ img { max-width: 100%; }
   cursor: pointer;
   line-height: 1;
 }
+#hud span { cursor: default; }
 #hud button:active, #hud a:active { transform: translateY(2px); box-shadow: none; }
 #btn-help { min-width: 30px; }
+#hud-progress { background: #ffe9b0; }
+#hud-progress.done { background: #b7f05c; }
 /* Keep SOUND / ? / CLASSIC SITE reachable during encounters:
    above #encounter (50) and #dialog (55), below #fx (60) and #help (65). */
 body.in-encounter #hud { z-index: 56; }
+/* On the title screen the HUD must sit ABOVE #title-screen (70) so users can
+   pre-mute, open help, or leave for the classic site before the game starts.
+   ui.js adds .game-started on start; #help follows so "?" still works. */
+body:not(.game-started) #hud { z-index: 75; }
+body:not(.game-started) #help { z-index: 80; }
 
 /* ---------- dialog ---------- */
 #dialog {
@@ -158,31 +208,32 @@ body.in-encounter #hud { z-index: 56; }
 #dlg-links a:hover { background: #4c5c8c; }
 @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(3px); } }
 
-/* ---------- encounter ---------- */
+/* ---------- encounter (3D scene stays visible behind these panels) ---------- */
 #encounter {
   position: fixed;
   inset: 0;
   z-index: 50;
   display: flex;
   flex-direction: column;
-  background:
-    linear-gradient(#8ecff0 0%, #c2e8fa 46%, #8bc86e 46%, #6fb054 78%, #5f9c48 100%);
+  justify-content: flex-end;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(20, 34, 58, 0.14) 0%, transparent 22%,
+    transparent 55%, rgba(20, 34, 58, 0.30) 100%);
 }
-.enc-scene { flex: 1 1 auto; position: relative; overflow: hidden; min-height: 0; }
-
 .enc-plate {
   position: absolute;
-  top: 18px; left: 18px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--paper);
-  border: 3px solid var(--gba-border);
-  border-radius: 10px;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
   padding: 8px 14px;
   max-width: min(70vw, 420px);
+  pointer-events: auto;
+  animation: plate-in 0.45s ease-out;
 }
+@keyframes plate-in { from { transform: translateX(-30px); opacity: 0; } to { transform: none; opacity: 1; } }
 #enc-name {
   font-family: "Geist Mono", monospace;
   font-weight: 600;
@@ -199,75 +250,22 @@ body.in-encounter #hud { z-index: 56; }
   padding: 2px 7px;
   white-space: nowrap;
 }
-
-.enc-foe {
-  position: absolute;
-  right: 7%;
-  top: 16%;
-  text-align: center;
-}
-#enc-sprite {
-  width: clamp(120px, 34vmin, 230px);
-  height: auto;
-  image-rendering: pixelated;
-  position: relative;
-  z-index: 1;
-  animation: foe-in 0.5s ease-out;
-}
-#enc-fallback {
-  width: clamp(120px, 34vmin, 230px);
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 64px;
-  font-weight: 700;
-  color: #fff;
-  background: #d05098;
-  border: 4px solid var(--gba-border);
-  border-radius: 16px;
-  position: relative;
-  z-index: 1;
-}
-@keyframes foe-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-
-.enc-ally-wrap {
-  position: absolute;
-  left: 8%;
-  bottom: 4%;
-  text-align: center;
-}
-#enc-ally {
-  width: clamp(90px, 26vmin, 170px);
-  height: auto;
-  image-rendering: pixelated;
-  position: relative;
-  z-index: 1;
-  animation: ally-in 0.5s ease-out;
-}
-@keyframes ally-in { from { transform: translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
-
-.enc-ground {
-  position: absolute;
-  left: 50%;
-  bottom: -10px;
-  transform: translateX(-50%);
-  width: 120%;
-  height: 36px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(40, 90, 40, 0.4), rgba(40, 90, 40, 0.28) 68%, transparent 70%);
-  z-index: 0;
-}
-
+/* URL-less (not-yet-visitable) projects: calm blue instead of battle red */
+#enc-tag.soon { background: #3c4a74; }
 .enc-panel {
-  flex: 0 0 auto;
   margin: 10px;
-  margin-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  max-width: 760px;
+  width: calc(100% - 20px);
+  align-self: center;
   padding: 14px 16px;
   display: flex;
   gap: 14px;
   align-items: stretch;
+  pointer-events: auto;
+  animation: panel-in 0.4s ease-out;
 }
+@keyframes panel-in { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 #enc-text {
   flex: 1 1 auto;
   margin: 0;
@@ -378,7 +376,7 @@ body.in-encounter #hud { z-index: 56; }
   padding: 20px;
 }
 .help-card {
-  max-width: 460px;
+  max-width: 470px;
   width: 100%;
   padding: 20px 22px;
   font-size: 14.5px;
@@ -404,51 +402,55 @@ body.in-encounter #hud { z-index: 56; }
 }
 #help-close:active { transform: translateY(2px); box-shadow: none; }
 
-/* ---------- touch controls ---------- */
+/* ---------- touch controls (virtual joystick + A/B) ---------- */
 #touch-ui { display: none; }
 @media (pointer: coarse) {
   #touch-ui { display: block; }
 }
-#touch-ui .dpad {
+/* The stick is dead input while an encounter or dialog is open (movement is
+   ignored) — hide it so it never paints over the panels. A/B stay visible:
+   they still confirm/cancel. */
+body.in-encounter #joy,
+body.in-dialog #joy { display: none; }
+#joy {
   position: fixed;
-  /* above #encounter (50) so A/B/d-pad keep working in encounters; below #dialog (55) */
   z-index: 52;
-  left: calc(14px + env(safe-area-inset-left, 0px));
-  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-  width: 156px;
-  height: 156px;
-}
-#touch-ui .dp {
-  position: absolute;
-  width: 52px;
-  height: 52px;
-  border: 3px solid rgba(44, 51, 80, 0.9);
-  border-radius: 10px;
-  background: rgba(248, 247, 238, 0.82);
-  color: var(--ink);
-  font-size: 16px;
-  cursor: pointer;
+  left: calc(20px + env(safe-area-inset-left, 0px));
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  border: 3px solid rgba(44, 51, 80, 0.55);
+  background: rgba(248, 247, 238, 0.35);
+  backdrop-filter: blur(2px);
   touch-action: none;
 }
-#touch-ui .dp.up { left: 52px; top: 0; }
-#touch-ui .dp.down { left: 52px; bottom: 0; }
-#touch-ui .dp.left { left: 0; top: 52px; }
-#touch-ui .dp.right { right: 0; top: 52px; }
+#joy-knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 56px; height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  border: 3px solid rgba(44, 51, 80, 0.9);
+  background: rgba(248, 247, 238, 0.92);
+  box-shadow: 0 3px 0 rgba(44, 51, 80, 0.5);
+  pointer-events: none;
+}
 #touch-ui .ab {
   position: fixed;
   z-index: 52;
-  right: calc(16px + env(safe-area-inset-right, 0px));
-  bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(34px + env(safe-area-inset-bottom, 0px));
   display: flex;
   gap: 14px;
   align-items: flex-end;
 }
 #touch-ui .ab-btn {
-  width: 62px;
-  height: 62px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   border: 3px solid rgba(44, 51, 80, 0.9);
-  background: rgba(224, 92, 92, 0.88);
+  background: rgba(224, 92, 92, 0.9);
   color: #fff;
   font-family: "Geist Mono", monospace;
   font-size: 18px;
@@ -456,10 +458,13 @@ body.in-encounter #hud { z-index: 56; }
   cursor: pointer;
   touch-action: none;
 }
-#touch-ui .ab-btn.b { background: rgba(60, 74, 116, 0.88); width: 54px; height: 54px; margin-bottom: -6px; }
-#touch-ui .dp.active, #touch-ui .ab-btn.active { filter: brightness(1.2); transform: scale(0.94); }
+#touch-ui .ab-btn.b { background: rgba(60, 74, 116, 0.9); width: 54px; height: 54px; margin-bottom: -6px; }
+#touch-ui .ab-btn.active { filter: brightness(1.2); transform: scale(0.94); }
 
 /* ---------- title screen ---------- */
+/* The live wide diorama renders behind the title (camera title mode with a
+   slow drift + clouds) — the overlay only dims it ~25% and adds scanlines,
+   so the game's best asset IS the first impression. */
 #title-screen {
   position: fixed;
   inset: 0;
@@ -469,11 +474,14 @@ body.in-encounter #hud { z-index: 56; }
   justify-content: center;
   text-align: center;
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 4px),
-    radial-gradient(120% 90% at 50% 10%, #1c4a86 0%, #123468 55%, #0c2148 100%);
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 2px, transparent 2px 4px),
+    radial-gradient(120% 100% at 50% 42%, rgba(9, 22, 44, 0.16) 0%, rgba(9, 22, 44, 0.34) 62%, rgba(7, 17, 36, 0.55) 100%);
   color: #eef3ff;
   transition: opacity 0.45s ease;
   cursor: pointer;
+}
+.game-title, .title-sub, #load-label, #press-start, .title-classic {
+  text-shadow: 0 1px 3px rgba(8, 18, 38, 0.55);
 }
 #title-screen.gone { opacity: 0; pointer-events: none; }
 .title-inner { padding: 24px; max-width: 560px; }
@@ -552,17 +560,18 @@ body.in-encounter #hud { z-index: 56; }
     justify-content: flex-end;
   }
   #enc-text { max-height: 30vh; min-height: 0; }
-  .enc-foe { right: 4%; top: 13%; }
-  .enc-ally-wrap { left: 4%; bottom: 3%; }
   #hud a { display: none; }             /* keep HUD tiny on phones; classic link lives in help + title */
-  #dialog { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  #dialog { bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+  .enc-panel { margin-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  /* drop the name plate below the HUD row so 0/4 never paints over it */
+  .enc-plate { top: calc(48px + env(safe-area-inset-top, 0px)); }
 }
 
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .fx, .fx.iris { transition: none; }
   .fx.flash, #press-start, .title-hero, #dlg-more { animation: none; }
-  #enc-sprite, #enc-ally { animation: none; }
+  .enc-plate, .enc-panel { animation: none; }
   #title-screen { transition: none; }
 }
 
