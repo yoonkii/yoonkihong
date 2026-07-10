@@ -102,12 +102,13 @@ const FOOTPRINT_XZ = {
    the caller-owned outer group and the normalize wrapper). The Meshy
    rigging/animation retarget ships the player/npc clips facing the (-X,+Z)
    diagonal — the 3/4 concept angle — instead of the contract's +Z.
-   Verified in-game by yaw sweep: at actor yaw PI/4 + offset PI/4 the face
-   is dead-square to the SE camera. +PI/4 spins (-X,+Z) onto +Z so actor
-   code keeps its "front is +Z" math. */
+   Re-measured in-game 2026-07-10 (user-reported skew): the retarget's true
+   front sits ~25deg past the assumed diagonal, so PI/4 over-rotates. 0.35 rad
+   is the empirical value where walking screen-down faces the camera dead-on
+   (verified for down/right walks via headed-browser screenshots). */
 const YAW_OFFSET = {
-  player: Math.PI / 4,
-  npc_yoonki: Math.PI / 4
+  player: 0.35,
+  npc_yoonki: 0.35
 };
 
 export function targetHeightFor(name) {
