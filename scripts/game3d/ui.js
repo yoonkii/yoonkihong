@@ -484,6 +484,7 @@ export function createUI(audio) {
     if (hintDismiss) hintDismiss();            // never cover the name plate
     enc.project = p; enc.mode = 'intro';
     enc.onVisit = onVisit || null; enc.onRun = onRun || null;
+    if (window.ywTrack) ywTrack('encounter_opened', { project: p.id, egg: !!isEgg });
     const soon = !isEgg && !p.url;               // non-egg without a live link
     els.encName.textContent = (isEgg ? 'EGG (' + p.name + ')' : p.name).toUpperCase();
     els.encTag.textContent = isEgg ? 'INCUBATING' : (soon ? 'COMING SOON' : 'WILD');
@@ -518,6 +519,7 @@ export function createUI(audio) {
       focusEl(els.encounter.querySelector('.enc-panel'));
       showEncPage();
     } else if (m.act === 'visit') {
+      if (window.ywTrack) ywTrack('project_visited', { project: enc.project.id });
       if (enc.onVisit) enc.onVisit(enc.project); // celebration counts VISIT only
     } else if (m.act === 'run') {
       if (enc.onRun) enc.onRun();
@@ -687,6 +689,9 @@ export function createUI(audio) {
   function tryStart() {
     if (!ready || started) return;
     started = true;
+    if (window.ywTrack) ywTrack('game_start', {
+      mobile: matchMedia('(pointer: coarse)').matches
+    });
     // drops the HUD/help back under the overlay layers (styles/main.css)
     document.body.classList.add('game-started');
     els.title.classList.add('gone');

@@ -319,6 +319,7 @@ async function boot() {
   function celebrate() {
     if (document.hidden) { pendingCelebration = true; return; }
     pendingCelebration = false;
+    if (window.ywTrack) ywTrack('all_projects_visited', { total: liveProducts.length });
     // over the player's patch of island, so the ortho camera frames it
     const cx = Math.min(Math.max(player.pos.x, 8), MAP_W - 8);
     const cz = Math.min(Math.max(player.pos.z + 1, 6), MAP_H - 6);
@@ -716,6 +717,7 @@ async function boot() {
   function enterHouse() {
     if (state !== 'world') return;
     state = 'transition';
+    if (window.ywTrack) ywTrack('house_entered');
     audio.sfx.blip();
     ui.transitionOut(() => {              // quick fade through black (door beat);
       const h = getHouse();               // instant under prefers-reduced-motion
@@ -741,7 +743,9 @@ async function boot() {
     const it = nearestInteractable();
     if (!it) return;
     switch (it.kind) {
-      case 'npc': audio.sfx.blip(); return openMenuDialog('YOONKI', NPC_SCRIPT);
+      case 'npc':
+        if (window.ywTrack) ywTrack('npc_talked');
+        audio.sfx.blip(); return openMenuDialog('YOONKI', NPC_SCRIPT);
       case 'house': return enterHouse();
       case 'plaque':
         audio.sfx.blip();
@@ -752,6 +756,7 @@ async function boot() {
       case 'housedoor': return exitHouse();
       case 'sign': audio.sfx.blip(); return openMenuDialog('SIGNPOST', signScript());
       case 'secret':
+        if (window.ywTrack) ywTrack('secret_found');
         audio.sfx.sparkle();
         particles.sparkle(SECRET_POS.x, 0.9, SECRET_POS.z);
         return openDialog('???', SECRET_PAGES, false);
