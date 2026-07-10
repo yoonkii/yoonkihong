@@ -51,10 +51,14 @@ async function boot() {
      missing/broken file (per-asset fallback -> the voxel model stays), so
      the game boots fine even with an empty assets/3d/. */
   const GLB_PRELOAD = [
-    'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'goldie',
+    'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'gunball',
+    'goldie',
     'bld_about_house', 'bld_macrodoc', 'bld_mathstreet', 'bld_mathwings',
-    'bld_funnify', 'bld_lasthand',
-    'tree_a', 'tree_b', 'fountain', 'egg'
+    'bld_funnify', 'bld_lasthand', 'bld_gunball',
+    'tree_a', 'tree_b', 'fountain', 'egg',
+    // rigged hero characters (skinned + walk/idle clips; loader clones via
+    // SkeletonUtils) — actors.js falls back to the voxel rig on null
+    'player', 'npc_yoonki'
   ];
   // monotonic progress: GLB downloads race the engine phases, so the bar
   // only ever moves forward no matter which callback lands first
@@ -201,8 +205,8 @@ async function boot() {
   await yieldFrame();
 
   /* ---- actors ---------------------------------------------------------------- */
-  const player = createPlayer(scene);
-  const npc = createNPC(scene);
+  const player = createPlayer(scene, glb);
+  const npc = createNPC(scene, glb);
   colliders.addCircle(NPC_POS.x, NPC_POS.z, 0.32);
   const creatureSys = createCreatures(scene, projects, glb);
   const eggSys = createEggs(scene, projects, glb);
@@ -425,14 +429,25 @@ async function boot() {
   }
 
   /* ---- dialogs ------------------------------------------------------------------ */
-  const NPC_PAGES = [
-    'Oh! A visitor! I\'m YOONKI. Hold on... you look strangely familiar.',
-    'By day I lead go-to-market at GOOGLE in San Francisco. Launches, strategy, a heroic amount of spreadsheets.',
-    'By night, I build. Every creature roaming this island is a real thing I shipped — AI apps, arcade games, even music.',
-    'Career log: LINE, Seoul (2014-2018), growth PM. GOOGLE KOREA (2018-2021), product marketing. GOOGLE SF (2021-now), GTM.',
-    'Off duty you\'ll find me deep in tech & AI, making songs, or losing gracefully at video games.',
-    'Go say hi to the creatures — walk up and press the action button. Check the eggs in the nursery, and peek at the DEMO LAB if you like experiments.'
-  ];
+  // Pokemon-style script: greeting line -> choice menu; each topic pages
+  // through and returns to the menu until BYE (ui.openMenuDialog)
+  const NPC_SCRIPT = {
+    intro: 'Oh! A visitor! I\'m YOONKI. Hold on... you look strangely familiar. Ask me anything!',
+    menu: [
+      { label: 'THE STORY', pages: [
+        'By day I lead go-to-market at GOOGLE in San Francisco. Launches, strategy, a heroic amount of spreadsheets.',
+        'By night, I build. Every creature roaming this island is a real thing I shipped — AI apps, arcade games, even music.',
+        'Off duty you\'ll find me deep in tech & AI, making songs, or losing gracefully at video games.',
+        'Go say hi to the creatures — walk up and press the action button. Check the eggs in the nursery, and peek at the DEMO LAB if you like experiments.'
+      ] },
+      { label: 'CAREER', pages: [
+        'The career log: NAVER first — where the journey started. Then LINE, Seoul (2014-2018), growth PM. Then GOOGLE — Korea (2018-2021), product marketing, and San Francisco (2021-now), GTM.',
+        'Want the full chapters? Step into my house — there\'s a plaque on the wall for every badge I\'ve worn.'
+      ] },
+      { label: 'LINKS', links: true, line: 'Find me out there in the wild:' },
+      { label: 'BYE', close: true }
+    ]
+  };
   const SECRET_PAGES = [
     '...!',
     'You found GOLDIE, the island\'s secret resident. It has been hiding behind the tree ring since launch day.',
@@ -442,30 +457,49 @@ async function boot() {
     'You toss a coin into the fountain. Plink!',
     'The plaque reads: "YOONKI WORLD FOUNTAIN — wishes are processed within 3-5 business days."'
   ];
-  function labPages() {
-    return world.hasDemos
-      ? ['Welcome to the DEMO LAB — the fenced yard where Yoonki\'s experiments live before they grow into real products.',
-         'Step up to any stall and interact to try a demo.']
-      : ['Welcome to the DEMO LAB — the fenced yard where Yoonki\'s experiments will live before they grow into real products.',
-         'The stalls are empty right now... but the crates keep arriving. Experiments are brewing — check back soon!'];
+  function labScript() {
+    return {
+      intro: 'Welcome to the DEMO LAB — the fenced yard where Yoonki\'s experiments '
+        + (world.hasDemos ? 'live' : 'will live') + ' before they grow into real products.',
+      menu: [
+        { label: 'MORE', pages: world.hasDemos
+          ? ['Step up to any stall and interact to try a demo.']
+          : ['The stalls are empty right now... but the crates keep arriving. Experiments are brewing — check back soon!'] },
+        { label: 'BACK', close: true }
+      ]
+    };
   }
-  const WIP_PAGES = [
-    'UNDER CONSTRUCTION.',
-    'New demos are being assembled in here. The pedestals are ready and waiting. Come back soon!'
-  ];
+  const WIP_SCRIPT = {
+    intro: 'UNDER CONSTRUCTION.',
+    menu: [
+      { label: 'MORE', pages: [
+        'New demos are being assembled in here. The pedestals are ready and waiting. Come back soon!'
+      ] },
+      { label: 'BACK', close: true }
+    ]
+  };
 
   function openDialog(name, pages, links) {
     const back = inHouse ? 'interior' : 'world';   // plaque dialogs return inside
     state = 'dialog';
     ui.openDialog(name, pages, links, () => { state = back; });
   }
-  function signPages() {
+  function openMenuDialog(name, script) {
+    const back = inHouse ? 'interior' : 'world';
+    state = 'dialog';
+    ui.openMenuDialog(name, script, () => { state = back; });
+  }
+  function signScript() {
     const c = creatureSys.creatures.length, e = eggSys.eggs.length;
-    return [
-      '« YOONKI WORLD »  Population: 1 human, ' + c +
-      ' creature' + (c === 1 ? '' : 's') + ', ' + e +
-      ' egg' + (e === 1 ? '' : 's') + ', 1 secret. Links below, traveler.'
-    ];
+    return {
+      intro: '« YOONKI WORLD »  Population: 1 human, ' + c +
+        ' creature' + (c === 1 ? '' : 's') + ', ' + e +
+        ' egg' + (e === 1 ? '' : 's') + ', 1 secret.',
+      menu: [
+        { label: 'LINKS', links: true, line: 'Handy links for travelers:' },
+        { label: 'BACK', close: true }
+      ]
+    };
   }
 
   /* ---- encounters (Pokemon battle framing) --------------------------------
@@ -645,8 +679,10 @@ async function boot() {
         for (const c of encounterCtx.hidden) c.group.visible = false;
       }
       // pass the kind-based flag only: ui.js derives the URL-less
-      // "COMING SOON" presentation itself from project.url
-      ui.showEncounter(project, project.kind === 'egg', (p) => markVisited(p));
+      // "COMING SOON" presentation itself from project.url. RUN/BACK exits
+      // route through onRun (works for taps AND keyboard confirms alike).
+      ui.showEncounter(project, project.kind === 'egg',
+        (p) => markVisited(p), () => endEncounter());
       state = 'encounter';
     });
   }
@@ -705,11 +741,16 @@ async function boot() {
     const it = nearestInteractable();
     if (!it) return;
     switch (it.kind) {
-      case 'npc': audio.sfx.blip(); return openDialog('YOONKI', NPC_PAGES, false);
+      case 'npc': audio.sfx.blip(); return openMenuDialog('YOONKI', NPC_SCRIPT);
       case 'house': return enterHouse();
-      case 'plaque': audio.sfx.blip(); return openDialog(it.name, it.pages, false);
+      case 'plaque':
+        audio.sfx.blip();
+        return openMenuDialog(it.name, {
+          intro: it.line,
+          menu: [{ label: 'MORE', pages: it.more }, { label: 'BACK', close: true }]
+        });
       case 'housedoor': return exitHouse();
-      case 'sign': audio.sfx.blip(); return openDialog('SIGNPOST', signPages(), true);
+      case 'sign': audio.sfx.blip(); return openMenuDialog('SIGNPOST', signScript());
       case 'secret':
         audio.sfx.sparkle();
         particles.sparkle(SECRET_POS.x, 0.9, SECRET_POS.z);
@@ -719,8 +760,8 @@ async function boot() {
         particles.splash(FOUNTAIN.x, 1.0, FOUNTAIN.z);
         particles.sparkle(FOUNTAIN.x, 1.1, FOUNTAIN.z, '#BFEAF2');
         return openDialog('FOUNTAIN', FOUNTAIN_PAGES, false);
-      case 'labsign': audio.sfx.blip(); return openDialog('DEMO LAB', labPages(), false);
-      case 'wip': audio.sfx.blip(); return openDialog('DEMO LAB', WIP_PAGES, false);
+      case 'labsign': audio.sfx.blip(); return openMenuDialog('DEMO LAB', labScript());
+      case 'wip': audio.sfx.blip(); return openMenuDialog('DEMO LAB', WIP_SCRIPT);
       case 'egg':
       case 'creature':
       case 'building':
@@ -730,30 +771,43 @@ async function boot() {
   }
 
   /* ---- input routing --------------------------------------------------------------------- */
+  // the input that skips the intro sweep (and any immediate mash after it)
+  // must never fall through into interact(): the spawn point is inside the
+  // fountain's interaction radius, so a leaked press opened FOUNTAIN as the
+  // player's literal first second of gameplay. skipIntro also defers its
+  // done-callback one frame (camera.js) — this grace window is the second
+  // layer, covering "mash START twice" on keyboard AND the mobile A button.
+  let introSkippedAt = -1;
   ui.handlers.start = () => {
     audio.bgm.start();
     audio.sfx.unlock();
     state = 'intro';
     const played = cam.startIntro(player.pos, () => { if (state === 'intro') state = 'world'; });
-    if (!played) state = 'world';
-  };
-  ui.handlers.any = () => {
-    if (state === 'intro') cam.skipIntro();
-  };
-  ui.handlers.action = () => {
-    if (state === 'world' || state === 'interior') interact();
-    else if (state === 'dialog') ui.advanceDialog();
-    else if (state === 'encounter') {
-      const r = ui.encConfirm();
-      if (r === 'run') endEncounter();
+    if (!played) {
+      state = 'world';                       // reduced-motion: no sweep at all —
+      introSkippedAt = performance.now();    // still swallow the start-mash
     }
   };
+  ui.handlers.any = () => {
+    if (state === 'intro') {
+      cam.skipIntro();
+      introSkippedAt = performance.now();
+    }
+  };
+  ui.handlers.action = () => {
+    if (introSkippedAt >= 0 && performance.now() - introSkippedAt < 250) return;
+    if (state === 'world' || state === 'interior') interact();
+    else if (state === 'dialog') ui.advanceDialog();
+    else if (state === 'encounter') ui.encConfirm();  // RUN exits via onRun
+  };
   ui.handlers.cancel = () => {
-    if (state === 'dialog') { audio.sfx.back(); ui.closeDialog(); }
-    else if (state === 'encounter') { audio.sfx.back(); endEncounter(); }
+    // ui decides: DETAILS/topic pages back out to the menu, menus close/RUN
+    if (state === 'dialog') ui.cancelDialog();
+    else if (state === 'encounter') ui.encCancel();
   };
   ui.handlers.dir = (d) => {
     if (state === 'encounter') ui.encMove(d);
+    else if (state === 'dialog') ui.dlgMove(d);
   };
 
   /* ---- step / bump feedback -------------------------------------------------------------- */
@@ -819,6 +873,11 @@ async function boot() {
         });
         toys.update(dt, player, t);
       }
+    } else {
+      // title diorama: the rigged characters must breathe (a frozen skinned
+      // mesh holds the bind pose) — tick the mixers without game logic
+      if (player.tickAnim) player.tickAnim(dt);
+      if (npc.tickAnim) npc.tickAnim(dt);
     }
 
     // "!" marker above the nearest interactable + emissive lerp on its mesh
@@ -881,7 +940,9 @@ async function boot() {
     glbReport: () => ({
       world: world.glbUsed,
       creatures: creatureSys.creatures.map(c => c.id + ':' + (c.glb ? 'glb' : 'voxel')),
-      secret: secret.glb ? 'glb' : 'voxel'
+      secret: secret.glb ? 'glb' : 'voxel',
+      player: player.glb ? 'glb+anim' : 'voxel',
+      npc: npc.glb ? 'glb+anim' : 'voxel'
     }),
     setState: (s) => { state = s; },
     sample() {

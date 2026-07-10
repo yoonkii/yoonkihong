@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>Rig viewer — YOONKI WORLD</title>
+<!--
+  Verification harness for RIGGED (skinned + animated) GLB characters.
+  glbviewer.html goes through the game loader, which plain-clones and
+  therefore can't render skinned meshes — this page loads the GLB directly
+  with GLTFLoader and plays its animation clips, under the same lighting
+  rig (sky, sun/hemi, ACES 1.1, ortho 45/35 quarter camera).
+
+  Usage:
+    rigviewer.html?model=player            load assets/3d/player.glb
+    &clip=walk | idle | none               which clip to play (default walk)
+    &h=<num>                               target world height (default 1.625)
+    &spin=0                                stop the turntable
+    &yaw=<deg>                             fixed start yaw (degrees)
+  Drag horizontally to rotate manually.
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #4FA8E8; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  #hud {
+    position: fixed; left: 12px; top: 12px; z-index: 2;
+    font: 12px/1.5 ui-monospace, Menlo, monospace; color: #fff;
+    background: rgba(20, 35, 50, 0.72); border-radius: 8px;
+    padding: 10px 14px; max-width: 360px; white-space: pre-wrap;
+  }
+  #hud b { color: #F7D75E; }
+  #hud .bad { color: #FF8E72; font-weight: bold; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="hud">loading…</div>
+<canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { createSkyDome, createLights } from './scripts/game3d/sky.js';
+import { createGroundPlate } from './scripts/voxel/rig.js';
+
+const Q = new URLSearchParams(location.search);
+const NAME = Q.get('model') || 'player';
+const CLIP = Q.get('clip') || 'walk';
+const H = Q.get('h') ? parseFloat(Q.get('h')) : 1.625;
+const SPIN = Q.get('spin') !== '0';
+const YAW0 = Q.get('yaw') ? THREE.MathUtils.degToRad(parseFloat(Q.get('yaw'))) : 0;
+const hud = document.getElementById('hud');
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+const scene = new THREE.Scene();
+const sky = createSkyDome();
+scene.add(sky);
+const lights = createLights(new THREE.Vector3(0, 0, 0));
+scene.add(lights.sun, lights.sun.target, lights.hemi);
+scene.add(createGroundPlate(9, 9, 11));
+
+const CAM = { azimuth: 45, elevation: 35, dist: 60 };
+function dirFromAngles(a, e) {
+  const az = THREE.MathUtils.degToRad(a), el = THREE.MathUtils.degToRad(e);
+  return new THREE.Vector3(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
+}
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 220);
+function frame() {
+  const aspect = window.innerWidth / window.innerHeight;
+  const hh = Math.max(1.4, H * 0.85);
+  camera.left = -hh * aspect; camera.right = hh * aspect;
+  camera.top = hh; camera.bottom = -hh;
+  camera.updateProjectionMatrix();
+  const look = new THREE.Vector3(0, H * 0.42, 0);
+  camera.position.copy(look).addScaledVector(dirFromAngles(CAM.azimuth, CAM.elevation), CAM.dist);
+  camera.lookAt(look);
+}
+function resize() { renderer.setSize(window.innerWidth, window.innerHeight, false); frame(); }
+window.addEventListener('resize', resize);
+
+const pivot = new THREE.Group();
+scene.add(pivot);
+
+const status = { glb: 'loading', tris: 0, clips: [], playing: 'none', rawH: 0 };
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function paintHUD() {
+  hud.innerHTML =
+    '<b>' + esc(NAME) + '.glb</b>  (assets/3d/, direct GLTFLoader)\n' +
+    'status: ' + (status.glb === 'ok'
+      ? 'loaded — ' + status.tris + ' tris, raw h ' + status.rawH.toExponential(2)
+      : '<span class="bad">' + esc(status.glb) + '</span>') + '\n' +
+    'clips: ' + (status.clips.join(', ') || '(none)') + '\n' +
+    'playing: ' + esc(status.playing) + '   height: ' + H + ' wu\n' +
+    'rig: game sky/lights, ACES 1.1, ortho 45/35\n' +
+    'drag = rotate · ?clip=walk|idle|none · ?spin=0 · ?yaw=N';
+}
+paintHUD();
+
+let mixer = null;
+const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);
+let gltf = null;
+try {
+  gltf = await loader.loadAsync('assets/3d/' + NAME + '.glb');
+} catch (e) {
+  status.glb = 'FAILED: ' + (e && e.message || e);
+}
+
+if (gltf) {
+  const root = gltf.scene;
+  root.updateWorldMatrix(true, true);
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  status.rawH = size.y;
+  const s = H / size.y;
+  const wrap = new THREE.Group();
+  wrap.scale.setScalar(s);
+  wrap.add(root);
+  // ground-center the origin
+  const c = box.getCenter(new THREE.Vector3());
+  root.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
+  pivot.add(wrap);
+
+  let tris = 0;
+  root.traverse(o => {
+    if (o.isMesh && o.geometry) {
+      const g = o.geometry;
+      tris += (g.index ? g.index.count : g.attributes.position.count) / 3;
+    }
+    if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; }
+  });
+  status.tris = Math.round(tris);
+  status.clips = gltf.animations.map(a => a.name);
+  status.glb = 'ok';
+
+  if (CLIP !== 'none') {
+    const clip = gltf.animations.find(a => a.name === CLIP) || gltf.animations[0];
+    if (clip) {
+      mixer = new THREE.AnimationMixer(root);
+      mixer.clipAction(clip).play();
+      status.playing = clip.name;
+    }
+  }
+}
+resize();
+paintHUD();
+
+let yaw = YAW0, dragging = false, lastX = 0, spinning = SPIN;
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', (e) => { dragging = true; spinning = false; lastX = e.clientX; });
+window.addEventListener('pointerup', () => { dragging = false; });
+window.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  yaw += (e.clientX - lastX) * 0.012;
+  lastX = e.clientX;
+});
+
+let last = performance.now();
+let elapsed = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  elapsed += dt;
+  if (mixer) mixer.update(dt);
+  if (spinning) yaw += dt * 0.6;
+  pivot.rotation.y = yaw;
+  sky.position.copy(camera.position);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(loop);
+
+window.__rig = {
+  THREE, scene, renderer, camera, status,
+  setYaw(d) { spinning = false; yaw = THREE.MathUtils.degToRad(d); },
+  setTime(t) { if (mixer) { mixer.setTime(t); } },
+  sample() {
+    renderer.render(scene, camera);
+    const gl = renderer.getContext();
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+    const buf = new Uint8Array(4);
+    let nonBlank = 0;
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+      gl.readPixels(Math.floor(w * (i + 0.5) / 5), Math.floor(h * (j + 0.5) / 5),
+        1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      if (buf[0] + buf[1] + buf[2] > 24) nonBlank++;
+    }
+    return { nonBlank, clips: status.clips, playing: status.playing };
+  }
+};
+</script>
+</body>
+</html>

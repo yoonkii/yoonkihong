@@ -336,11 +336,16 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     if (i < BUILDING_SLOTS.length)
       buildingDefs.push({ id: p.id, model: p.id, project: p, slot: BUILDING_SLOTS[i] });
   });
+  // GLB-only buildings (no voxel fallback model): footprints from
+  // docs/GLB_PIPELINE.md §3 — colliders/markers/zoom are sized from these
+  // exactly like the voxel footprints size everything else.
+  const GLB_FOOTPRINT = { gunball: { w: 2.42, h: 2.75, d: 2.24 } };
   for (const b of buildingDefs) {
     const model = getModel(b.model) || PLACEHOLDER;
-    const w = (model.size ? model.size[0] : 16) * VOXEL_SIZE;
-    const d = (model.size ? model.size[2] : 16) * VOXEL_SIZE;
-    const h = (model.size ? model.size[1] : 16) * VOXEL_SIZE;
+    const fp = GLB_FOOTPRINT[b.model];
+    const w = fp ? fp.w : (model.size ? model.size[0] : 16) * VOXEL_SIZE;
+    const d = fp ? fp.d : (model.size ? model.size[2] : 16) * VOXEL_SIZE;
+    const h = fp ? fp.h : (model.size ? model.size[1] : 16) * VOXEL_SIZE;
     const cx = b.slot.x + 2, cz = b.slot.y + 2;
     const gm = glb['bld_' + b.model];
     if (gm) {
@@ -552,17 +557,22 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
       markerX: DEMO_LAB.wip.x, markerY: 1.3, markerZ: DEMO_LAB.wip.z, r: 1.3
     });
   }
-  // yard dressing: crates + rocks
+  // yard dressing: crate stack in the NE inside corner (clear of the gate
+  // aisle and every stall approach), one mossy rock outside the SW corner
   const crateGeo = safeGeometry('toy_crate');
-  place(staticGeos, crateGeo, 35.55, 0, 24.35, 0.12);
-  place(staticGeos, crateGeo, 35.62, 0.875, 24.42, -0.35, 0.82);
-  place(staticGeos, crateGeo, 34.6, 0, 24.5, 0.5, 0.9);
-  colliders.addAABB(34.1, 23.9, 36.1, 24.95);
+  place(staticGeos, crateGeo, 34.8, 0, 21.35, 0.12);
+  place(staticGeos, crateGeo, 34.87, 0.875, 21.42, -0.35, 0.82);
+  place(staticGeos, crateGeo, 33.9, 0, 21.5, 0.5, 0.9);
+  colliders.addAABB(34.35, 20.9, 35.35, 21.8);
   const rocksGeo = safeGeometry('rocks_small');
-  place(staticGeos, rocksGeo, 31.9, 0, 23.3, 0.4, 0.8);
 
-  /* ---- scattered props ------------------------------------------------ */
-  for (const [x, z, s, yaw] of [[33.4, 17.1, 1, 0.3], [6.4, 12.6, 0.9, 1.8], [13.3, 26.1, 0.8, 0.9]])
+  /* ---- scattered props (each anchors a zone edge, never mid-nowhere) --- */
+  for (const [x, z, s, yaw] of [
+    [33.5, 17.2, 1, 0.3],              // pond south bank
+    [5.4, 11.9, 0.9, 1.8],             // west meadow edge
+    [13.6, 25.6, 0.8, 0.9],            // south shore, west of nursery
+    [29.4, 24.4, 0.8, 2.1]             // demo-lab SW outside corner
+  ])
     { place(staticGeos, rocksGeo, x, 0, z, yaw, s); colliders.addCircle(x, z, 0.4 * s); }
 
   /* ---- south-shore dressing: pier + buoys + sea rocks with foam rings —
@@ -597,20 +607,20 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     foam.renderOrder = 1;
     scene.add(foam);
   }
-  const sapScatter = [[12.5, 3.6, 0], [27.6, 17.6, 2.1], [36.1, 18.6, 1.2], [4.6, 19.5, 0.7]];
+  const sapScatter = [[10.5, 3.5, 0], [28.5, 3.6, 2.1], [4.5, 17.5, 1.2], [35.5, 19.2, 0.7]];
   for (const [x, z, yaw] of sapScatter) place(treeGeos, sapGeo, x, 0, z, yaw, 0.95);
 
-  /* ---- avenue-elbow + south-corner clusters (playbook: props cluster in
-          3s — tree + rock + flowers — breaking the long boulevard
-          sightlines right where the jogs turn) --------------------------- */
+  /* ---- spoke-elbow + shore clusters (playbook: props cluster in 3s —
+          tree + rock + flowers — one at each path bend, so every curve
+          has a reason and no prop floats mid-nowhere) --------------------- */
   const CLUSTERS = [
-    { t: [9.4, 6.2], r: [10.15, 5.85], f: [8.75, 6.75], kind: 'peach' },   // north ave, west elbow
-    { t: [35.2, 11.5], r: [36.3, 11.9], f: [34.6, 12.4], kind: 'cream' },  // north ave, east elbow
-    { t: [9.3, 16.5], r: [10.05, 16.15], f: [8.65, 17.05], kind: 'cream' },// south ave, west elbow
-    { t: [25.5, 16.2], r: [26.3, 16.6], f: [24.85, 15.6], kind: 'peach' }, // south ave, east elbow
-    { t: [4.7, 25.3], r: [5.45, 24.95], f: [4.05, 25.85], kind: 'peach' }, // SW island corner
-    { t: [29.5, 25.6], r: [30.25, 25.25], f: [28.85, 26.15], kind: 'cream' }, // SE corner by the lab
-    { t: [22.6, 14.4], r: [23.3, 15.05], f: [21.95, 15.15], kind: 'peach' } // center crossing (fills the empty heart of the map)
+    { t: [10.6, 11.4], r: [11.3, 11.9], f: [9.9, 12.1], kind: 'peach' },   // NW spoke elbow
+    { t: [28.6, 11.6], r: [29.3, 12.0], f: [27.9, 12.4], kind: 'cream' },  // NE spoke elbow
+    { t: [16.6, 17.6], r: [17.3, 18.1], f: [16.0, 18.4], kind: 'cream' },  // south axis / SW fork wedge
+    { t: [27.6, 15.3], r: [28.3, 15.8], f: [26.9, 14.8], kind: 'peach' },  // SE staircase bend
+    { t: [32.3, 12.3], r: [33.0, 11.9], f: [31.7, 12.8], kind: 'peach' },  // pond north bank
+    { t: [4.7, 24.3], r: [5.4, 23.9], f: [4.1, 24.9], kind: 'peach' },     // SW shore corner
+    { t: [27.6, 24.6], r: [28.3, 25.0], f: [26.9, 25.3], kind: 'cream' }   // south shore, nursery-lab gap
   ];
   CLUSTERS.forEach((cl, i) => {
     place(treeGeos, sapGeo, cl.t[0], 0, cl.t[1],
@@ -682,13 +692,13 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     if (t === 'L') tallPos.push({ x: tx + 0.5, z: ty + 0.5 });
     if (t === 'F') (hash2(tx, ty, 73) < 0.5 ? peachPos : creamPos).push({ x: tx + 0.5, z: ty + 0.5 });
   }
-  // extra flower clusters near the house + plaza
-  peachPos.push({ x: 16.6, z: 5.4 }, { x: 17.4, z: 10.9 });
-  creamPos.push({ x: 22.5, z: 6.4 }, { x: 22.6, z: 11.1 });
+  // extra flower drifts by the About house door and the YOONKI letters
+  peachPos.push({ x: 17.5, z: 5.2 }, { x: 16.4, z: 10.4 });
+  creamPos.push({ x: 22.6, z: 5.3 }, { x: 13.6, z: 9.0 });
   // flowers completing the elbow/corner clusters-of-3
   for (const cl of CLUSTERS)
     (cl.kind === 'peach' ? peachPos : creamPos).push({ x: cl.f[0], z: cl.f[1] });
-  for (const [x, z] of [[4.6, 7.5], [35.5, 8.4], [14.5, 18.6], [25.6, 3.6], [8.5, 18.4], [30.4, 16.5]])
+  for (const [x, z] of [[4.6, 10.6], [35.4, 11.4], [15.6, 22.6], [25.5, 19.0], [5.5, 23.0], [33.6, 10.6]])
     bushPos.push({ x, z });
 
   floraType('tall_grass', tallPos, { r: 0.6, pop: '#6BA35C' });

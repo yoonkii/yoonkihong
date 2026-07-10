@@ -253,12 +253,13 @@ body:not(.game-started) #help { z-index: 80; }
 /* URL-less (not-yet-visitable) projects: calm blue instead of battle red */
 #enc-tag.soon { background: #3c4a74; }
 .enc-panel {
+  position: relative;
   margin: 10px;
   margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   max-width: 760px;
   width: calc(100% - 20px);
   align-self: center;
-  padding: 14px 16px;
+  padding: 14px 16px 18px;
   display: flex;
   gap: 14px;
   align-items: stretch;
@@ -276,18 +277,41 @@ body:not(.game-started) #help { z-index: 80; }
   overflow-y: auto;
   min-height: 4.6em;
 }
+/* DETAILS paging indicator (mirrors #dlg-more) */
+#enc-more {
+  position: absolute;
+  right: 14px; bottom: 6px;
+  font-size: 12px;
+  color: #3c4a74;
+  visibility: hidden;
+  animation: bounce 0.7s infinite alternate;
+}
+
+/* ---------- Pokemon-style choice menus (encounter + dialog) ---------- */
 #enc-menu {
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 128px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  gap: 6px;
+  align-content: end;
+  min-width: 236px;
   border-left: 3px solid var(--gba-border);
   padding-left: 14px;
 }
+#dlg-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  gap: 6px;
+  margin: 12px 0 4px auto;         /* right-aligned, GBA choice-box style */
+  width: min(100%, 380px);
+}
+/* GBA slide-in each time a menu (re)appears; class re-applied from ui.js */
+#enc-menu.pop, #dlg-menu.pop { animation: menu-in 0.22s ease-out; }
+@keyframes menu-in { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
 .enc-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 44px;                 /* comfy touch target */
   font-family: "Geist Mono", monospace;
   font-size: 14px;
   font-weight: 600;
@@ -485,13 +509,6 @@ body.in-dialog #joy { display: none; }
 }
 #title-screen.gone { opacity: 0; pointer-events: none; }
 .title-inner { padding: 24px; max-width: 560px; }
-.title-hero {
-  width: 96px;
-  height: 96px;
-  image-rendering: pixelated;
-  animation: bob 1.6s ease-in-out infinite;
-}
-@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 .game-title {
   font-family: "Press Start 2P", "Geist Mono", monospace;
   font-size: clamp(28px, 8vw, 52px);
@@ -506,7 +523,9 @@ body.in-dialog #joy { display: none; }
   color: #b9c9e8;
   margin: 0 0 26px;
 }
-.load-wrap { margin: 0 auto 22px; width: min(280px, 70vw); }
+/* keeps its box while fading (opacity only) so PRESS START never shifts */
+.load-wrap { margin: 0 auto 22px; width: min(280px, 70vw); transition: opacity 0.45s ease 0.4s; }
+.load-wrap.done { opacity: 0; }
 .load-bar {
   height: 14px;
   border: 3px solid #eef3ff;
@@ -552,12 +571,12 @@ body.in-dialog #joy { display: none; }
 @media (max-width: 640px) {
   .enc-panel { flex-direction: column; gap: 10px; }
   #enc-menu {
-    flex-direction: row;
     border-left: none;
     border-top: 3px solid var(--gba-border);
     padding-left: 0;
     padding-top: 10px;
-    justify-content: flex-end;
+    min-width: 0;
+    width: 100%;
   }
   #enc-text { max-height: 30vh; min-height: 0; }
   #hud a { display: none; }             /* keep HUD tiny on phones; classic link lives in help + title */
@@ -570,9 +589,10 @@ body.in-dialog #joy { display: none; }
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .fx, .fx.iris { transition: none; }
-  .fx.flash, #press-start, .title-hero, #dlg-more { animation: none; }
-  .enc-plate, .enc-panel { animation: none; }
+  .fx.flash, #press-start, #dlg-more, #enc-more { animation: none; }
+  .enc-plate, .enc-panel, #enc-menu.pop, #dlg-menu.pop { animation: none; }
   #title-screen { transition: none; }
+  .load-wrap { transition: none; }
 }
 
 /* ==========================================================================

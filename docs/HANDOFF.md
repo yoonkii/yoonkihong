@@ -1,6 +1,6 @@
 # YOONKI WORLD — Handoff Doc
 
-> 마지막 업데이트: 2026-07-08. yoonkihong.com 리빌드 프로젝트의 전체 인수인계 문서.
+> 마지막 업데이트: 2026-07-10. yoonkihong.com 리빌드 프로젝트의 전체 인수인계 문서.
 > 대상: 다음 작업 세션(사람 또는 AI 에이전트). 이 문서 하나로 프로젝트 전체 맥락을 복원할 수 있어야 함.
 
 ---
@@ -14,12 +14,17 @@
 - **기술 원칙**: 빌드 스텝 없음, 프레임워크 없음. Three.js는 pinned CDN importmap(`three@0.180.0`, jsdelivr). 나머지는 바닐라 ES 모듈
 - **폰트**: Geist Sans (사용자 명시 요청 — 사이트 전역, 게임 UI 포함)
 
-## 2. 현재 상태 (2026-07-08)
+## 2. 현재 상태 (2026-07-10)
 
 - ✅ 3D 버전 완성, 최종 스모크 테스트 9/9 통과, 콘솔 에러 0
-- ✅ 로컬 커밋 완료: `e57e26d`(2D GBA 버전 v1 — 보존용) → `6091cb2`(3D 버전) → `37cfca8`(gitignore)
+- ✅ 2026-07-10 퍼블리시 푸시: **GUNBALL 추가로 product 6종**, 플레이어/NPC가
+  리깅+애니메이션 GLB로 교체(§5), 맵이 허브-스포크 마을로 재구성(분수 광장
+  중심 + 2건물 지구 3곳 + 남쪽 nursery + SE Demo Lab — `const.js` RAW_MAP 주석
+  참조), 포켓몬식 선택지 메뉴(§6), 타이틀 화면의 떠다니는 2D 스프라이트 제거
+  (라이브 디오라마가 히어로 이미지)
+- ✅ 로컬 커밋 완료: `e57e26d`(2D GBA 버전 v1 — 보존용) → `6091cb2`(3D 버전) → `37cfca8`(gitignore) → `b18fbf4`(디자인 폴리시 r2)
 - ⛔ **push/배포 전** — 사용자 확인 후 push하면 GitHub Pages로 자동 배포됨
-- 배포 페이로드: 추적 파일 ~7.5MB + three.js CDN
+- 배포 페이로드: 추적 파일 ~9.5MB + three.js CDN
 
 ## 3. 파일 구조
 
@@ -44,7 +49,8 @@ docs/VISUAL_PLAYBOOK.md ★ 포코피아 팔레트/라이팅/포스트체인/품
 docs/VOXEL_FORMAT.md    복셀 모델 포맷 계약
 docs/GLB_PIPELINE.md    ★ GLB 네이밍/방향/높이/용량 계약 + 캐시버스팅(ASSET_V) 절차
 viewer.html             복셀 모델 턴테이블 뷰어 (?model=이름)
-glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
+glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅) — 스킨드 메시 불가
+rigviewer.html          리깅 GLB 뷰어 (?model=player&clip=walk|idle — 직접 GLTFLoader)
 .env.local              API 키 (gitignored, 공개 저장소 — 절대 커밋/출력 금지)
 ```
 
@@ -55,7 +61,7 @@ glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
 - **새 프로젝트 추가**: 객체 하나 추가 → 게임 맵 슬롯 자동 배정 + classic 카드 자동 생성
 - **알 부화** (Suno/Substack/X 링크 도착 시): 해당 항목에 `url` 채우고 `kind:'creature'`로 변경. 전용 GLB를 원하면 §5 파이프라인으로 생성 후 `GLB_PRELOAD`(scripts/game3d.js)에 이름 추가
 - **데모 추가**: `category:'demo'`로 추가 → Demo Lab 존 스톨에 자동 등장 (슬롯 5개 사전 확보, 없으면 공사중 표지판)
-- **현재 상태**: product 5종(macrodoc, mathstreet, mathwings, funnify, lasthand) + egg 3종(suno, substack, x). 데모 0종
+- **현재 상태**: product 6종(macrodoc, mathstreet, mathwings, funnify, lasthand, gunball) + egg 3종(suno, substack, x). 데모 0종
 
 ## 5. 에셋 파이프라인
 
@@ -66,8 +72,14 @@ glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
 4. `glbviewer.html?model=이름`으로 검증 → `GLB_PRELOAD`에 추가 → **`ASSET_V` 범프** (scripts/game3d/const.js — 캐시버스팅)
 - 용량 예산: 크리처/건물 ≤3MB, 반복 소품(나무) ≤1.2MB
 - **폴백 설계**: GLB 없거나 파싱 실패 → 해당 에셋만 복셀 모델 사용, 게임은 무조건 돌아감
-- 현재 라이브 16종: 크리처 6(macrodoc, mathstreet, mathwings, funnify, lasthand, goldie) + 건물 6(bld_ 접두, lasthand 포함) + tree_a/b, fountain, egg
+- 현재 라이브 20종: 크리처 7(macrodoc, mathstreet, mathwings, funnify, lasthand, gunball, goldie) + 건물 7(bld_ 접두, bld_gunball 포함) + 캐릭터 2(player, npc_yoonki) + tree_a/b, fountain, egg
 - About 하우스 문 = 실내 미니씬 진입 (scripts/game3d/interior.js — NAVER/LINE/GOOGLE 복셀 로고 명판 + 대화)
+
+### 캐릭터 (리깅 GLB — 2026-07-10 신규)
+- `player.glb` / `npc_yoonki.glb`: 스킨드 26본 스켈레톤 + 클립 2종(`walk` 1.0s 루프, `idle` 8.0s 숨쉬기/둘러보기). 파이프라인: gpt-image-1 컨셉 → Meshy image-to-3d → **Meshy Auto-Rigging API**(`POST /openapi/v1/rigging`) → Animation API(idle = action 338) → 클립 병합/개명 → PBR 스트립 → gltfpack `-cc -kn`
+- 로더(`glbassets.js`)가 스킨드 메시를 감지해 **SkeletonUtils.clone** 사용 + `frustumCulled=false`. Meshy 리타겟이 (-X,+Z) 대각선을 보게 뽑아서 `YAW_OFFSET` 테이블(+45°)로 +Z 계약을 복원
+- `actors.js`: THREE.AnimationMixer로 idle↔walk 0.15s 크로스페이드, walk timeScale = 속도/2.2 동기화(풋슬라이드 방지), 발소리/먼지는 클립 위상에서 파생. 스킨드 경로에서는 스쿼시-스트레치 OFF(클립이 바디랭귀지 담당). GLB 실패 시 기존 복셀 리그 폴백 그대로
+- 검증 하니스: **`rigviewer.html?model=player&clip=walk|idle`** (게임 로더는 스킨드 미리보기 불가 — 직접 GLTFLoader + 동일 라이팅). 추가 클립 생성용 Meshy rig task ID는 이 문서 히스토리/워크플로 리포트 참조
 
 ### 오디오 (ElevenLabs)
 - **BGM**: 현재 `/v1/sound-generation` 우회 생성물 (키에 `music_generation` 권한 없음 — 401). 권한 추가되면 `/v1/music`으로 재생성 (overworld 90s, encounter 60s, 루프)
@@ -80,11 +92,13 @@ glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
 
 - 이동: WASD/방향키, 관성(가감속), 카메라 기준 8방향, 벽 슬라이딩. 모바일: 가상 조이스틱 + A/B
 - 인터랙션: 근접 시 "!" 마커, **Space**/Z/Enter 발동, X/Esc 닫기
-- 인카운터: 포켓몬식 투샷 — 카메라는 월드 방위각 45° 고정(회전 없음), 한 번의 팬+줌 후 정지(10초에 걸친 1.5% 푸시인만 허용). 아이리스 암전 중 플레이어를 "트레이너 슬롯"(화면 좌하단, 충돌 검사·미러 폴백 포함)으로 컷, RUN 시 페이드 아래 복원. 피사체 높이로 줌 산출, 울타리/수관 가림 시 앙각 35→48→58° 에스컬레이션, 근처 크리처+GOLDIE는 암전 중 숨김. 세로 모바일은 프레임을 위로 올려 패널 위에 투샷 유지 → 타자기 텍스트 → VISIT(새 탭)/RUN. 알 = incubating + BACK. url 없는 non-egg = 파란 COMING SOON 태그
-- NPC 대화(빌더 스토리 멀티페이지), 표지판(링크), 집, Demo Lab 표지판, 시크릿 GOLDIE(숲 뒤)
+- **선택지 메뉴 (포켓몬 배틀 메뉴)**: 줄글 대신 2열 그리드 선택지 — ui.js `createChoiceMenu`가 다이얼로그(#dlg-menu)·인카운터(#enc-menu) 공용. 방향키/WASD로 ▶ 커서 이동(좌우 순환, 상하 행 이동), Space/Z/Enter 확정, X/Esc는 한 단계 백아웃(토픽/DETAILS 페이지 → 메뉴, 메뉴 → 닫기/RUN). 터치는 버튼 직접 탭(44px+ 타깃, 375px에서 검증). 메뉴가 (재)등장할 때마다 275ms 연타 가드 재장전 + 가드 통과 후에만 포커스 부여(앵커 네이티브 Enter 우회 방지). 커서 위치는 토픽에서 돌아와도 유지
+- 인카운터: 포켓몬식 투샷 — 카메라는 월드 방위각 45° 고정(회전 없음), 한 번의 팬+줌 후 정지(10초에 걸친 1.5% 푸시인만 허용). 아이리스 암전 중 플레이어를 "트레이너 슬롯"(화면 좌하단, 충돌 검사·미러 폴백 포함)으로 컷, RUN 시 페이드 아래 복원. 피사체 높이로 줌 산출, 울타리/수관 가림 시 앙각 35→48→58° 에스컬레이션, 근처 크리처+GOLDIE는 암전 중 숨김. 세로 모바일은 프레임을 위로 올려 패널 위에 투샷 유지. **플로우**: 짧은 인트로("A wild X appeared!" + 태그라인 한 줄) 타자기 → [DETAILS][VISIT]/[RUN] 그리드. DETAILS = 풀 설명을 문장 단위 페이지(≤200자, `paginate`)로 타자기 → 마지막 페이지에서 메뉴 복귀(인트로 즉시 복원, 재타이핑 없음) — DETAILS↔메뉴 무한 루프 가능. VISIT = 진짜 앵커 새 탭 + 그때만 방문 카운트(DETAILS는 카운트 안 함), 인카운터는 열려 있음. RUN/X = 종료(탭·키보드 모두 onRun 콜백 경유 — 구버전의 "RUN 탭 무반응" 버그 수정됨). 알 = incubating 한 줄 + [DETAILS][BACK]. url 없는 non-egg = 파란 COMING SOON 태그 + [DETAILS][RUN], "not ready" 문구는 DETAILS 마지막 페이지
+- NPC YOONKI: 인사 한 줄 → [THE STORY][CAREER]/[LINKS][BYE]. THE STORY = 빌더 정체성 4페이지, CAREER = NAVER→LINE→GOOGLE 요약 2페이지(집 명판 안내 포함), LINKS = 표지판식 링크 노출(메뉴 유지), BYE = 닫기. 각 토픽 종료 시 메뉴로 복귀
+- 표지판 = 인구 한 줄 + [LINKS][BACK], Demo Lab 표지판/공사중 = 한 줄 + [MORE][BACK], 집 내부 명판(NAVER/LINE/GOOGLE) = 명판 한 줄 + [MORE][BACK] (interior.js `line`/`more` 필드). 분수·GOLDIE는 기존 선형 다이얼로그 유지 (`ui.openDialog`), 나머지는 `ui.openMenuDialog(name, {intro, menu})` 스크립트
 - 물리 장난감: 볼링핀 6개·상자·비치볼 (커스텀 임펄스)
 - 인트로: 타이틀 = 라이브 디오라마 → PRESS START → 카메라 스윕(입력 시 스킵, reduced-motion 시 생략)
-- 불꽃놀이: 프로젝트 5종 모두 방문 시 (localStorage, HUD 0/5 카운터 — data/projects.js에서 파생)
+- 불꽃놀이: 라이브 제품 전부 방문 시 (localStorage, HUD 카운터 0/6 — data/projects.js에서 파생, 로스터 크기로 축하 플래그 버전링)
 - 사운드: BGM 크로스페이드(월드↔인카운터), 뮤트 localStorage 저장, 뮤트가 BGM+SFX 모두 제어
 - 품질 티어: HIGH/MID/LOW 자동 감지 + 첫 120프레임 실측 적응 (LOW = EffectComposer 완전 생략)
 - 안전망: WebGL 불가 → classic.html 안내 카드. 인카운터 연타 가드 275ms
@@ -105,7 +119,7 @@ glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
 4. Suno/Substack/X 링크 도착 시 알 부화 (§4)
 5. 데모 목록 도착 시 Demo Lab 채우기 (§4)
 6. `images/profile.jpg` 7.8MB → 1200px/200KB 이하로 재추출 (classic 뷰에서 사용)
-7. (선택) 플레이어/NPC 캐릭터도 Meshy GLB로 교체 — 현재 복셀. 절차적 홉 애니메이션이 그룹 단위라 정적 GLB로 교체 가능
+7. ~~(선택) 플레이어/NPC 캐릭터도 Meshy GLB로 교체~~ — ✅ 완료 (2026-07-10, 리깅+클립 GLB. §5 캐릭터 항목 참조)
 
 ## 9. 의사결정 로그 (왜 이렇게 됐나)
 

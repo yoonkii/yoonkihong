@@ -1,7 +1,15 @@
 /* ============================================================================
    YOONKI WORLD 3D — shared constants: map, layout, palette, helpers
-   The 40x30 tile map is ported verbatim from the 2D game, then lightly
-   edited for the 3D diorama (fountain plaza, demo lab corner, secret gap).
+   The 40x30 tile map is a hub-and-spokes village: one central fountain
+   plaza (spawn + YOONKI letters + signpost) with gently curved 2-wide
+   paths radiating to every zone — About house on the formal north axis,
+   three 2-building districts (NW: macrodoc+lasthand, NE: math games
+   mathstreet+mathwings, SW: gunball+funnify), the fenced egg
+   nursery on the south axis, and the Demo Lab yard off the SE staircase.
+   District pairing is dark-facade balanced: bld_gunball and bld_lasthand
+   are the island's two near-black buildings, and side by side they read
+   as one dark hole at title/overworld zoom (VISUAL_PLAYBOOK: never pure
+   black) — so each court gets at most one dark building.
    1 tile = 1 world unit. Tile (x, y) spans world X [x, x+1], Z [y, y+1].
    ========================================================================== */
 
@@ -16,7 +24,7 @@ export const REDUCED = (() => {
    with the styles/main.css ?v= token in index.html — bump BOTH whenever any
    asset is re-exported, so returning visitors never get a mixed old/new set
    (GitHub Pages caches assets for ~10 min, browsers heuristically longer). */
-export const ASSET_V = '20260710d';
+export const ASSET_V = '20260710h';
 
 /* ---- player locomotion -------------------------------------------------
    2026-07: top speed +30% (4.0 -> 5.2 wu/s); accel/decel damp rates x1.3
@@ -26,35 +34,40 @@ export const ASSET_V = '20260710d';
    0.5 wu clamp window, so no tunneling through 1-tile fences. */
 export const PLAYER_MOVE = { maxSpeed: 5.2, accel: 11.7, decel: 15.6 };
 
-/* Legend: W water  G grass  P path  T tree  L tall grass  F flower  X fence */
+/* Legend: W water  G grass  P path  T tree  L tall grass  F flower  X fence
+   Authored directly (no runtime jogs): central plaza rows 11-16, spokes =
+   2x2 stair blocks (the tile-grid version of a gentle curve), courts are
+   the 2-wide "district streets" fronting each building pair. The nursery
+   picket ring is baked here; the Demo Lab wood ring + gate is drawn by
+   buildMap() from DEMO_LAB so the yard stays data-driven. */
 const RAW_MAP = [
   'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
   'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
   'WWTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTWW',
   'WWTGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGFGGGGGGGGFGGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGGFGGGGGGFGGGGGGGGGGGGGTWW',
+  'WWTGGGGGGGGGGGGGGGGGGGGLLGGGGGGGGGGGGTWW',
+  'WWTGLLGGGGGGGGGGGGGGGGGLLGGGGGGGGGGGGTWW',
+  'WWTGLLGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTWW',
+  'WWTGGGGFGGFGGGGGGGFPPFGGGGGGFGGGGGGGGTWW',
+  'WWTGGGFPPPPPPFGGGGGPPGGGGGFPPPPPPFGGGTWW',
+  'WWTGGGFPPPPPPGGGGGFPPFGGGGGPPPPPPFGGGTWW',
+  'WWTGGGGGGGGGPPPGGGGPPGGGGPPPGGGGGGGGGTWW',
+  'WWTGGGGGGGGGGPPPPFPPPPFPPPPGGGGGGGGGGTWW',
+  'WWTGLLLLLGGGGGGPPPPPPPPPPGGGGGGGGGGGGTWW',
+  'WWTGLLLLLGGGGGGGGPPPPPPGGGGGGGGGGWWWGTWW',
+  'WWTGLLLLLGGGGGPPPPPPPPPPPGGGGGGGFWWWGTWW',
+  'WWTGGGGGGGGGGGPPPPPPPPPPPPPGGGGGGWWWGTWW',
+  'WWTGGGGGGGGGGGPPGFPPPPFGGPPPPGGGGGFGGTWW',
+  'WWTGGGGGGGGGGGPPGGGPPGGGGGGPPPPGGGGGGTWW',
+  'WWTGGGGGGGGGGGPPGGGPPGGGGGGGGPPPPGGGGTWW',
+  'WWTGGGGFGGFPPPPGGGFPPFGGGGGGGGFPPFGGGTWW',
+  'WWTGGGFPPPPPPGGGXXXPPXXXXGGGGGGPPGGGGTWW',
+  'WWTGGGFPPPPPPGGFXGGGGGGGXFGLLLGGGGGGGTWW',
+  'WWTGGGGGGGGGGGGGXGGGGGGGXGGLLLGGGGGGGTWW',
+  'WWTGGGGGGGGGGGGGXGGGGGGGXGGGGGGGGGGGGTWW',
+  'WWTGGGGGGGGGGGGGXGGGGGGGXGGGGGGGGGGGGTWW',
+  'WWTGGGGGGGGGGGGGXXXXXXXXXGGGGGGGGGGGGTWW',
   'WWTGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGGGGGPPGGGGGGGGGGGGGGGGTWW',
-  'WWTGGPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPGGTWW',
-  'WWTGGPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPGGTWW',
-  'WWTGGGGGGGGGGFGGGGGPPGGGGGFGGGGGGGGGGTWW',
-  'WWTGFGGGGGGGGGGGGGGPPGGGGGGGGGGGGGGFGTWW',
-  'WWTGGGLLLLLLGGGGGGGPPGGGGLLLLLLGGWWWGTWW',
-  'WWTGGGLLLLLLGGGGGGGPPGGGGLLLLLLGGWWWGTWW',
-  'WWTGGGLLLLLLGGGGGGGPPGGGGLLLLLLGGWWWGTWW',
-  'WWTGGGGGGGGGGGGGGGGPPGGGGGGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGGGGGPPGGGGGGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGGGGGPPGGGGGGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGFGGGGGPPGGGGGFGGGGGGGGGGTWW',
-  'WWTGGPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPGGTWW',
-  'WWTGGPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPGGTWW',
-  'WWTGGGGGFGGGGGGXXXXPPXXXXXGGGGGFGGGGGTWW',
-  'WWTGGGGGGGGGGGGXGGGPPGGGGXGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGXFGGGGGGGFXGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGXGGGGGGGGGXGGGGGGGGGGGTWW',
-  'WWTGGGGGGGGGGGGXXXXXXXXXXXGGGGGGGGGGGTWW',
   'WWTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTWW',
   'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
   'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW'
@@ -64,62 +77,27 @@ export const MAP_W = 40;
 export const MAP_H = 30;
 
 /* ---- 3D map edits ----------------------------------------------------- */
-// Fountain plaza: widen the north crossing into a ring around the fountain.
-const PLAZA_TILES = [
-  [18, 8], [21, 8], [18, 11], [21, 11]
-];
-// Secret alcove: two trees missing from the north ring, NE side.
+// Secret alcove: two trees missing from the north ring, NE side (tucked
+// behind the NE district's rooflines from the SE camera — extra secret).
 export const SECRET_GAP = [[30, 2], [31, 2]];
 export const SECRET_POS = { x: 30.5, z: 2.55 };
-// Demo lab yard: SE corner, fenced with a gate on the avenue side.
+// Demo lab yard: SE corner off the plaza's SE staircase, wood-fenced with
+// a gate on the north run that the staircase lands on.
 export const DEMO_LAB = {
-  x0: 31, y0: 22, x1: 36, y1: 26,          // inclusive tile rect (fence ring)
-  gate: [[33, 22], [34, 22]],              // fence gap on the north run
-  sign: { x: 34.3, z: 25.85 },             // DEMO LAB board inside, facing camera
-  wip: { x: 32.2, z: 25.5 },               // under-construction signpost
+  x0: 30, y0: 20, x1: 35, y1: 25,          // inclusive tile rect (fence ring)
+  gate: [[31, 20], [32, 20]],              // fence gap on the north run
+  sign: { x: 34.5, z: 24.5 },              // DEMO LAB board inside, facing camera
+  wip: { x: 31.8, z: 24.3 },               // under-construction signpost
   slots: [                                  // pre-authored demo stall spots
-    { x: 32.4, z: 23.5 }, { x: 33.9, z: 23.4 }, { x: 35.4, z: 23.5 },
-    { x: 32.9, z: 25.0 }, { x: 34.9, z: 24.9 }
+    { x: 31.7, z: 22.4 }, { x: 33.2, z: 22.3 }, { x: 34.5, z: 22.4 },
+    { x: 32.3, z: 24.0 }, { x: 34.2, z: 23.9 }
   ]
 };
 
 export function buildMap() {
   const tiles = RAW_MAP.map(r => r.split(''));
-  for (const [x, y] of PLAZA_TILES) tiles[y][x] = 'P';
   for (const [x, y] of SECRET_GAP) tiles[y][x] = 'G';
-  // Path jogs (VISUAL_PLAYBOOK: paths curve, never straight >6 tiles).
-  // Each avenue jogs a full 2 rows over 5-7 tiles with 1-row transition
-  // elbows, so the offset survives the 45-degree camera (a 1-row jog
-  // flattened back into a straight boulevard at wide zoom). P/G/F swaps
-  // only — both walkable, collision unchanged.
-  const setAvenue = (y0, y1, topRow) => {
-    for (let x = 5; x <= 34; x++) {
-      if (x >= 18 && x <= 21) continue;           // plaza / crossings untouched
-      const top = topRow(x);
-      for (let y = y0; y <= y1; y++) {
-        const cur = tiles[y][x];
-        if (y === top || y === top + 1) {
-          if (cur === 'G' || cur === 'F' || cur === 'P') tiles[y][x] = 'P';
-        } else if (cur === 'P') tiles[y][x] = 'G';
-      }
-    }
-  };
-  // north avenue: base rows 9-10; jogs up 2 rows in the west, down 2 east
-  setAvenue(7, 12, (x) =>
-    (x >= 10 && x <= 15) ? 7 :
-    (x === 9 || x === 16) ? 8 :
-    (x >= 28 && x <= 33) ? 11 :
-    (x === 27 || x === 34) ? 10 : 9);
-  // south avenue: base rows 20-21; both jogs rise 2 rows, threading the
-  // gaps between the south-row buildings so the path fronts their doors
-  setAvenue(18, 21, (x) =>
-    (x >= 9 && x <= 13) ? 18 :
-    (x === 8 || x === 14) ? 19 :
-    (x >= 26 && x <= 30) ? 18 :
-    (x === 25 || x === 31) ? 19 : 20);
-  tiles[19][18] = 'P'; tiles[19][21] = 'P';   // round the south crossing
-  tiles[22][31] = 'G';                       // flower moved out of lab fence
-  // Demo lab: white-picket ring (reuses the nursery fence logic/collision)
+  // Demo lab: wood ring drawn from the const (gate tiles stay path)
   const L = DEMO_LAB;
   const gate = new Set(L.gate.map(([x, y]) => x + ',' + y));
   for (let x = L.x0; x <= L.x1; x++) {
@@ -139,33 +117,56 @@ export function tileAt(tiles, x, y) {
 }
 
 /* ---- world layout (tile coords; world pos = +0.5 at centers) ---------- */
-export const HOME_SLOT = { x: 18, y: 4 };
+// Building slot (x, y) -> world center (x+2, y+2). Order matches the
+// product order in data/projects.js:
+//   [macrodoc, mathstreet, mathwings, funnify, lasthand, gunball]
+// Districts of two: NW court (macrodoc + lasthand), NE "math games" court
+// (mathstreet + mathwings), SW court (gunball + funnify). funnify and
+// lasthand swapped courts on purpose: bld_lasthand + bld_gunball are both
+// near-black facades, and pairing them made the SW corner one large dark
+// mass — each district now holds at most one dark building.
+export const HOME_SLOT = { x: 18, y: 4 };            // About house, top-center axis
 export const BUILDING_SLOTS = [
-  { x: 5, y: 5 }, { x: 31, y: 5 }, { x: 5, y: 16 }, { x: 31, y: 16 },
-  { x: 14, y: 16 }, { x: 22, y: 16 }
+  { x: 6, y: 4 },                     // macrodoc   -> (8, 6)   NW court, west
+  { x: 25, y: 4 },                    // mathstreet -> (27, 6)  NE court, west
+  { x: 29, y: 4 },                    // mathwings  -> (31, 6)  NE court, east
+  { x: 10, y: 16 },                   // funnify    -> (12, 18) SW court, east
+  { x: 10, y: 4 },                    // lasthand   -> (12, 6)  NW court, east
+  { x: 6, y: 16 }                     // gunball    -> (8, 18)  SW court, west
 ];
+// Creature homes flank their own building ~3 tiles off the district
+// street, so wander circles (r <= 2.2) barely graze the path network.
 export const CREATURE_SPOTS = [
-  { x: 10, y: 11 }, { x: 29, y: 11 }, { x: 10, y: 22 }, { x: 29, y: 22 },
-  { x: 13, y: 22 }, { x: 27, y: 22 }
+  { x: 5, y: 7 },                     // macrodoc
+  { x: 24, y: 7 },                    // mathstreet
+  { x: 34, y: 7 },                    // mathwings (east strip — keeps GOLDIE's
+                                      // tree-gap alcove clear of bystanders)
+  { x: 15, y: 20 },                   // funnify (SW court — greets the gate)
+  { x: 14, y: 4 },                    // lasthand (NW court, beside its building)
+  { x: 5, y: 19 }                     // gunball
 ];
+// Nursery interior slots ring the gazebo; first three (live eggs) spread
+// NW / NE / S so the garden reads full from the SE camera.
 export const EGG_SLOTS = [
-  { x: 17.5, z: 24.6 }, { x: 20.5, z: 25.8 }, { x: 23.5, z: 24.6 },
-  { x: 18.5, z: 25.8 }, { x: 22.5, z: 25.8 }, { x: 17.5, z: 23.4 }
+  { x: 17.8, z: 21.9 }, { x: 23.2, z: 21.9 }, { x: 19.3, z: 24.4 },
+  { x: 21.7, z: 24.4 }, { x: 17.7, z: 23.9 }, { x: 23.3, z: 23.9 }
 ];
-export const NPC_POS = { x: 17.5, z: 8.6 };
-export const SIGN_POS = { x: 22.6, z: 8.5 };
-export const PLAYER_START = { x: 19.5, z: 12.6 };
-export const FOUNTAIN = { x: 20, z: 10, r: 1.02 };
-export const NURSERY_GAZEBO = { x: 20.5, z: 23.95, r: 1.05 };
+export const NPC_POS = { x: 18.2, z: 17.3 };         // greeter beside the south axis
+export const SIGN_POS = { x: 22.6, z: 15.6 };        // plaza SE corner, by the SE fork
+export const PLAYER_START = { x: 20.5, z: 15.9 };    // plaza south rim, fountain behind
+export const FOUNTAIN = { x: 20, z: 14, r: 1.02 };   // plaza centerpiece = map center
+export const NURSERY_GAZEBO = { x: 20.5, z: 23.4, r: 1.05 };
 
-// YOONKI voxel letters, west of the spawn plaza.
-export const LETTERS = { x: 13.7, z: 11.15, step: 0.92 };
+// YOONKI voxel letters on the lawn wedge NW of the plaza, read over the
+// fountain from the SE camera.
+export const LETTERS = { x: 13.9, z: 9.6, step: 0.92 };
 
-// Physics playground, east of spawn.
+// Physics playground on the plaza's NE shoulder — in the spawn frame,
+// between the NE and SE spokes, never on a path.
 export const PLAYGROUND = {
-  pins: { x: 24.4, z: 11.6 },
-  crates: [{ x: 22.4, z: 12.7 }, { x: 26.1, z: 12.5 }],
-  ball: { x: 22.9, z: 11.0 }
+  pins: { x: 27.6, z: 13.3 },
+  crates: [{ x: 25.9, z: 14.1 }, { x: 29.0, z: 13.6 }],
+  ball: { x: 26.1, z: 12.7 }
 };
 
 /* ---- camera / lighting constants (VISUAL_PLAYBOOK values) ------------- */

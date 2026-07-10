@@ -83,6 +83,16 @@ window.PROJECTS = [
     sprite: "images/game/creatures/lasthand.png"
   },
   {
+    id: "gunball",
+    name: "GUNBALL",
+    url: "https://www.roblox.com/games/70813132206095/GUNBALL",
+    tagline: "Soccer, but everyone has a rocket launcher.",
+    desc: "This round rowdy creature rolls around a neon stadium waiting to be blasted — no feet allowed, guns only. Two teams of three shove a giant ball toward the net with pure force: rifles knock it around, rockets send it (and you) flying, and rocket-jumping over your own teammates is not just legal but encouraged. Nothing deals damage, so the only casualties are clean sheets — it's all chaos, goals, and one very smug MVP.",
+    kind: "creature",
+    category: "product",
+    sprite: "images/game/creatures/gunball.png"
+  },
+  {
     id: "suno",
     name: "Music",
     url: "",

@@ -135,7 +135,12 @@ export function createCameraRig(aspect) {
       state.mode = 'follow';
       applyProjection();
       const cb = state.introDone; state.introDone = null;
-      cb && cb();
+      // defer the done-callback one frame: skipIntro is called from input
+      // handlers, and a synchronous state flip would let the SAME keydown/
+      // pointerdown event fall through into the world action handler (the
+      // spawn point sits inside the fountain's interaction radius, so the
+      // skip press instantly opened the FOUNTAIN dialog)
+      if (cb) requestAnimationFrame(() => cb());
     },
 
     /**

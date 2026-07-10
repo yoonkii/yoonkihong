@@ -197,13 +197,56 @@ const WALK = {
   bob: 0.05, headNod: 0.05, lean: 0.15
 };
 
-export function createPlayer(scene) {
+/* ---- rigged GLB characters (player / npc_yoonki) ---------------------
+   The authored GLBs ship skinned with two clips: `walk` (1.0s loop) and
+   `idle` (8.0s breathe/look-around). Both actions stay scheduled on one
+   mixer and swap via 0.15s crossfades; walk timeScale is speed-synced so
+   the stride never foot-slides. At timeScale 1 the walk loop covers two
+   steps — REF_SPEED is tuned so max run (5.2 wu/s) lands ~4.8 steps/s,
+   matching the old procedural stride. */
+const XFADE = 0.15;
+const WALK_REF_SPEED = 2.2;      // wu/s at walk timeScale 1
+function createCharacterAnim(gm) {
+  const clips = (gm.userData && gm.userData.animations) || [];
+  const walkClip = clips.find((c) => c.name === 'walk');
+  const idleClip = clips.find((c) => c.name === 'idle');
+  if (!walkClip || !idleClip) return null;
+  const mixer = new THREE.AnimationMixer(gm);
+  const idle = mixer.clipAction(idleClip);
+  const walk = mixer.clipAction(walkClip);
+  idle.play();
+  return {
+    mixer, idle, walk, moving: false, stepPhase: 0,
+    walkDur: walkClip.duration || 1,
+    setMoving(m) {
+      if (m === this.moving) return;
+      this.moving = m;
+      const to = m ? this.walk : this.idle;
+      const from = m ? this.idle : this.walk;
+      to.enabled = true;
+      to.reset().setEffectiveWeight(1).play();
+      from.crossFadeTo(to, XFADE, false);
+    }
+  };
+}
+
+export function createPlayer(scene, glb = {}) {
   const group = new THREE.Group();
   const inner = new THREE.Group();            // yaw + squash/stretch pivot
   group.add(inner);
 
-  const rig = buildPlayerRig(inner);
-  if (!rig) inner.add(safeActorMesh('player'));
+  // authored rigged GLB (walk/idle clips, cloned via SkeletonUtils in the
+  // loader). Squash-stretch accents stay OFF for the skinned mesh — the
+  // clips own the body language. Missing/clipless GLB -> voxel rig.
+  let anim = null;
+  let rig = null;
+  if (glb.player) anim = createCharacterAnim(glb.player);
+  if (anim) {
+    inner.add(glb.player);
+  } else {
+    rig = buildPlayerRig(inner);
+    if (!rig) inner.add(safeActorMesh('player'));
+  }
 
   const shadow = makeBlobShadow(0.52);
   group.add(shadow);
@@ -212,7 +255,10 @@ export function createPlayer(scene) {
   group.position.set(PLAYER_START.x, 0, PLAYER_START.z);
 
   const player = {
-    group, inner, rig, shadow,
+    group, inner, rig, shadow, glb: !!anim,
+    // title screen: game logic is paused but the rigged character must keep
+    // breathing (a frozen skinned mesh holds the bind pose)
+    tickAnim: anim ? (dt) => anim.mixer.update(dt) : null,
     pos: new THREE.Vector3(PLAYER_START.x, 0, PLAYER_START.z),
     vel: new THREE.Vector2(0, 0),
     yaw: 0,                                    // model front is +Z: faces camera
@@ -265,7 +311,23 @@ export function createPlayer(scene) {
     // ---- walk cycle --------------------------------------------------------
     const moving = player.speed > 0.35;
     const spdK = Math.min(1, player.speed / player.maxSpeed);
-    if (rig && !REDUCED) {
+    if (anim) {
+      // rigged GLB: crossfade idle<->walk, stride speed-synced. Runs under
+      // prefers-reduced-motion too — an un-animated skinned mesh would
+      // T-pose glide, which reads as breakage, not calm.
+      anim.setMoving(moving);
+      const ts = Math.max(0.5, Math.min(2.6, player.speed / WALK_REF_SPEED));
+      anim.walk.setEffectiveTimeScale(ts);
+      anim.mixer.update(dt);
+      if (moving) {
+        // footfalls: two per walk loop — same SFX/dust beat as the old rig
+        const prev = anim.stepPhase;
+        anim.stepPhase += dt * ts * (Math.PI * 2) / anim.walkDur;
+        if (Math.floor(prev / Math.PI) !== Math.floor(anim.stepPhase / Math.PI)) {
+          if (player.onStep) player.onStep(player.pos, player.speed);
+        }
+      }
+    } else if (rig && !REDUCED) {
       if (moving) {
         const prev = player.walkPhase;
         player.walkPhase += dt * (WALK.freq + player.speed * WALK.freqPerSpeed);
@@ -329,9 +391,13 @@ export function createPlayer(scene) {
     group.position.set(player.pos.x, 0, player.pos.z);
     inner.position.y = player.bobY;
     inner.rotation.y = player.yaw;
-    const landSquash = REDUCED ? 1 : 1 - 0.06 * player.landK;
-    const sy = Math.max(0.8, (player.sy + breathe) * landSquash);
-    inner.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
+    if (!anim) {
+      // procedural squash-stretch: voxel rig only — the skinned clips carry
+      // their own weight/recoil, and non-uniform scale warps a skinned mesh
+      const landSquash = REDUCED ? 1 : 1 - 0.06 * player.landK;
+      const sy = Math.max(0.8, (player.sy + breathe) * landSquash);
+      inner.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
+    }
     const sh = 1 - Math.min(0.3, player.bobY * 2.0);
     player.shadow.scale.set(sh, sh, sh);
     player.shadow.material.opacity = sh;
@@ -344,15 +410,23 @@ export function createPlayer(scene) {
 /* ------------------------------------------------------------------ *
  *  NPC YOONKI                                                          *
  * ------------------------------------------------------------------ */
-export function createNPC(scene) {
+export function createNPC(scene, glb = {}) {
   const group = new THREE.Group();
   const inner = new THREE.Group();
   group.add(inner);
-  inner.add(roundedActorMesh('npc_yoonki') || safeActorMesh('npc_yoonki'));
+  // rigged GLB twin of the player (mint hoodie, no backpack): idle clip
+  // only — the greeter never walks. Missing GLB -> rounded voxel model.
+  const anim = glb.npc_yoonki ? createCharacterAnim(glb.npc_yoonki) : null;
+  if (anim) inner.add(glb.npc_yoonki);
+  else inner.add(roundedActorMesh('npc_yoonki') || safeActorMesh('npc_yoonki'));
   group.add(makeBlobShadow(0.52));
   group.position.set(NPC_POS.x, 0, NPC_POS.z);
 
-  const npc = { group, inner, yaw: 0.15, pos: { x: NPC_POS.x, z: NPC_POS.z }, r: 0.35, speed: 0 };
+  const npc = {
+    group, inner, yaw: 0.15, glb: !!anim,
+    tickAnim: anim ? (dt) => anim.mixer.update(dt) : null,
+    pos: { x: NPC_POS.x, z: NPC_POS.z }, r: 0.35, speed: 0
+  };
   npc.update = function (dt, playerPos, t) {
     const dx = playerPos.x - NPC_POS.x, dz = playerPos.z - NPC_POS.z;
     const near = dx * dx + dz * dz < 9;
@@ -361,7 +435,8 @@ export function createNPC(scene) {
       : 0.15 + Math.sin(t * 0.25) * 0.7;            // slow look-around
     npc.yaw = angleLerp(npc.yaw, target, 1 - Math.exp(-6 * dt));
     inner.rotation.y = npc.yaw;
-    if (!REDUCED) inner.scale.y = 1 + Math.sin(t * 3.2) * 0.012;
+    if (anim) anim.mixer.update(dt);                // authored idle breathe
+    else if (!REDUCED) inner.scale.y = 1 + Math.sin(t * 3.2) * 0.012;
   };
   scene.add(group);
   return npc;

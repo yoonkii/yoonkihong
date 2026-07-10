@@ -22,6 +22,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { ASSET_V } from './const.js';
 
 /* ------------------------------------------------------------------ *
@@ -39,6 +40,12 @@ export const TARGET_HEIGHTS = {
   funnify: 1.625,
   lasthand: 1.5,
   goldie: 1.0,
+  // GUNBALL: round soccer-ball creature — ball body dominant, reads wide
+  gunball: 1.375,
+  // rigged hero characters (skinned, clips walk/idle — NOT creatures: no
+  // 1.25x boost; these are the 1-wu-tile yardstick everything scales from)
+  player: 1.625,
+  npc_yoonki: 1.625,
   // buildings (front facade toward +Z; footprint must match the voxel
   // footprint within ~10% — colliders are sized from it, see pipeline doc)
   bld_about_house: 3.625,
@@ -50,6 +57,8 @@ export const TARGET_HEIGHTS = {
   // so 2.875 lands the footprint at 2.49 × 2.52 — matching the voxel
   // fallback's 2.5 × 2.5 collider (world.js sizes AABBs from the voxel model)
   bld_lasthand: 2.875,
+  // GUNBALL neon arena kiosk: compact — shortest building tier with bld_mathwings
+  bld_gunball: 2.75,
   // props
   tree_a: 1.625,          // oak silhouette (game scatters at 0.9–1.18 scale)
   tree_b: 1.5,            // pine silhouette
@@ -72,7 +81,7 @@ export const DEFAULT_HEIGHT = 1.5;
    authored to the voxel silhouettes, but at overworld zoom (~40px tall) they
    washed out against the buildings. The bump keeps them key-readable wide
    while the encounter camera (halfH 3.1) still frames them comfortably. */
-const CREATURES = new Set(['macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'goldie']);
+const CREATURES = new Set(['macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'goldie', 'gunball']);
 const CREATURE_SCALE = 1.25;
 
 /* Per-asset max XZ footprint (largest of width/depth, wu). Height
@@ -82,7 +91,24 @@ const CREATURE_SCALE = 1.25;
    it; the 20260710 superhero re-export lands 1.72 × 1.08 at contract
    height × boost, inside its 1.75 × 1.13 guide, so the clamp is now a
    dormant safety net (harmless, kept for future re-exports). */
-const FOOTPRINT_XZ = { mathwings: 1.85 };
+const FOOTPRINT_XZ = {
+  mathwings: 1.85,
+  // gunball's shoulder-launcher pose lands 1.89 wu wide at contract height ×
+  // boost (raw 1.898 × 1.727 × 1.429) — clamp to the widest creature guide
+  gunball: 1.75
+};
+
+/* Per-asset yaw correction (radians, applied in a dedicated wrapper between
+   the caller-owned outer group and the normalize wrapper). The Meshy
+   rigging/animation retarget ships the player/npc clips facing the (-X,+Z)
+   diagonal — the 3/4 concept angle — instead of the contract's +Z.
+   Verified in-game by yaw sweep: at actor yaw PI/4 + offset PI/4 the face
+   is dead-square to the SE camera. +PI/4 spins (-X,+Z) onto +Z so actor
+   code keeps its "front is +Z" math. */
+const YAW_OFFSET = {
+  player: Math.PI / 4,
+  npc_yoonki: Math.PI / 4
+};
 
 export function targetHeightFor(name) {
   if (TARGET_HEIGHTS[name] != null) {
@@ -313,9 +339,18 @@ export async function loadGLB(name, opts = {}) {
   const gltf = await fetchGLTF(name, opts.onProgress);
   if (!gltf) return null;
   try {
-    // NOTE: plain clone — fine for static meshes. Skinned/rigged GLBs would
-    // need SkeletonUtils.clone; none are in the current contract.
-    const inst = gltf.scene.clone(true);
+    // Skinned/rigged GLBs (player, npc_yoonki) need SkeletonUtils.clone —
+    // a plain clone(true) leaves the clone's SkinnedMeshes bound to the
+    // ORIGINAL skeleton's bones. Static meshes keep the cheap plain clone.
+    let skinned = false;
+    gltf.scene.traverse((o) => { if (o.isSkinnedMesh) skinned = true; });
+    const inst = skinned ? cloneSkinned(gltf.scene) : gltf.scene.clone(true);
+    if (skinned) {
+      // bind-pose bounding volumes don't follow the animated pose (and the
+      // Meshy armature root carries a 0.01 scale) — without this the mesh
+      // pops out of view whenever the stale bounds leave the ortho frustum
+      inst.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+    }
     if (opts.castShadow) harmonize(inst, true);
 
     // measure in a neutral wrapper so any transforms baked on gltf.scene
@@ -346,7 +381,17 @@ export async function loadGLB(name, opts = {}) {
 
     const group = new THREE.Group();
     group.name = 'glb_' + name;
-    group.add(norm);
+    if (YAW_OFFSET[name]) {
+      // own wrapper: callers write rotation on the outer group / their own
+      // pivots, so the authoring correction can never be clobbered
+      const spin = new THREE.Group();
+      spin.name = 'glb_yawfix';
+      spin.rotation.y = YAW_OFFSET[name];
+      spin.add(norm);
+      group.add(spin);
+    } else {
+      group.add(norm);
+    }
     group.userData = {
       glbName: name,
       targetHeight: target,

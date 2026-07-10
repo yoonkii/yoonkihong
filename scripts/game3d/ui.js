@@ -15,9 +15,9 @@ export function createUI(audio) {
     title: $('title-screen'), loadFill: $('load-fill'), loadLabel: $('load-label'),
     pressStart: $('press-start'),
     dialog: $('dialog'), dlgName: $('dlg-name'), dlgText: $('dlg-text'),
-    dlgMore: $('dlg-more'), dlgLinks: $('dlg-links'),
+    dlgMore: $('dlg-more'), dlgLinks: $('dlg-links'), dlgMenu: $('dlg-menu'),
     encounter: $('encounter'), encName: $('enc-name'), encTag: $('enc-tag'),
-    encText: $('enc-text'), encMenu: $('enc-menu'),
+    encText: $('enc-text'), encMenu: $('enc-menu'), encMore: $('enc-more'),
     fx: $('fx'), hud: $('hud'), btnMute: $('btn-mute'), btnHelp: $('btn-help'),
     hudProgress: $('hud-progress'),
     help: $('help'), helpClose: $('help-close'), hint: $('hint'),
@@ -28,6 +28,11 @@ export function createUI(audio) {
   const handlers = {
     action: null, cancel: null, dir: null, any: null, start: null
   };
+
+  // live while the first-run HOW TO PLAY hint is showing (maybeShowHint):
+  // touch players never fire a keydown, so the joystick / A/B pointerdown
+  // paths and any dialog/encounter open dismiss it through this hook too
+  let hintDismiss = null;
 
   /* ------------------------------------------------------------------ *
    *  INPUT                                                               *
@@ -93,8 +98,11 @@ export function createUI(audio) {
     els.joy.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       joy.active = true; joy.id = e.pointerId;
-      els.joy.setPointerCapture(e.pointerId);
+      if (hintDismiss) hintDismiss();
       if (handlers.any) handlers.any();
+      // capture can throw on a pointer already released (fast tap) — never
+      // let that kill the input handling above
+      try { els.joy.setPointerCapture(e.pointerId); } catch (err) { /* noop */ }
       onMove(e);
     });
     els.joy.addEventListener('pointermove', onMove);
@@ -112,6 +120,7 @@ export function createUI(audio) {
     b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       b.classList.add('active');
+      if (hintDismiss) hintDismiss();
       if (handlers.any) handlers.any();
       if (handlers[kind]) handlers[kind]();
     });
@@ -193,17 +202,179 @@ export function createUI(audio) {
   }
 
   /* ------------------------------------------------------------------ *
-   *  DIALOG                                                              *
+   *  CHOICE MENU (shared Pokemon-style grid: dialog + encounter)          *
+   *  2-column battle-menu grid: arrows/WASD move the ▶ cursor,            *
+   *  action confirms, taps work directly (44px+ targets in CSS).          *
    * ------------------------------------------------------------------ */
-  const dialog = { pages: [], i: 0, links: false, onClose: null };
-  function openDialog(name, pages, links, onClose) {
-    dialog.pages = pages; dialog.i = 0; dialog.links = !!links;
+  // mash guard: ignore confirms briefly after a menu (re)appears, so
+  // "press to skip text, press again" can't accidentally activate the
+  // pre-selected item (e.g. open an external tab the player never meant to)
+  const MENU_GRACE_MS = 275;
+  const MENU_COLS = 2;
+  function gridStep(idx, n, dir) {
+    if (n < 2) return idx;
+    if (dir === 'left') return (idx + n - 1) % n;
+    if (dir === 'right') return (idx + 1) % n;
+    const lastRow = Math.floor((n - 1) / MENU_COLS);
+    if (dir === 'down') {
+      const t = idx + MENU_COLS;
+      if (t < n) return t;
+      if (Math.floor(idx / MENU_COLS) < lastRow) return n - 1; // clamp into last row
+      const top = idx % MENU_COLS;                             // wrap to top row
+      return top === idx ? idx : top;
+    }
+    // up
+    const t = idx - MENU_COLS;
+    if (t >= 0) return t;
+    const bottom = Math.min(idx % MENU_COLS + MENU_COLS * lastRow, n - 1);
+    return bottom === idx ? idx : bottom;
+  }
+  /** items: [{ label, href?, ...payload }]. onPick(item) fires on confirm/tap.
+   *  href items render as real anchors (new tab, popup-blocker friendly). */
+  function createChoiceMenu(container) {
+    const st = { items: [], idx: 0, armedAt: 0, active: false, onPick: null };
+    function render() {
+      st.items.forEach((m, i) => {
+        const sel = i === st.idx;
+        m.btn.classList.toggle('sel', sel);
+        // focus is withheld during the grace window — a mashed Enter would
+        // otherwise natively activate a focused anchor, bypassing confirm()
+        if (sel && st.active && performance.now() - st.armedAt >= MENU_GRACE_MS) {
+          focusEl(m.btn);
+        }
+      });
+    }
+    function show(items, onPick, startIdx) {
+      st.items = items; st.onPick = onPick || null;
+      st.idx = Math.min(Math.max(startIdx || 0, 0), items.length - 1);
+      st.active = true; st.armedAt = performance.now();
+      container.innerHTML = '';
+      items.forEach((m, i) => {
+        let b;
+        if (m.href) {
+          b = document.createElement('a');
+          b.href = m.href; b.target = '_blank'; b.rel = 'noopener';
+          b.addEventListener('click', (ev) => {
+            ev.stopPropagation();                // deliberate tap: let it navigate
+            st.idx = i; render();
+            audio.sfx.confirm();
+            if (st.onPick) st.onPick(m);
+          });
+        } else {
+          b = document.createElement('button');
+          b.type = 'button';
+          b.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            st.idx = i; render();
+            confirm();                           // taps share the mash guard
+          });
+        }
+        b.addEventListener('pointerenter', () => {
+          if (!st.active || i === st.idx) return;
+          st.idx = i; render();
+        });
+        b.className = 'enc-btn';
+        b.textContent = m.label;
+        container.appendChild(b);
+        m.btn = b;
+      });
+      container.hidden = false;
+      if (!REDUCED) {                            // GBA menu slide-in
+        container.classList.remove('pop');
+        void container.offsetWidth;
+        container.classList.add('pop');
+      }
+      render();
+      // grant real focus to the selection once the grace period passes
+      setTimeout(() => { if (st.active && !container.hidden) render(); }, MENU_GRACE_MS + 15);
+    }
+    function hide() {
+      st.active = false;
+      container.hidden = true;
+    }
+    function move(dir) {
+      if (!st.active || st.items.length < 2) return;
+      const t = gridStep(st.idx, st.items.length, dir);
+      if (t === st.idx) return;
+      st.idx = t;
+      audio.sfx.blip();
+      render();
+    }
+    function confirm() {
+      if (!st.active) return;
+      // swallow the mash press that lands right after the menu appears; the
+      // highlight already shows the selection for the next deliberate press
+      if (performance.now() - st.armedAt < MENU_GRACE_MS) return;
+      const m = st.items[st.idx];
+      if (!m) return;
+      if (m.href && m.btn && m.btn.tagName === 'A') {
+        m.btn.click();                           // anchor path plays sfx + onPick
+        return;
+      }
+      audio.sfx.confirm();
+      if (st.onPick) st.onPick(m);
+    }
+    return {
+      show, hide, move, confirm,
+      get active() { return st.active; },
+      get idx() { return st.idx; }
+    };
+  }
+
+  /** Split flavor text into GBA-sized pages (sentence-packed, \n\n = break). */
+  function paginate(text, max) {
+    max = max || 200;
+    const pages = [];
+    for (const block of String(text).split('\n\n')) {
+      const sentences = [];
+      let buf = '';
+      for (let i = 0; i < block.length; i++) {
+        buf += block[i];
+        const nx = block[i + 1];
+        if ('.!?'.indexOf(block[i]) !== -1 && (nx === ' ' || nx === undefined)) {
+          sentences.push(buf.trim()); buf = '';
+          while (block[i + 1] === ' ') i++;
+        }
+      }
+      if (buf.trim()) sentences.push(buf.trim());
+      let cur = '';
+      for (const sn of sentences) {
+        const cand = cur ? cur + ' ' + sn : sn;
+        if (cur && cand.length > max) { pages.push(cur); cur = sn; }
+        else cur = cand;
+      }
+      if (cur) pages.push(cur);
+    }
+    return pages.length ? pages : [String(text)];
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  DIALOG                                                              *
+   *  Two flavors sharing the same box:                                    *
+   *   openDialog     — classic linear pages (fountain, GOLDIE)            *
+   *   openMenuDialog — Pokemon script: intro line -> choice menu ->       *
+   *                    topic pages -> back to the menu, until close       *
+   * ------------------------------------------------------------------ */
+  const dialog = {
+    mode: 'idle',   // idle | pages | intro | menu | topic
+    pages: [], i: 0, links: false, onClose: null,
+    script: null, topic: [], ti: 0, introText: '', menuIdx: 0
+  };
+  const dlgMenu = createChoiceMenu(els.dlgMenu);
+  function openDialogShell(name, onClose) {
+    if (hintDismiss) hintDismiss();            // never float over an open box
     dialog.onClose = onClose || null;
     els.dlgName.textContent = name;
     els.dlgLinks.hidden = true;
+    dlgMenu.hide();
     els.dialog.hidden = false;
     document.body.classList.add('in-dialog');
     grabFocus(els.dialog);
+  }
+  function openDialog(name, pages, links, onClose) {
+    dialog.mode = 'pages'; dialog.script = null;
+    dialog.pages = pages; dialog.i = 0; dialog.links = !!links;
+    openDialogShell(name, onClose);
     showDialogPage();
   }
   function showDialogPage() {
@@ -213,16 +384,78 @@ export function createUI(audio) {
       if (dialog.links && dialog.i === dialog.pages.length - 1) els.dlgLinks.hidden = false;
     });
   }
+  /** script: { intro, menu: [{ label, pages? | links?+line? | close? }] } */
+  function openMenuDialog(name, script, onClose) {
+    dialog.mode = 'intro'; dialog.script = script;
+    dialog.introText = script.intro; dialog.menuIdx = 0;
+    openDialogShell(name, onClose);
+    els.dlgMore.style.visibility = 'hidden';
+    typewrite(els.dlgText, script.intro, () => enterDlgMenu());
+  }
+  function enterDlgMenu(restoreIntro) {
+    dialog.mode = 'menu';
+    els.dlgMore.style.visibility = 'hidden';
+    if (restoreIntro) els.dlgText.textContent = dialog.introText;  // no re-type
+    dlgMenu.show(dialog.script.menu, onDlgPick, dialog.menuIdx);
+  }
+  function onDlgPick(m) {
+    dialog.menuIdx = Math.max(0, dialog.script.menu.indexOf(m));
+    if (m.close) { closeDialog(); return; }
+    if (m.links) {                               // reveal link row, stay in menu
+      els.dlgLinks.hidden = false;
+      if (m.line) els.dlgText.textContent = m.line;
+      return;
+    }
+    if (m.pages) {
+      dialog.mode = 'topic';
+      dialog.topic = m.pages; dialog.ti = 0;
+      els.dlgLinks.hidden = true;
+      dlgMenu.hide();
+      focusEl(els.dialog);
+      showTopicPage();
+    }
+  }
+  function showTopicPage() {
+    els.dlgMore.style.visibility = 'hidden';
+    typewrite(els.dlgText, dialog.topic[dialog.ti], () => {
+      els.dlgMore.style.visibility = 'visible';
+    });
+  }
   function advanceDialog() {
+    if (dialog.mode === 'idle') return;
     if (typer.active) { typerFinish(); return; }
+    if (dialog.mode === 'menu') { dlgMenu.confirm(); return; }
     audio.sfx.blip();
-    if (dialog.i < dialog.pages.length - 1) {
+    if (dialog.mode === 'topic') {
+      if (dialog.ti < dialog.topic.length - 1) { dialog.ti++; showTopicPage(); }
+      else enterDlgMenu(true);                   // DETAILS -> menu loop
+      return;
+    }
+    if (dialog.mode === 'intro') { enterDlgMenu(); return; }
+    if (dialog.i < dialog.pages.length - 1) {    // classic pages
       dialog.i++;
       showDialogPage();
     } else closeDialog();
   }
+  /** B/X/Esc: topic backs out to the menu; everywhere else closes. */
+  function cancelDialog() {
+    if (dialog.mode === 'idle') return;
+    audio.sfx.back();
+    if (dialog.mode === 'topic') {
+      typerStop();
+      enterDlgMenu(true);
+      return;
+    }
+    closeDialog();
+  }
+  function dlgMove(dir) {
+    if (dialog.mode === 'menu') dlgMenu.move(dir);
+  }
   function closeDialog() {
     typerStop();
+    dialog.mode = 'idle';
+    dlgMenu.hide();
+    els.dlgLinks.hidden = true;
     els.dialog.hidden = true;
     document.body.classList.remove('in-dialog');
     restoreFocus();
@@ -230,111 +463,112 @@ export function createUI(audio) {
     cb && cb();
   }
   els.dialog.addEventListener('click', (ev) => {
-    if (ev.target.tagName === 'A') return;
+    if (ev.target.closest('a, button')) return;  // menu/links handle themselves
+    if (dialog.mode === 'menu' && !typer.active) return; // stray taps never confirm
     if (handlers.action) handlers.action();
   });
 
   /* ------------------------------------------------------------------ *
    *  ENCOUNTER                                                           *
+   *  Battle flow: short intro ("A wild X appeared!" + tagline) ->         *
+   *  choice grid [DETAILS][VISIT]/[RUN]. DETAILS pages the Pokedex        *
+   *  entry and returns to the menu; eggs get [DETAILS][BACK].             *
    * ------------------------------------------------------------------ */
-  const enc = { project: null, menu: [], idx: 0, ready: false, readyAt: 0, onVisit: null };
-  // mash guard: ignore confirms briefly after the intro text completes, so
-  // "press to skip text, press again" can't accidentally activate VISIT
-  // (the pre-selected item) and open an external tab the player never meant to
-  const ENC_CONFIRM_GRACE_MS = 275;
-  function showEncounter(p, isEgg, onVisit) {
-    enc.project = p; enc.idx = 0; enc.ready = false; enc.readyAt = 0; enc.onVisit = onVisit || null;
+  const enc = {
+    project: null, mode: 'idle',  // idle | intro | menu | pages
+    pages: [], pi: 0, introText: '', menuItems: [], menuIdx: 0,
+    onVisit: null, onRun: null
+  };
+  const encMenu = createChoiceMenu(els.encMenu);
+  function showEncounter(p, isEgg, onVisit, onRun) {
+    if (hintDismiss) hintDismiss();            // never cover the name plate
+    enc.project = p; enc.mode = 'intro';
+    enc.onVisit = onVisit || null; enc.onRun = onRun || null;
     const soon = !isEgg && !p.url;               // non-egg without a live link
     els.encName.textContent = (isEgg ? 'EGG (' + p.name + ')' : p.name).toUpperCase();
     els.encTag.textContent = isEgg ? 'INCUBATING' : (soon ? 'COMING SOON' : 'WILD');
     els.encTag.classList.toggle('soon', soon);
-    const text = isEgg
-      ? 'You found an EGG! It\'s still incubating...\n\n' + p.desc
-      : 'A wild ' + p.name.toUpperCase() + ' appeared!\n\n"' + p.tagline + '"\n\n' + p.desc
-        + (soon ? '\n\nThis one isn\'t ready for visitors yet — check back soon!' : '');
-    enc.menu = (isEgg || !p.url)
-      ? [{ act: 'run', label: 'BACK' }]
-      : [{ act: 'visit', label: 'VISIT' }, { act: 'run', label: 'RUN' }];
-    els.encMenu.innerHTML = '';
-    enc.menu.forEach((m, i) => {
-      let b;
-      if (m.act === 'visit') {
-        b = document.createElement('a');
-        b.href = p.url;
-        b.target = '_blank';
-        b.rel = 'noopener';
-        b.addEventListener('click', () => {
-          enc.idx = i; encRenderMenu();
-          audio.sfx.confirm();
-          if (enc.onVisit) enc.onVisit(p);
-        });
-      } else {
-        b = document.createElement('button');
-        b.type = 'button';
-        b.addEventListener('click', () => { enc.idx = i; encRenderMenu(); encConfirm(); });
-      }
-      b.className = 'enc-btn';
-      b.textContent = m.label;
-      els.encMenu.appendChild(b);
-      m.btn = b;
-    });
-    els.encMenu.style.visibility = 'hidden';
+    enc.introText = isEgg
+      ? 'You found an EGG! It\'s still incubating...\n"' + p.tagline + '"'
+      : 'A wild ' + p.name.toUpperCase() + ' appeared!\n"' + p.tagline + '"';
+    enc.pages = paginate(p.desc
+      + (soon ? '\n\nThis one isn\'t ready for visitors yet — check back soon!' : ''));
+    enc.menuIdx = 0;
+    enc.menuItems = [{ act: 'details', label: 'DETAILS' }];
+    if (!isEgg && p.url) enc.menuItems.push({ act: 'visit', label: 'VISIT', href: p.url });
+    enc.menuItems.push({ act: 'run', label: isEgg ? 'BACK' : 'RUN' });
+    encMenu.hide();
+    els.encMore.style.visibility = 'hidden';
     els.encounter.hidden = false;
     document.body.classList.add('in-encounter');
     grabFocus(els.encounter.querySelector('.enc-panel'));
-    typewrite(els.encText, text, () => {
-      enc.ready = true;
-      enc.readyAt = performance.now();
-      els.encMenu.style.visibility = 'visible';
-      encRenderMenu();
-      // re-render once the grace period passes so the selected item gains
-      // real focus (focus is withheld below — a mashed Enter would otherwise
-      // natively activate the focused VISIT anchor, bypassing encConfirm)
-      setTimeout(() => {
-        if (enc.ready && !els.encounter.hidden) encRenderMenu();
-      }, ENC_CONFIRM_GRACE_MS + 15);
-    });
+    typewrite(els.encText, enc.introText, () => enterEncMenu());
   }
-  function encRenderMenu() {
-    enc.menu.forEach((m, i) => {
-      const sel = i === enc.idx;
-      m.btn.classList.toggle('sel', sel);
-      if (sel && enc.ready && performance.now() - enc.readyAt >= ENC_CONFIRM_GRACE_MS) {
-        focusEl(m.btn);
-      }
+  function enterEncMenu(restoreIntro) {
+    enc.mode = 'menu';
+    els.encMore.style.visibility = 'hidden';
+    if (restoreIntro) els.encText.textContent = enc.introText;     // no re-type
+    encMenu.show(enc.menuItems, onEncPick, enc.menuIdx);
+  }
+  function onEncPick(m) {
+    enc.menuIdx = Math.max(0, enc.menuItems.indexOf(m));
+    if (m.act === 'details') {
+      enc.mode = 'pages'; enc.pi = 0;
+      encMenu.hide();
+      focusEl(els.encounter.querySelector('.enc-panel'));
+      showEncPage();
+    } else if (m.act === 'visit') {
+      if (enc.onVisit) enc.onVisit(enc.project); // celebration counts VISIT only
+    } else if (m.act === 'run') {
+      if (enc.onRun) enc.onRun();
+    }
+  }
+  function showEncPage() {
+    els.encMore.style.visibility = 'hidden';
+    typewrite(els.encText, enc.pages[enc.pi], () => {
+      els.encMore.style.visibility = 'visible';
     });
   }
   function encMove(dir) {
-    if (!enc.ready || enc.menu.length < 2) return;
-    if (dir === 'left' || dir === 'up') enc.idx = (enc.idx + enc.menu.length - 1) % enc.menu.length;
-    else enc.idx = (enc.idx + 1) % enc.menu.length;
-    audio.sfx.blip();
-    encRenderMenu();
+    if (enc.mode === 'menu') encMenu.move(dir);
   }
-  /** Returns 'visit' | 'run' | null (null = typer finished early). */
   function encConfirm() {
-    if (typer.active) { typerFinish(); return null; }
-    if (!enc.ready) return null;
-    // swallow the mash press that lands right after the text completes; the
-    // highlight already shows the selection for the next deliberate press
-    if (performance.now() - enc.readyAt < ENC_CONFIRM_GRACE_MS) return null;
-    const m = enc.menu[enc.idx];
-    if (!m) return null;
-    audio.sfx.confirm();
-    if (m.act === 'visit') {
-      if (m.btn && m.btn.tagName === 'A') m.btn.click();
-      else if (enc.project && enc.project.url) window.open(enc.project.url, '_blank', 'noopener');
-      return 'visit';
+    if (enc.mode === 'idle') return;
+    if (typer.active) { typerFinish(); return; }
+    if (enc.mode === 'pages') {
+      audio.sfx.blip();
+      if (enc.pi < enc.pages.length - 1) { enc.pi++; showEncPage(); }
+      else enterEncMenu(true);                   // DETAILS -> menu loop
+      return;
     }
-    return 'run';
+    if (enc.mode === 'menu') encMenu.confirm();
+  }
+  /** B/X/Esc: DETAILS pages back out to the menu; menu/intro = RUN. */
+  function encCancel() {
+    if (enc.mode === 'idle') return;
+    audio.sfx.back();
+    if (enc.mode === 'pages') {
+      typerStop();
+      enterEncMenu(true);
+      return;
+    }
+    if (enc.onRun) enc.onRun();
   }
   function encHide() {
     typerStop();
-    enc.ready = false;
+    enc.mode = 'idle';
+    encMenu.hide();
     els.encounter.hidden = true;
     document.body.classList.remove('in-encounter');
     restoreFocus();
   }
+  // tap-to-advance on the panel itself while DETAILS pages are typing/paged
+  els.encounter.addEventListener('click', (ev) => {
+    if (ev.target.closest('a, button')) return;
+    if (enc.mode === 'pages' || typer.active) {
+      if (handlers.action) handlers.action();
+    }
+  });
 
   /* ------------------------------------------------------------------ *
    *  TRANSITION FX (timings ported from the 2D engine)                   *
@@ -417,11 +651,13 @@ export function createUI(audio) {
     if (seen) return;
     els.hint.hidden = false;
     const dismiss = () => {
+      hintDismiss = null;
       els.hint.hidden = true;
       try { localStorage.setItem('yw_hint', '1'); } catch (e) { /* noop */ }
       window.removeEventListener('keydown', dismiss);
       els.hint.removeEventListener('click', dismiss);
     };
+    hintDismiss = dismiss;                     // touch paths + overlay opens
     window.addEventListener('keydown', dismiss);
     els.hint.addEventListener('click', dismiss);
     setTimeout(() => { if (!els.hint.hidden) dismiss(); }, 9000);
@@ -441,6 +677,11 @@ export function createUI(audio) {
     ready = true;
     els.loadLabel.textContent = 'READY!';
     els.loadFill.style.width = '100%';
+    // one prompt on the hero shot: after a "READY!" beat the finished loader
+    // fades out (styles/main.css .load-wrap — opacity only, so PRESS START
+    // never jumps) and PRESS START carries the title screen alone
+    const wrap = els.loadFill.closest('.load-wrap');
+    if (wrap) wrap.classList.add('done');
     els.pressStart.hidden = false;
   }
   function tryStart() {
@@ -476,9 +717,9 @@ export function createUI(audio) {
   return {
     els, handlers, getMove,
     typewrite, typerFinish, typerStop, get typing() { return typer.active; },
-    openDialog, advanceDialog, closeDialog,
+    openDialog, openMenuDialog, advanceDialog, cancelDialog, closeDialog, dlgMove,
     get dialogOpen() { return !els.dialog.hidden; },
-    showEncounter, encMove, encConfirm, encHide,
+    showEncounter, encMove, encConfirm, encCancel, encHide,
     transitionIn, transitionOut,
     paintMute, setProgress, maybeShowHint,
     setLoad, enableStart, showFallback,

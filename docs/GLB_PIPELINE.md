@@ -26,8 +26,9 @@ assets/3d/<name>.glb        (binary glTF 2.0, .glb only)
 
 | category  | canonical names |
 |-----------|-----------------|
-| creatures | `macrodoc` `mathstreet` `mathwings` `funnify` `lasthand` `goldie` |
-| buildings | `bld_about_house` `bld_macrodoc` `bld_mathstreet` `bld_mathwings` `bld_funnify` `bld_lasthand` |
+| creatures | `macrodoc` `mathstreet` `mathwings` `funnify` `lasthand` `goldie` `gunball` |
+| buildings | `bld_about_house` `bld_macrodoc` `bld_mathstreet` `bld_mathwings` `bld_funnify` `bld_lasthand` `bld_gunball` |
+| characters| `player` `npc_yoonki` (rigged/skinned — clips `walk` + `idle`, see §7) |
 | props     | `tree_a` `tree_b` `fountain` `egg` |
 
 - Building files are prefixed `bld_` so `macrodoc` (creature) and
@@ -70,6 +71,20 @@ normalized GLB occupies exactly the old silhouette's space.
 | `funnify`    | **1.625** | 1.25 × 1.25 | `creature_funnify` |
 | `lasthand`   | **1.5**   | 1.05 × 0.35 | `creature_lasthand` (tall thin hand — footprint from the 1.31 × 0.41 × 1.90 raw bbox) |
 | `goldie`     | **1.0**   | 0.63 × 0.75 | secret friend (actors.js `SECRET_MODEL`) |
+| `gunball`    | **1.375** | 1.75 × 1.32 | new (GUNBALL) — no voxel fallback; shoulder-launcher pose is wide (raw 1.90 × 1.73 × 1.43), `FOOTPRINT_XZ` clamps to 1.75 |
+
+### Characters (rigged — NO creature boost)
+
+| name | target height | notes |
+|------|--------------:|-------|
+| `player`     | **1.625** | skinned 26-node skeleton, clips `walk` (1.0s loop) + `idle` (8.0s). The 1-wu-tile yardstick — never boosted. |
+| `npc_yoonki` | **1.625** | same skeleton/clip names; mint hoodie, no backpack. |
+
+Both ship facing the **(-X,+Z) diagonal** (Meshy's rigging retarget keeps the
+3/4 concept angle) — the loader's `YAW_OFFSET` table (+45°, own wrapper group)
+restores the +Z contract, so actor yaw math is unchanged. A re-rigged export
+that genuinely faces +Z must remove its `YAW_OFFSET` entry. Verify facing in
+game (yaw sweep) or `rigviewer.html?yaw=N`, not just at turntable spin start.
 
 ### Buildings
 
@@ -81,6 +96,7 @@ normalized GLB occupies exactly the old silhouette's space.
 | `bld_mathwings`   | **2.5**   | 2.75 × 1.75 | `mathwings` |
 | `bld_funnify`     | **3.75**  | 2.50 × 1.75 | `funnify` |
 | `bld_lasthand`    | **2.875** | 2.50 × 2.50 | `lasthand` (nearly cubic raw bbox → 2.49 × 2.52 at contract height) |
+| `bld_gunball`     | **2.75**  | 2.42 × 2.24 | new (GUNBALL) — compact neon arena kiosk, no voxel fallback (raw 1.67 × 1.90 × 1.54); integrator sizes collider from this footprint |
 
 Building footprints are load-bearing: collision AABBs, interaction radii and
 the emissive glow-quad positions (`world.js GLOWS`) are derived from the
@@ -197,9 +213,22 @@ const map = await loadGLBs(['macrodoc', 'tree_a'], (done, total) => {});
 - Each call returns a fresh instance (clone); parsed GLTF + converted
   materials are cached per name.
 - `group.userData = { glbName, targetHeight, rawHeight, animations }` —
-  animation clips pass through untouched for future use.
-- Static meshes only for now (plain `clone`) — a skinned/rigged asset would
-  need `SkeletonUtils.clone`; extend the loader before shipping one.
+  animation clips pass through untouched.
+- **Skinned/rigged assets are supported** (shipped: `player`, `npc_yoonki`):
+  the loader detects `SkinnedMesh` and clones via `SkeletonUtils.clone`
+  (a plain `clone(true)` leaves the copy bound to the original skeleton),
+  and sets `frustumCulled = false` on every mesh — bind-pose bounds don't
+  follow the animated pose and the Meshy armature root carries a 0.01 scale,
+  so stale bounds would cull the character mid-frame. Per-name `YAW_OFFSET`
+  corrections live in their own wrapper group (`glb_yawfix`) between the
+  caller-owned outer group and the normalize wrapper, so caller rotations
+  can't clobber them. Clip playback is the integrator's job:
+  `actors.js` drives a `THREE.AnimationMixer` per character (idle↔walk
+  0.15s crossfades, walk timeScale speed-synced at 2.2 wu/s per 1.0×).
+- Rigged verification harness: **`rigviewer.html?model=<name>&clip=walk|idle`**
+  — glbviewer goes through the game loader's *static* preview path and can't
+  pose skinned meshes for authoring review; rigviewer loads directly with
+  GLTFLoader + MeshoptDecoder under the identical lighting rig.
 
 ## 8. Acceptance checklist (per asset)
 

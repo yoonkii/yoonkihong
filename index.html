@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles/main.css?v=20260710d">
+  <link rel="stylesheet" href="styles/main.css?v=20260710h">
   <!-- kick off the render-critical three.js fetches with the HTML instead of
        waiting for the game3d.js -> three -> core discovery waterfall -->
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js">
@@ -70,6 +70,7 @@
       <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener">LINKEDIN</a>
       <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener">INSTAGRAM</a>
     </div>
+    <div id="dlg-menu" aria-label="Choices" hidden></div>
     <div id="dlg-more" aria-hidden="true">&#9660;</div>
   </div>
 
@@ -81,7 +82,8 @@
     </div>
     <div class="enc-panel gba-box" tabindex="-1">
       <p id="enc-text" role="status" aria-live="polite"></p>
-      <div id="enc-menu"></div>
+      <div id="enc-menu" aria-label="Choices" hidden></div>
+      <div id="enc-more" aria-hidden="true">&#9660;</div>
     </div>
   </div>
 
@@ -131,9 +133,8 @@
   <!-- start screen -->
   <div id="title-screen">
     <div class="title-inner">
-      <div class="title-crest">
-        <img src="images/game/player/down.png" alt="" class="title-hero" draggable="false">
-      </div>
+      <!-- the live diorama behind the overlay IS the hero image; the old
+           floating 2D pixel sprite fought the 3D scene and is retired -->
       <h1 class="game-title">YOONKI<br>WORLD</h1>
       <p class="title-sub">an explorable portfolio &middot; GTM @ Google by day, builder by night</p>
       <div class="load-wrap" aria-hidden="true">

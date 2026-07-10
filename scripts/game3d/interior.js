@@ -31,29 +31,31 @@ const ROOM = {
   camBase: new THREE.Vector3(4.4, 1.05, 3.0)
 };
 
+// short plaque line + MORE pages: the interact opens a Pokemon-style
+// choice menu ([MORE][BACK]) instead of dumping the whole story at once
 const PLAQUES = [
   {
     id: 'plaque_naver', model: 'house_plaque_naver', x: 2.2, name: 'NAVER',
-    pages: [
-      'A green plaque with a blocky white N. NAVER — where the journey ' +
-      'started. First badge, first shipped work, first taste of how big ' +
-      'products actually get made.'
+    line: 'A green plaque with a blocky white N. NAVER — where the journey started.',
+    more: [
+      'First badge, first shipped work, first taste of how big products ' +
+      'actually get made.'
     ]
   },
   {
     id: 'plaque_line', model: 'house_plaque_line', x: 4.5, name: 'LINE',
-    pages: [
-      'A green plaque with a friendly speech bubble. LINE, Seoul — growth ' +
-      'product manager, 2014-2018. Four years of experiments, funnels, and ' +
-      'shipping features for millions of chatty users.'
+    line: 'A green plaque with a friendly speech bubble. LINE, Seoul — growth product manager, 2014-2018.',
+    more: [
+      'Four years of experiments, funnels, and shipping features for ' +
+      'millions of chatty users.'
     ]
   },
   {
     id: 'plaque_google', model: 'house_plaque_google', x: 6.8, name: 'GOOGLE',
-    pages: [
-      'A bright plaque with a big colorful G. GOOGLE — product marketing ' +
-      'at Google Korea (2018-2021), then go-to-market in San Francisco ' +
-      '(2021-now). Launches by day... this island by night.'
+    line: 'A bright plaque with a big colorful G. GOOGLE — 2018 to now.',
+    more: [
+      'Product marketing at Google Korea (2018-2021), then go-to-market ' +
+      'in San Francisco (2021-now). Launches by day... this island by night.'
     ]
   }
 ];
@@ -97,7 +99,7 @@ export function createHouseInterior() {
     // keep the player's head out of the proud logo voxels
     colliders.addAABB(p.x - 0.8, -2, p.x + 0.8, 0.7);
     interactables.push({
-      id: p.id, kind: 'plaque', name: p.name, pages: p.pages,
+      id: p.id, kind: 'plaque', name: p.name, line: p.line, more: p.more,
       pos: { x: p.x, z: 0.9 }, mesh,
       markerX: p.x, markerY: 3.45, markerZ: 0.7, r: 1.35
     });
