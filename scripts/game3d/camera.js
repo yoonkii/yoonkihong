@@ -11,6 +11,21 @@ const CENTER = new THREE.Vector3(20, 0, 15);
 
 function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
+/**
+ * Convert a screen-space offset (wu right, wu up — at the fixed encounter
+ * azimuth and the given elevation) into a ground-plane world offset.
+ * Used to place the staged encounter "trainer slot" relative to a subject.
+ */
+export function screenToGround(elevationDeg, sx, sy) {
+  const az = THREE.MathUtils.degToRad(CAM.azimuth);
+  const el = THREE.MathUtils.degToRad(elevationDeg);
+  const c = -sy / Math.sin(el);                // screen-down = toward camera
+  return {
+    dx: sx * Math.sin(az) + c * Math.cos(az),
+    dz: -sx * Math.cos(az) + c * Math.sin(az)
+  };
+}
+
 export function createCameraRig(aspect) {
   const isMobile = matchMedia('(pointer: coarse)').matches || window.innerWidth < 560;
   const baseHalfH = isMobile ? CAM.halfHMobile : CAM.halfH;
@@ -20,10 +35,12 @@ export function createCameraRig(aspect) {
     target: new THREE.Vector3(20, 0.4, 15),
     halfH: baseHalfH,
     azimuth: CAM.azimuth,
+    elevation: CAM.elevation,
     look: new THREE.Vector3(),               // eased look-ahead
     aspect,
     mode: 'follow',                          // follow | title | tween | hold
     tween: null,
+    hold: null,                              // encounter ultra-slow push-in
     idleT: 0,
     introDone: null
   };
@@ -37,17 +54,19 @@ export function createCameraRig(aspect) {
 
   function placeCamera() {
     camera.position.copy(state.target)
-      .addScaledVector(dirFromAngles(state.azimuth, CAM.elevation), CAM.dist);
+      .addScaledVector(dirFromAngles(state.azimuth, state.elevation), CAM.dist);
     camera.lookAt(state.target);
   }
 
   function startTween(to, dur, after) {
     state.mode = 'tween';
+    state.hold = null;
     state.tween = {
       t: 0, dur,
       fromT: state.target.clone(), toT: to.target,
       fromH: state.halfH, toH: to.halfH,
       fromA: state.azimuth, toA: to.azimuth != null ? to.azimuth : state.azimuth,
+      fromE: state.elevation, toE: to.elevation != null ? to.elevation : state.elevation,
       after
     };
   }
@@ -56,6 +75,8 @@ export function createCameraRig(aspect) {
     camera,
     get halfH() { return state.halfH; },
     get azimuth() { return state.azimuth; },
+    get elevation() { return state.elevation; },
+    get aspect() { return state.aspect; },
 
     setAspect(a) { state.aspect = a; applyProjection(); },
 
@@ -109,6 +130,7 @@ export function createCameraRig(aspect) {
       state.target.copy(tw.toT);
       state.halfH = tw.toH;
       state.azimuth = tw.toA;
+      state.elevation = tw.toE;
       state.tween = null;
       state.mode = 'follow';
       applyProjection();
@@ -117,47 +139,48 @@ export function createCameraRig(aspect) {
     },
 
     /**
-     * Dolly toward the encounter subject. If playerPos is given, swing the
-     * camera a full 90 deg off the player-subject line so the player sits at
-     * the lower-left edge and the subject owns the center third of frame —
-     * the player's back can never occlude the creature. The look target is
-     * also nudged toward the subject's screen-right to bias the composition.
-     * Returns the encounter azimuth (deg).
+     * Pokemon battle framing: ONE short dolly+zoom to a composed two-shot,
+     * then hold dead still. The azimuth never leaves the world's 45° (the
+     * island is authored for that read — and a spinning cut disoriented
+     * players), so the "move" is only pan + zoom + an optional elevation
+     * raise that clears foreground occluders (nursery fence, tree ring).
+     * The subject sits heroX wu right of frame center at a zoom sized to
+     * its measured height; game3d stages the player into the lower-left
+     * foreground slot during the iris blackout. While holding, the only
+     * motion allowed is an ultra-slow push-in (1.5% over 10s; skipped
+     * under prefers-reduced-motion).
+     * frame = { x, z, subjectH, halfH, elevation, heroX }
      */
-    startEncounter(focus, playerPos) {
-      let az = CAM.azimuth;
-      let ax = 0, azd = 0;                       // player->subject push
-      if (playerPos) {
-        const dx = playerPos.x - focus.x, dz = playerPos.z - focus.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 > 0.01) {
-          az = THREE.MathUtils.radToDeg(Math.atan2(dz, dx)) - 90;
-          const d = Math.sqrt(d2);
-          ax = -dx / d; azd = -dz / d;
-        }
-      }
-      // screen-right in world XZ for this azimuth (camera right = up x dir).
-      // 0.8u right-nudge + 0.15u push past the subject: the creature owns
-      // the center third and the player shrinks to the frame corner — their
-      // silhouettes can never overlap (navy hair on navy wing)
-      const azr = THREE.MathUtils.degToRad(az);
-      const rx = Math.sin(azr), rz = -Math.cos(azr);
+    startEncounter(frame) {
+      const el = frame.elevation != null ? frame.elevation : CAM.elevation;
+      const azr = THREE.MathUtils.degToRad(CAM.azimuth);
+      const elr = THREE.MathUtils.degToRad(el);
+      // screen basis in world space for (azimuth, elevation)
+      const right = new THREE.Vector3(Math.sin(azr), 0, -Math.cos(azr));
+      const up = new THREE.Vector3(
+        -Math.cos(azr) * Math.sin(elr), Math.cos(elr), -Math.sin(azr) * Math.sin(elr));
+      // look at the subject's visual mass, shifted so the subject lands
+      // heroX right of center and above the vertical midline (frame.lift:
+      // a hair on desktop; a third of the frame on portrait phones, where
+      // the dialog panel swallows the whole bottom half)
+      const target = new THREE.Vector3(frame.x, frame.subjectH * 0.55, frame.z)
+        .addScaledVector(right, -frame.heroX)
+        .addScaledVector(up, -(frame.lift != null ? frame.lift : frame.halfH * 0.04));
       startTween({
-        target: new THREE.Vector3(
-          focus.x + rx * 0.8 + ax * 0.15,
-          focus.y != null ? focus.y : 0.6,
-          focus.z + rz * 0.8 + azd * 0.15),
-        halfH: CAM.encounterHalfH,
-        azimuth: az
-      }, REDUCED ? 0.01 : 0.9, () => { state.mode = 'hold'; });
-      return az;
+        target, halfH: frame.halfH, azimuth: CAM.azimuth, elevation: el
+      }, REDUCED ? 0.01 : 0.9, () => {
+        state.mode = 'hold';
+        state.hold = { h0: frame.halfH, t: 0 };
+      });
+      return CAM.azimuth;
     },
 
     endEncounter(playerPos) {
       startTween({
         target: new THREE.Vector3(playerPos.x, 0.4, playerPos.z),
         halfH: baseHalfH,
-        azimuth: CAM.azimuth
+        azimuth: CAM.azimuth,
+        elevation: CAM.elevation
       }, REDUCED ? 0.01 : 0.7, () => { state.mode = 'follow'; });
     },
 
@@ -174,11 +197,20 @@ export function createCameraRig(aspect) {
         state.target.lerpVectors(tw.fromT, tw.toT, k);
         state.halfH = tw.fromH + (tw.toH - tw.fromH) * k;
         state.azimuth = tw.fromA + (tw.toA - tw.fromA) * k;
+        state.elevation = tw.fromE + (tw.toE - tw.fromE) * k;
         applyProjection();
         if (tw.t >= tw.dur) {
           state.tween = null;
           tw.after && tw.after();
         }
+      } else if (state.mode === 'hold' && state.hold && !REDUCED) {
+        // held encounter shot: the one motion allowed is a whisper of a
+        // push-in — 1.5% tighter over 10s, then rock still
+        const hd = state.hold;
+        hd.t = Math.min(10, hd.t + dt);
+        const k = hd.t / 10;
+        state.halfH = hd.h0 * (1 - 0.015 * k * k * (3 - 2 * k));
+        applyProjection();
       } else if (state.mode === 'follow') {
         // look-ahead in the walk direction
         const ahead = playerSpeed > 1 ? 0.6 : 0;

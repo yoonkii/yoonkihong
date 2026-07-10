@@ -5,3 +5,4 @@ node_modules/
 .DS_Store
 .gstack/
 assets/3d/concepts/
+assets/3d/*_old.glb

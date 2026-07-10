@@ -55,7 +55,7 @@ glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
 - **새 프로젝트 추가**: 객체 하나 추가 → 게임 맵 슬롯 자동 배정 + classic 카드 자동 생성
 - **알 부화** (Suno/Substack/X 링크 도착 시): 해당 항목에 `url` 채우고 `kind:'creature'`로 변경. 전용 GLB를 원하면 §5 파이프라인으로 생성 후 `GLB_PRELOAD`(scripts/game3d.js)에 이름 추가
 - **데모 추가**: `category:'demo'`로 추가 → Demo Lab 존 스톨에 자동 등장 (슬롯 5개 사전 확보, 없으면 공사중 표지판)
-- **현재 상태**: product 4종(macrodoc, mathstreet, mathwings, funnify) + egg 3종(suno, substack, x). 데모 0종
+- **현재 상태**: product 5종(macrodoc, mathstreet, mathwings, funnify, lasthand) + egg 3종(suno, substack, x). 데모 0종
 
 ## 5. 에셋 파이프라인
 
@@ -66,7 +66,8 @@ glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
 4. `glbviewer.html?model=이름`으로 검증 → `GLB_PRELOAD`에 추가 → **`ASSET_V` 범프** (scripts/game3d/const.js — 캐시버스팅)
 - 용량 예산: 크리처/건물 ≤3MB, 반복 소품(나무) ≤1.2MB
 - **폴백 설계**: GLB 없거나 파싱 실패 → 해당 에셋만 복셀 모델 사용, 게임은 무조건 돌아감
-- 현재 라이브 14종: 크리처 5(macrodoc, mathstreet, mathwings, funnify, goldie) + 건물 5(bld_ 접두) + tree_a/b, fountain, egg
+- 현재 라이브 16종: 크리처 6(macrodoc, mathstreet, mathwings, funnify, lasthand, goldie) + 건물 6(bld_ 접두, lasthand 포함) + tree_a/b, fountain, egg
+- About 하우스 문 = 실내 미니씬 진입 (scripts/game3d/interior.js — NAVER/LINE/GOOGLE 복셀 로고 명판 + 대화)
 
 ### 오디오 (ElevenLabs)
 - **BGM**: 현재 `/v1/sound-generation` 우회 생성물 (키에 `music_generation` 권한 없음 — 401). 권한 추가되면 `/v1/music`으로 재생성 (overworld 90s, encounter 60s, 루프)
@@ -79,11 +80,11 @@ glbviewer.html          GLB 턴테이블 뷰어 (게임과 동일 라이팅)
 
 - 이동: WASD/방향키, 관성(가감속), 카메라 기준 8방향, 벽 슬라이딩. 모바일: 가상 조이스틱 + A/B
 - 인터랙션: 근접 시 "!" 마커, **Space**/Z/Enter 발동, X/Esc 닫기
-- 인카운터: 카메라 돌리 → 타자기 텍스트 → VISIT(새 탭)/RUN. 알 = incubating + BACK. url 없는 non-egg = 파란 COMING SOON 태그
+- 인카운터: 포켓몬식 투샷 — 카메라는 월드 방위각 45° 고정(회전 없음), 한 번의 팬+줌 후 정지(10초에 걸친 1.5% 푸시인만 허용). 아이리스 암전 중 플레이어를 "트레이너 슬롯"(화면 좌하단, 충돌 검사·미러 폴백 포함)으로 컷, RUN 시 페이드 아래 복원. 피사체 높이로 줌 산출, 울타리/수관 가림 시 앙각 35→48→58° 에스컬레이션, 근처 크리처+GOLDIE는 암전 중 숨김. 세로 모바일은 프레임을 위로 올려 패널 위에 투샷 유지 → 타자기 텍스트 → VISIT(새 탭)/RUN. 알 = incubating + BACK. url 없는 non-egg = 파란 COMING SOON 태그
 - NPC 대화(빌더 스토리 멀티페이지), 표지판(링크), 집, Demo Lab 표지판, 시크릿 GOLDIE(숲 뒤)
 - 물리 장난감: 볼링핀 6개·상자·비치볼 (커스텀 임펄스)
 - 인트로: 타이틀 = 라이브 디오라마 → PRESS START → 카메라 스윕(입력 시 스킵, reduced-motion 시 생략)
-- 불꽃놀이: 프로젝트 4종 모두 방문 시 (localStorage, HUD 0/4 카운터)
+- 불꽃놀이: 프로젝트 5종 모두 방문 시 (localStorage, HUD 0/5 카운터 — data/projects.js에서 파생)
 - 사운드: BGM 크로스페이드(월드↔인카운터), 뮤트 localStorage 저장, 뮤트가 BGM+SFX 모두 제어
 - 품질 티어: HIGH/MID/LOW 자동 감지 + 첫 120프레임 실측 적응 (LOW = EffectComposer 완전 생략)
 - 안전망: WebGL 불가 → classic.html 안내 카드. 인카운터 연타 가드 275ms

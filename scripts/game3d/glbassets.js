@@ -37,6 +37,7 @@ export const TARGET_HEIGHTS = {
   mathstreet: 1.25,
   mathwings: 1.5,
   funnify: 1.625,
+  lasthand: 1.5,
   goldie: 1.0,
   // buildings (front facade toward +Z; footprint must match the voxel
   // footprint within ~10% — colliders are sized from it, see pipeline doc)
@@ -45,6 +46,10 @@ export const TARGET_HEIGHTS = {
   bld_mathstreet: 3.875,
   bld_mathwings: 2.5,
   bld_funnify: 3.75,
+  // noir game-parlor booth: nearly cubic raw bbox (1.644w × 1.899h × 1.662d),
+  // so 2.875 lands the footprint at 2.49 × 2.52 — matching the voxel
+  // fallback's 2.5 × 2.5 collider (world.js sizes AABBs from the voxel model)
+  bld_lasthand: 2.875,
   // props
   tree_a: 1.625,          // oak silhouette (game scatters at 0.9–1.18 scale)
   tree_b: 1.5,            // pine silhouette
@@ -67,15 +72,16 @@ export const DEFAULT_HEIGHT = 1.5;
    authored to the voxel silhouettes, but at overworld zoom (~40px tall) they
    washed out against the buildings. The bump keeps them key-readable wide
    while the encounter camera (halfH 3.1) still frames them comfortably. */
-const CREATURES = new Set(['macrodoc', 'mathstreet', 'mathwings', 'funnify', 'goldie']);
+const CREATURES = new Set(['macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'goldie']);
 const CREATURE_SCALE = 1.25;
 
 /* Per-asset max XZ footprint (largest of width/depth, wu). Height
-   normalization alone lets a wide model blow its contract footprint:
-   mathwings (raw 1.87w × 1.79h × 1.91d) lands ~2.0 wu deep at contract
-   height × the 1.25 creature boost — 77% over its 1.75 × 1.13 pipeline
-   guide, clipping fences/props at CREATURE_SPOTS. The clamp shrinks the
-   whole model uniformly (height gives a little, footprint obeys). */
+   normalization alone lets a wide model blow its contract footprint —
+   the clamp shrinks the whole model uniformly (height gives a little,
+   footprint obeys). The old owl mathwings (raw 1.87 × 1.79 × 1.91) needed
+   it; the 20260710 superhero re-export lands 1.72 × 1.08 at contract
+   height × boost, inside its 1.75 × 1.13 guide, so the clamp is now a
+   dormant safety net (harmless, kept for future re-exports). */
 const FOOTPRINT_XZ = { mathwings: 1.85 };
 
 export function targetHeightFor(name) {

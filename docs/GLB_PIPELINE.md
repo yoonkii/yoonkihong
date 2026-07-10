@@ -26,8 +26,8 @@ assets/3d/<name>.glb        (binary glTF 2.0, .glb only)
 
 | category  | canonical names |
 |-----------|-----------------|
-| creatures | `macrodoc` `mathstreet` `mathwings` `funnify` `goldie` |
-| buildings | `bld_about_house` `bld_macrodoc` `bld_mathstreet` `bld_mathwings` `bld_funnify` |
+| creatures | `macrodoc` `mathstreet` `mathwings` `funnify` `lasthand` `goldie` |
+| buildings | `bld_about_house` `bld_macrodoc` `bld_mathstreet` `bld_mathwings` `bld_funnify` `bld_lasthand` |
 | props     | `tree_a` `tree_b` `fountain` `egg` |
 
 - Building files are prefixed `bld_` so `macrodoc` (creature) and
@@ -68,6 +68,7 @@ normalized GLB occupies exactly the old silhouette's space.
 | `mathstreet` | **1.25**  | 1.50 × 1.63 | `creature_mathstreet` |
 | `mathwings`  | **1.5**   | 1.75 × 1.13 | `creature_mathwings` |
 | `funnify`    | **1.625** | 1.25 × 1.25 | `creature_funnify` |
+| `lasthand`   | **1.5**   | 1.05 × 0.35 | `creature_lasthand` (tall thin hand — footprint from the 1.31 × 0.41 × 1.90 raw bbox) |
 | `goldie`     | **1.0**   | 0.63 × 0.75 | secret friend (actors.js `SECRET_MODEL`) |
 
 ### Buildings
@@ -79,6 +80,7 @@ normalized GLB occupies exactly the old silhouette's space.
 | `bld_mathstreet`  | **3.875** | 2.25 × 2.25 | `mathstreet` |
 | `bld_mathwings`   | **2.5**   | 2.75 × 1.75 | `mathwings` |
 | `bld_funnify`     | **3.75**  | 2.50 × 1.75 | `funnify` |
+| `bld_lasthand`    | **2.875** | 2.50 × 2.50 | `lasthand` (nearly cubic raw bbox → 2.49 × 2.52 at contract height) |
 
 Building footprints are load-bearing: collision AABBs, interaction radii and
 the emissive glow-quad positions (`world.js GLOWS`) are derived from the

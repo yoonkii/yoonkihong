@@ -388,6 +388,66 @@ function makeFunnify() {
 }
 
 /* ------------------------------------------------------------------ *
+ *  LASTHAND — noir game-parlor booth. Warm-charcoal walls, glowing     *
+ *  amber window slits, hanging cone lamp over the +Z door, gold trim,  *
+ *  a standing gold coin finial and card-suit motifs. (Voxel fallback   *
+ *  for the authored bld_lasthand.glb — same footprint/height.)         *
+ * ------------------------------------------------------------------ */
+function makeLasthand() {
+  const CH = 0, CHD = 1, AMB = 2, GOLD = 3, DOOR = 4, LAMP = 5,
+        CREAM = 6, RED = 7, COIN = 8;
+  const v = [];
+
+  // body 16 x 16 x 16 with a dark shadow course
+  box(2, 0, 2, 17, 14, 17, CH, v);
+  box(2, 0, 2, 17, 1, 17, CHD, v);
+  // gold band under the eave
+  box(2, 15, 2, 17, 15, 17, GOLD, v);
+
+  // flat noir roof: dark slab + inset cap
+  box(1, 16, 1, 18, 16, 18, CHD, v);
+  box(3, 17, 3, 16, 17, 16, CH, v);
+  // gold trim ring on the roof edge
+  box(1, 17, 1, 18, 17, 1, GOLD, v);
+  box(1, 17, 18, 18, 17, 18, GOLD, v);
+  box(1, 17, 1, 1, 17, 18, GOLD, v);
+  box(18, 17, 1, 18, 17, 18, GOLD, v);
+  // standing gold coin finial (2 voxels thick, faces +Z)
+  box(8, 18, 8, 11, 18, 11, CHD, v);                 // pedestal
+  for (const [y, x0, x1] of [[19, 9, 10], [20, 8, 11], [21, 8, 11], [22, 9, 10]])
+    box(x0, y, 9, x1, y, 10, COIN, v);
+  v.push([9, 20, 10, GOLD], [10, 21, 10, GOLD]);     // coin engraving hint
+
+  // door (+Z): gold surround, dark double door, coin knob
+  box(7, 0, 17, 12, 7, 17, GOLD, v);
+  box(8, 0, 17, 11, 6, 17, DOOR, v);
+  v.push([10, 3, 18, COIN]);
+
+  // hanging cone lamp over the door (proud of the wall)
+  v.push([9, 11, 18, GOLD], [10, 11, 18, GOLD]);     // arm
+  v.push([9, 10, 18, LAMP], [10, 10, 18, LAMP]);     // cone top
+  box(8, 9, 18, 11, 9, 18, LAMP, v);                 // cone flare
+  v.push([9, 8, 18, AMB], [10, 8, 18, AMB]);         // warm bulb
+
+  // glowing amber window slits on all faces (tall 1-wide slots)
+  for (const x of [3, 5, 14, 16]) box(x, 4, 17, x, 8, 17, AMB, v);   // +Z
+  for (const z of [4, 7, 10, 13]) {
+    box(17, 4, z, 17, 8, z, AMB, v);                 // +X
+    box(2, 4, z, 2, 8, z, AMB, v);                   // -X
+  }
+  for (const x of [4, 7, 10, 13, 16]) box(x, 4, 2, x, 8, 2, AMB, v); // -Z
+
+  // card-suit motifs flanking the lamp (painted proud of the +Z face)
+  v.push([4, 12, 18, RED], [3, 11, 18, RED], [5, 11, 18, RED], [4, 10, 18, RED]);       // diamond
+  v.push([15, 12, 18, CREAM], [14, 11, 18, CREAM], [16, 11, 18, CREAM], [15, 10, 18, CREAM]); // club hint
+
+  // weathering
+  sprinkle(v, CH, CHD, 0.08, 91);
+
+  return v;
+}
+
+/* ------------------------------------------------------------------ *
  *  EGG NURSERY — open incubator gazebo: cream posts, picket back,      *
  *  straw hip roof with an egg finial, three straw nests with eggs.     *
  * ------------------------------------------------------------------ */
@@ -565,6 +625,25 @@ export default {
     jitter: false,
     chamfer: 0.3,
     seed: 23
+  },
+
+  lasthand: {
+    size: [20, 23, 20],
+    palette: [
+      '#3A4150',  // 0 warm charcoal wall
+      '#2B303C',  // 1 charcoal dark / roof / shadow-course
+      '#FFC97A',  // 2 amber window slits (albedo of the parlor glow)
+      '#C9A25A',  // 3 gold trim / brass
+      '#4A3328',  // 4 door
+      '#2B2B33',  // 5 lamp cone ink
+      '#FFF3D6',  // 6 cream suit motif
+      '#E05A4E',  // 7 red diamond motif
+      '#FFD166'   // 8 gold coin
+    ],
+    voxels: dedupe(makeLasthand()),
+    jitter: false,
+    chamfer: 0.2,
+    seed: 37
   },
 
   egg_nursery: {

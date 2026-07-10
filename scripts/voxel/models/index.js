@@ -19,4 +19,7 @@ registerModels(terrain);
 import characters from './characters.js';
 registerModels(characters);
 
+import interior from './interior.js';
+registerModels(interior);
+
 // import nature from './nature.js';         registerModels(nature);

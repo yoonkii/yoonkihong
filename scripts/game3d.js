@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { buildGeometry } from './voxel/voxel.js';
 import {
-  REDUCED, buildMap,
+  REDUCED, buildMap, tileAt, clamp, CAM,
   NPC_POS, SECRET_POS, FOUNTAIN, MAP_W, MAP_H, SUN, HEMI
 } from './game3d/const.js';
 import { createSkyDome, createLights, createClouds } from './game3d/sky.js';
@@ -21,10 +21,11 @@ import {
 import { createToys } from './game3d/physics.js';
 import { createParticles } from './game3d/particles.js';
 import { createAudio } from './game3d/audio.js';
-import { createCameraRig } from './game3d/camera.js';
+import { createCameraRig, screenToGround } from './game3d/camera.js';
 import { createUI } from './game3d/ui.js';
 import { createPost } from './game3d/post.js';
 import { loadGLB } from './game3d/glbassets.js';
+import { createHouseInterior } from './game3d/interior.js';
 
 window.__ywBooted = true;
 if (window.__ywBootTimer) clearTimeout(window.__ywBootTimer);
@@ -50,9 +51,9 @@ async function boot() {
      missing/broken file (per-asset fallback -> the voxel model stays), so
      the game boots fine even with an empty assets/3d/. */
   const GLB_PRELOAD = [
-    'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'goldie',
+    'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'goldie',
     'bld_about_house', 'bld_macrodoc', 'bld_mathstreet', 'bld_mathwings',
-    'bld_funnify',
+    'bld_funnify', 'bld_lasthand',
     'tree_a', 'tree_b', 'fountain', 'egg'
   ];
   // monotonic progress: GLB downloads race the engine phases, so the bar
@@ -96,6 +97,14 @@ async function boot() {
 
   bumpLoad(6, 'LOADING... ENGINE');
   await yieldFrame();
+
+  /* ---- house interior state (declared before resize() can run) --------- */
+  let house = null;                // built lazily on first door interact —
+  let inHouse = false;             // the 260ms door fade covers the build
+  function getHouse() {
+    if (!house) house = createHouseInterior();
+    return house;
+  }
 
   /* ---- renderer ------------------------------------------------------- */
   let renderer;
@@ -269,6 +278,7 @@ async function boot() {
     renderer.setSize(w, h, false);
     cam.setAspect(w / h);
     post.setSize(w, h);
+    if (house) house.setAspect(w / h);
   }
   window.addEventListener('resize', resize);
   applyTier(tier);
@@ -279,16 +289,20 @@ async function boot() {
   /* =====================================================================
    *  GAME STATE
    * =================================================================== */
-  let state = 'title';        // title | intro | world | dialog | transition | encounter
+  let state = 'title';        // title | intro | world | interior | dialog | transition | encounter
   let encounterCtx = null;    // { project, creature, isEgg }
 
   /* ---- visited tracking + celebration ----------------------------------- */
   const liveProducts = projects.filter(p => p.url && p.kind !== 'egg' && (p.category || 'product') === 'product');
+  // celebration flag is versioned by roster size: a visitor who celebrated
+  // at 4/4 gets one more show when the roster grows to 5 (the plain
+  // 'yw3_celebrated' key from the 4-product era is intentionally ignored)
+  const CELEB_KEY = 'yw3_celebrated_' + liveProducts.length;
   let visited = {};
   let celebrated = false;
   try {
     visited = JSON.parse(localStorage.getItem('yw3_visited') || '{}');
-    celebrated = localStorage.getItem('yw3_celebrated') === '1';
+    celebrated = localStorage.getItem(CELEB_KEY) === '1';
   } catch (e) { /* noop */ }
   let pendingCelebration = false;
   function visitedCount() {
@@ -320,7 +334,7 @@ async function boot() {
       }
       if (visitedCount() >= liveProducts.length && liveProducts.length > 0 && !celebrated) {
         celebrated = true;
-        try { localStorage.setItem('yw3_celebrated', '1'); } catch (e) { /* noop */ }
+        try { localStorage.setItem(CELEB_KEY, '1'); } catch (e) { /* noop */ }
         setTimeout(celebrate, 900);
       }
     }
@@ -354,7 +368,8 @@ async function boot() {
 
   function nearestInteractable() {
     let best = null, bestD = 1e9;
-    for (const it of interactables) {
+    const list = inHouse ? house.interactables : interactables;
+    for (const it of list) {
       const dx = player.pos.x - it.pos.x, dz = player.pos.z - it.pos.z;
       const d = Math.hypot(dx, dz);
       if (d < (it.r || 1.5) && d < bestD) { best = it; bestD = d; }
@@ -418,9 +433,6 @@ async function boot() {
     'Off duty you\'ll find me deep in tech & AI, making songs, or losing gracefully at video games.',
     'Go say hi to the creatures — walk up and press the action button. Check the eggs in the nursery, and peek at the DEMO LAB if you like experiments.'
   ];
-  const HOUSE_PAGES = [
-    'It\'s YOONKI\'s house. Smells like coffee and synthesizers. The trainer himself is standing right outside.'
-  ];
   const SECRET_PAGES = [
     '...!',
     'You found GOLDIE, the island\'s secret resident. It has been hiding behind the tree ring since launch day.',
@@ -443,8 +455,9 @@ async function boot() {
   ];
 
   function openDialog(name, pages, links) {
+    const back = inHouse ? 'interior' : 'world';   // plaque dialogs return inside
     state = 'dialog';
-    ui.openDialog(name, pages, links, () => { state = 'world'; });
+    ui.openDialog(name, pages, links, () => { state = back; });
   }
   function signPages() {
     const c = creatureSys.creatures.length, e = eggSys.eggs.length;
@@ -455,33 +468,182 @@ async function boot() {
     ];
   }
 
-  /* ---- encounters ------------------------------------------------------------------ */
-  function startEncounter(project, focus, creature) {
+  /* ---- encounters (Pokemon battle framing) --------------------------------
+     The camera NEVER rotates for an encounter: it keeps the world's 45°
+     azimuth and does one short pan+zoom to a composed two-shot — the old
+     swing-to-the-approach-bearing cut spun the island up to ~200° (the
+     azimuth tween had no shortest-path wrap) and left the player wherever
+     they happened to stand, regularly overlapping the creature. Ortho
+     projection makes overlap unfixable by framing alone, so we do what
+     Pokemon does: cut to a stage. During the iris blackout the player is
+     snapped into a "trainer slot" in the lower-left foreground (screen-space
+     computed, collision-checked, with mirrored/shallow fallbacks for tight
+     yards like the fenced nursery) and restored under the exit fade. -------- */
+
+  // stage-slot candidates as (screen-right, screen-up) offsets in wu from
+  // the subject; first unblocked wins. Order: classic lower-left, then
+  // nearer/shallower, then the mirrored lower-right family.
+  const STAGE_OFFSETS = [
+    [-1.85, -0.95], [-1.35, -0.75], [-2.10, -0.45],
+    [1.85, -0.95], [1.35, -0.75], [2.10, -0.45],
+    [-0.95, -0.90], [0.95, -0.90]                       // tight-yard rescues
+  ];
+  const _shotBox = new THREE.Box3();
+  function measureSubjectH(obj, fallback) {
+    if (!obj) return fallback;
+    try {
+      _shotBox.setFromObject(obj);
+      const h = _shotBox.max.y - Math.min(0, _shotBox.min.y);
+      if (h > 0.3 && h < 6) return h;
+    } catch (e) { /* noop */ }
+    return fallback;
+  }
+  /** Encounter-zoom height for a creature. GLB bodies carry their contract
+   *  height from the loader (userData.targetHeight, 1.25 creature boost
+   *  included) — measuring the live group instead would bake the idle-bob/
+   *  hop Y offset of whatever instant the first encounter starts into the
+   *  permanent cache (~15% wide on a mid-hop lasthand). Voxel fallbacks are
+   *  measured, minus the animated inner offset. */
+  function creatureSubjectH(c) {
+    if (c.glb) {
+      for (const ch of c.inner.children) {
+        const h = ch.userData && ch.userData.targetHeight;
+        if (h > 0.3 && h < 6) return h;
+      }
+    }
+    return Math.max(0.5, measureSubjectH(c.inner, 1.6) - (c.inner.position.y || 0));
+  }
+  /** March the tile map from the subject toward the camera: a tree/fence
+   *  whose top would rise above the subject's base slices the shot. Try the
+   *  base 35° first, then raise the camera until the foreground clears
+   *  (the south nursery eggs sit 0.2 wu off the picket fence — at 35° the
+   *  pickets cover the egg's lower third; 48° drops them out of frame). */
+  function pickShotElevation(focus) {
+    const azr = THREE.MathUtils.degToRad(CAM.azimuth);
+    const dirX = Math.cos(azr), dirZ = Math.sin(azr);    // subject -> camera
+    const rX = Math.sin(azr), rZ = -Math.cos(azr);       // screen right
+    // occluders as height bands: fences are ground-up pickets; trees only
+    // block with their canopy (a thin trunk in front is fine — treating the
+    // whole tile as a 2.3 wu box forced 60° everywhere near the tree ring)
+    const OCC_BAND = { T: [0.85, 2.2], X: [0, 0.72] };
+    const Y0 = 0.25;                                     // protect near-base
+    for (const el of [CAM.elevation, 48, 58]) {
+      const tanEl = Math.tan(THREE.MathUtils.degToRad(el));
+      let blocked = false;
+      for (const off of [0, -0.8, 0.8]) {                // center ± lateral
+        for (let s = 0.6; s <= 5.6; s += 0.35) {
+          const x = focus.x + rX * off + dirX * s;
+          const z = focus.z + rZ * off + dirZ * s;
+          const t2 = tileAt(tiles, Math.floor(x), Math.floor(z));
+          // lateral rays only veto fences: their hard picket line slices a
+          // frame anywhere, while off-center canopy reads as foreground
+          // foliage (and mostly sits behind the dialog panel)
+          if (off !== 0 && t2 !== 'X') continue;
+          const band = OCC_BAND[t2];
+          if (!band) continue;
+          const ray = Y0 + s * tanEl;                    // sight-line height
+          if (ray > band[0] + 0.08 && ray < band[1] - 0.08) { blocked = true; break; }
+        }
+        if (blocked) break;
+      }
+      if (!blocked) return el;
+    }
+    return 58;
+  }
+
+  function startEncounter(it) {
     if (state === 'transition' || state === 'encounter') return;
+    const project = it.project;
+    const creature = it.creature || null;
+    const focus = creature
+      ? { x: creature.pos.x, y: 0.75, z: creature.pos.z }
+      : it.focus;
     state = 'transition';
     audio.sfx.sting();
     audio.bgm.fadeTo('enc', REDUCED ? 200 : 800);
     relight.dir = 1;                           // sunset mood over 800ms
     const isEgg = project.kind === 'egg' || !project.url;
-    encounterCtx = { project, creature: creature || null, isEgg, focus };
-    // player turns to the subject; camera swings 90 deg off the player-
-    // subject line (camera.js) so the player never occludes the creature
-    let fdx = focus.x - player.pos.x, fdz = focus.z - player.pos.z;
-    const fd = Math.hypot(fdx, fdz) || 1;
-    fdx /= fd; fdz /= fd;
-    // 3/4 profile: turned past the subject so the camera keeps an eye and a
-    // cheek in frame — never the featureless flat of the player's back
-    player.yaw = Math.atan2(fdx, fdz) + 0.6;
+    const isBld = it.kind === 'building';
+
+    // subject height drives the zoom: hero-sized for a 2.3 wu macrodoc and
+    // for a 0.7 wu egg alike; buildings get the wide hero frame
+    const subjH = isBld
+      ? focus.y / 0.42                          // world.js: focus.y = h * 0.42
+      : creature
+        ? (creature.subjH != null ? creature.subjH
+          : (creature.subjH = creatureSubjectH(creature)))
+        : measureSubjectH(it.mesh, 1.3);
+    const halfH = clamp(0.9 + subjH * 0.82, 2.2, 4.1);
+    const elevation = pickShotElevation(focus);
+
+    // trainer slot: first collision-free stage candidate (never for
+    // buildings — the building is the whole hero, player may drop off-frame)
+    let stage = null;
+    if (!isBld) {
+      const halfW = halfH * (cam.aspect || 1.6);
+      const k = clamp(halfW / 2.2, 0.55, 1);   // pull slots in on narrow frames
+      for (const [sx, sy] of STAGE_OFFSETS) {
+        const o = screenToGround(elevation, sx * k, sy * (k < 1 ? 1.15 : 1));
+        const px = focus.x + o.dx, pz = focus.z + o.dz;
+        // 0.28: the player only STANDS here (no movement), so a whisker less
+        // clearance than the walk radius — rescues the nursery slots wedged
+        // between the gazebo circle and the picket fence
+        if (!colliders.blockedAt(px, pz, 0.28)) { stage = { x: px, z: pz, sx }; break; }
+      }
+    }
+    // subject sits opposite the player: staged left -> hero center-right
+    const halfW = halfH * (cam.aspect || 1.6);
+    const azr = THREE.MathUtils.degToRad(CAM.azimuth);
+    const playerLeft = stage
+      ? stage.sx < 0
+      : ((player.pos.x - focus.x) * Math.sin(azr)
+        - (player.pos.z - focus.z) * Math.cos(azr)) <= 0;   // screen-x sign
+    const heroMag = isBld
+      ? Math.min(clamp(0.12 * halfW, 0.3, 0.8), Math.max(0.1, halfW - 1.6))
+      : Math.min(clamp(0.18 * halfW, 0.45, 1.0), Math.max(0.2, halfW - 1.05));
+    const heroX = playerLeft ? heroMag : -heroMag;
+
+    encounterCtx = {
+      project, creature, isEgg, focus, stage,
+      playerFrom: stage ? player.pos.clone() : null
+    };
     encLight.position.set(focus.x, (focus.y || 0.6) + 1.6, focus.z);
-    const az = cam.startEncounter(
-      { x: focus.x, y: (focus.y || 0.6) + 0.05, z: focus.z }, player.pos);
+    // portrait phones: the encounter panel covers the bottom ~half of the
+    // viewport, so the two-shot must live in the top half of the frame
+    const lift = halfH * ((cam.aspect || 1.6) < 0.8 ? 0.30 : 0.04);
+    cam.startEncounter({ x: focus.x, z: focus.z, subjectH: subjH, halfH, elevation, heroX, lift });
     if (creature) {
       creature.frozen = true;
-      // face the encounter camera (model front is +Z; yaw = atan2(dirX, dirZ))
-      const azRad = az * Math.PI / 180;
-      creature.faceYaw = Math.atan2(Math.cos(azRad), Math.sin(azRad));
+      // 3/4 front: face the camera (front +Z, camera at yaw PI/4), turned
+      // ~22° toward the player's side of the frame — flat mugshots read
+      // stiff, and the glance ties the two-shot together
+      creature.faceYaw = Math.PI / 4 + (playerLeft ? -0.38 : 0.38);
     }
+    // player squares up to the subject immediately (visible pre-blackout)
+    player.yaw = Math.atan2(focus.x - player.pos.x, focus.z - player.pos.z);
     ui.transitionIn(() => {
+      if (stage) {
+        // screen is covered: cut the player to the trainer slot, back 3/4
+        // to camera, facing the subject — the Pokemon over-the-shoulder
+        player.pos.set(stage.x, 0, stage.z);
+        player.vel.set(0, 0);
+        player.yaw = Math.atan2(focus.x - stage.x, focus.z - stage.z);
+      }
+      // isolate the battle stage: a wandering neighbor creature mid-frame
+      // photobombs the hero (mathwings loves to walk through lasthand's
+      // close-up). Hidden under the blackout, restored under the exit fade.
+      if (encounterCtx) {
+        // cover the whole composed frame: horizontally ~halfH*aspect, but
+        // vertically the ground plane spans halfH/sin(el) ≈ 1.75*halfH up-
+        // frame — 2.6*halfH covers the far corner (over-hiding is harmless,
+        // everyone is restored under the exit fade). GOLDIE hides too: the
+        // bld_mathstreet close-up otherwise reveals it over the tree ring.
+        const hideR = Math.max(5, halfH * 2.6);
+        encounterCtx.hidden = [...creatureSys.creatures, secret].filter((c) =>
+          c !== creature &&
+          Math.hypot(c.pos.x - focus.x, c.pos.z - focus.z) < hideR);
+        for (const c of encounterCtx.hidden) c.group.visible = false;
+      }
       // pass the kind-based flag only: ui.js derives the URL-less
       // "COMING SOON" presentation itself from project.url
       ui.showEncounter(project, project.kind === 'egg', (p) => markVisited(p));
@@ -495,9 +657,45 @@ async function boot() {
     relight.dir = -1;                          // back to daylight over 700ms
     ui.transitionOut(() => {
       ui.encHide();
-      if (encounterCtx && encounterCtx.creature) encounterCtx.creature.frozen = false;
+      if (encounterCtx) {
+        if (encounterCtx.creature) encounterCtx.creature.frozen = false;
+        if (encounterCtx.hidden) {
+          for (const c of encounterCtx.hidden) c.group.visible = true;
+        }
+        if (encounterCtx.playerFrom) {
+          // undo the battle staging under the exit fade
+          player.pos.copy(encounterCtx.playerFrom);
+          player.vel.set(0, 0);
+          player.yaw = Math.atan2(
+            encounterCtx.focus.x - player.pos.x, encounterCtx.focus.z - player.pos.z);
+        }
+      }
       encounterCtx = null;
       cam.endEncounter(player.pos);
+      state = 'world';
+    });
+  }
+
+  /* ---- house interior: door fade in / out ------------------------------------------ */
+  function enterHouse() {
+    if (state !== 'world') return;
+    state = 'transition';
+    audio.sfx.blip();
+    ui.transitionOut(() => {              // quick fade through black (door beat);
+      const h = getHouse();               // instant under prefers-reduced-motion
+      h.setAspect(window.innerWidth / window.innerHeight);
+      h.enter(player, marker);
+      inHouse = true;
+      state = 'interior';
+    });
+  }
+  function exitHouse() {
+    if (state !== 'interior') return;
+    state = 'transition';
+    audio.sfx.blip();
+    ui.transitionOut(() => {
+      house.exit(player, marker, scene);
+      inHouse = false;
       state = 'world';
     });
   }
@@ -508,7 +706,9 @@ async function boot() {
     if (!it) return;
     switch (it.kind) {
       case 'npc': audio.sfx.blip(); return openDialog('YOONKI', NPC_PAGES, false);
-      case 'house': audio.sfx.blip(); return openDialog('YOONKI\'S HOUSE', HOUSE_PAGES, false);
+      case 'house': return enterHouse();
+      case 'plaque': audio.sfx.blip(); return openDialog(it.name, it.pages, false);
+      case 'housedoor': return exitHouse();
       case 'sign': audio.sfx.blip(); return openDialog('SIGNPOST', signPages(), true);
       case 'secret':
         audio.sfx.sparkle();
@@ -522,13 +722,10 @@ async function boot() {
       case 'labsign': audio.sfx.blip(); return openDialog('DEMO LAB', labPages(), false);
       case 'wip': audio.sfx.blip(); return openDialog('DEMO LAB', WIP_PAGES, false);
       case 'egg':
-        return startEncounter(it.project, it.focus, null);
       case 'creature':
-        return startEncounter(it.project,
-          { x: it.creature.pos.x, y: 0.75, z: it.creature.pos.z }, it.creature);
       case 'building':
       case 'demo':
-        return startEncounter(it.project, it.focus, null);
+        return startEncounter(it);
     }
   }
 
@@ -544,7 +741,7 @@ async function boot() {
     if (state === 'intro') cam.skipIntro();
   };
   ui.handlers.action = () => {
-    if (state === 'world') interact();
+    if (state === 'world' || state === 'interior') interact();
     else if (state === 'dialog') ui.advanceDialog();
     else if (state === 'encounter') {
       const r = ui.encConfirm();
@@ -590,15 +787,18 @@ async function boot() {
     sky.position.copy(cam.camera.position);
 
     const inWorld = state === 'world';
+    const inRoom = state === 'interior';
     const move = { x: 0, z: 0 };
-    if (inWorld) {
-      const m = ui.getMove();                  // screen space -> world space
+    if (inWorld || inRoom) {
+      // screen space -> world space (the interior camera shares the world's
+      // 45° azimuth, so the same mapping drives both scenes)
+      const m = ui.getMove();
       move.x = S2 * (m.x + m.z);
       move.z = S2 * (m.z - m.x);
     }
 
     if (state !== 'title') {
-      player.update(dt, move, colliders, t);
+      player.update(dt, move, inHouse ? house.colliders : colliders, t);
       // bump feedback
       bumpCooldown -= dt;
       if (player.lastHit && player.speed > 2.2 && bumpCooldown <= 0) {
@@ -606,19 +806,23 @@ async function boot() {
         audio.sfx.bump();
         if (!REDUCED) player.syVel -= 2.0;
       }
-      npc.update(dt, player.pos, t);
-      creatureSys.update(dt, t, colliders, player.pos);
-      eggSys.update(dt, t);
-      secret.update(dt, t);
-      world.updateFlora(dt, movers, (x, z, color) => {
-        particles.pop(x, z, color);
-        audio.sfx.pop();
-      });
-      toys.update(dt, player, t);
+      if (inHouse) {
+        house.update(dt, t, player.pos);
+      } else {
+        npc.update(dt, player.pos, t);
+        creatureSys.update(dt, t, colliders, player.pos);
+        eggSys.update(dt, t);
+        secret.update(dt, t);
+        world.updateFlora(dt, movers, (x, z, color) => {
+          particles.pop(x, z, color);
+          audio.sfx.pop();
+        });
+        toys.update(dt, player, t);
+      }
     }
 
     // "!" marker above the nearest interactable + emissive lerp on its mesh
-    if (inWorld) {
+    if (inWorld || inRoom) {
       const it = nearestInteractable();
       if (it) {
         marker.visible = true;
@@ -633,16 +837,22 @@ async function boot() {
       updateHighlight(null, dt);
     }
 
-    cam.update(dt, player.pos, player.yaw, player.speed, t);
-    // tilt-shift focus band follows the player on screen (playbook: the
-    // band sits ON the player, even while look-ahead pushes them off-center)
-    focusV.set(player.pos.x, 0.7, player.pos.z).project(cam.camera);
-    post.setFocus(
-      (state === 'encounter' || state === 'transition') ? 0
-        : Math.max(-0.9, Math.min(0.9, focusV.y)), dt);
+    if (!inHouse) {
+      cam.update(dt, player.pos, player.yaw, player.speed, t);
+      // tilt-shift focus band follows the player on screen (playbook: the
+      // band sits ON the player, even while look-ahead pushes them off-center)
+      focusV.set(player.pos.x, 0.7, player.pos.z).project(cam.camera);
+      post.setFocus(
+        (state === 'encounter' || state === 'transition') ? 0
+          : Math.max(-0.9, Math.min(0.9, focusV.y)), dt);
+    }
     particles.update(dt, t, cam.halfH, renderer.domElement.clientHeight || window.innerHeight);
 
-    post.render();
+    // the interior is its own mini-scene with a fixed warm rig — direct
+    // render (no composer): tilt-shift/bloom are overworld signatures and
+    // the room reads better without a miniature blur band across it
+    if (inHouse) renderer.render(house.scene, house.camera);
+    else post.render();
 
     // adaptive quality: measure the first ~120 frames after start
     if (state !== 'title' && measured < 2) {
@@ -665,7 +875,9 @@ async function boot() {
     player, creatures: creatureSys.creatures,
     eggs: eggSys.eggs, toys, state: () => state, tier: () => tier,
     interact, nearestInteractable, audio, ui, colliders,
+    interactables, encounterCtx: () => encounterCtx, endEncounter,
     glb,
+    house: () => house, inHouse: () => inHouse, enterHouse, exitHouse,
     glbReport: () => ({
       world: world.glbUsed,
       creatures: creatureSys.creatures.map(c => c.id + ':' + (c.glb ? 'glb' : 'voxel')),

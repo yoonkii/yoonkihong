@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles/main.css?v=20260709a">
+  <link rel="stylesheet" href="styles/main.css?v=20260710d">
   <!-- kick off the render-critical three.js fetches with the HTML instead of
        waiting for the game3d.js -> three -> core discovery waterfall -->
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js">
@@ -54,7 +54,8 @@
 
   <!-- HUD -->
   <div id="hud">
-    <span id="hud-progress" title="Projects visited" hidden>0/4</span>
+    <!-- populated at boot from data/projects.js (live products with a url) -->
+    <span id="hud-progress" title="Projects visited" hidden></span>
     <button id="btn-mute" type="button" aria-label="Sound" aria-pressed="false">SOUND: ON</button>
     <button id="btn-help" type="button" aria-label="Controls help">?</button>
     <a id="btn-classic" href="classic.html">CLASSIC SITE</a>

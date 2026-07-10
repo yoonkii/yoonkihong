@@ -73,6 +73,16 @@ window.PROJECTS = [
     building: "images/game/buildings/funnify.png"
   },
   {
+    id: "lasthand",
+    name: "LAST HAND",
+    url: "https://www.roblox.com/games/111840491549271/LAST-HAND-Rock-Scissor-Paper-Party",
+    tagline: "Rock, scissor, paper — in the dark, for keeps.",
+    desc: "This shadowy party creature deals rock-scissor-paper under a single swinging lamp, where four trainers throw their hands in the dark and reveal all at once. The sneaky part: you can pay to switch your hand after the reveal while everyone watches — and every tie feeds a pot that never resets. After eight rounds of bluffs and cold reads, the biggest stack takes the table. Best played with sound on and a straight face.",
+    kind: "creature",
+    category: "product",
+    sprite: "images/game/creatures/lasthand.png"
+  },
+  {
     id: "suno",
     name: "Music",
     url: "",

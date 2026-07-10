@@ -16,7 +16,15 @@ export const REDUCED = (() => {
    with the styles/main.css ?v= token in index.html — bump BOTH whenever any
    asset is re-exported, so returning visitors never get a mixed old/new set
    (GitHub Pages caches assets for ~10 min, browsers heuristically longer). */
-export const ASSET_V = '20260709a';
+export const ASSET_V = '20260710d';
+
+/* ---- player locomotion -------------------------------------------------
+   2026-07: top speed +30% (4.0 -> 5.2 wu/s); accel/decel damp rates x1.3
+   so time-to-speed keeps pace and stops stay tight at the higher speed.
+   Collision safety: max step = 5.2 wu/s * 0.05 s (game-loop dt clamp)
+   = 0.26 wu — below the player radius (0.3) and inside moveCircle's
+   0.5 wu clamp window, so no tunneling through 1-tile fences. */
+export const PLAYER_MOVE = { maxSpeed: 5.2, accel: 11.7, decel: 15.6 };
 
 /* Legend: W water  G grass  P path  T tree  L tall grass  F flower  X fence */
 const RAW_MAP = [

@@ -4,9 +4,11 @@
    §2.5 (characters) + §7.3 (build specs). Creature shapes match their 2D
    counterparts in images/game/creatures/*.png.
 
-   Characters are 2-tile-tall bigheads: 12 voxels total, head 6 of those.
-   The player rig is also exported split (player_head / player_body) so the
-   game can bob the head independently during the hop.
+   Characters are chunky ~1.75-tile bigheads (head ≈ 45% of height).
+   The player rig is exported SEGMENTED (player_head / player_torso /
+   player_arm_l / player_arm_r / player_leg_l / player_leg_r / player_pack /
+   player_scarf) so scripts/game3d/actors.js can run a real walk cycle —
+   opposite arm/leg swing, torso lean, head bob, scarf-tail flutter.
    Camera looks in from +X/+Z, so all faces/details live on the high-z side.
    ========================================================================== */
 
@@ -24,138 +26,182 @@ function cutColumns(v, cols, y0, y1) {
 }
 
 /* ------------------------------------------------------------------ *
- *  HUMAN RIG (player + NPC Yoonki share one builder)                   *
- *  Grid: x 0..9, z 0..9. Body y 0..5, head y 6..11 (+1 cowlick).       *
- *  Face on +Z. Sun hits the (-X,-Z) back shoulder.                     *
+ *  HUMAN RIG — chunky voxel adventurer (2026-07 redesign).             *
+ *  Grid: x 0..9, z 0..9, y 0..13. Face on +Z. Sun hits (-X,-Z).        *
+ *  SEGMENTED for the walk cycle: every part lives on the ONE shared    *
+ *  grid, so 'corner'-origin part meshes reassemble exactly in-game.    *
+ *  Parts NEVER share a voxel cell — coincident faces between separate  *
+ *  meshes z-fight. Pivot contract (actors.js PLAYER_PARTS): hips at    *
+ *  y3, shoulders y6, neck y7, scarf-tail root y7/z0.5.                 *
  * ------------------------------------------------------------------ */
-function humanBody(C, o) {
+function humanLeg(C, x0) {
   const v = [];
-  // shoes (toes poke 1 voxel past the torso front)
-  box(2, 0, 4, 3, 0, 7, C.SHOE, v);
-  box(6, 0, 4, 7, 0, 7, C.SHOE, v);
-  // jeans
-  box(2, 1, 4, 3, 2, 6, C.JEANS, v);
-  box(6, 1, 4, 7, 2, 6, C.JEANS, v);
-  // hoodie torso
-  box(2, 3, 3, 7, 5, 6, C.HOODIE, v);
-
-  if (o.cardigan) {
-    // open cream cardigan over the hoodie: sides, back, two front panels
-    box(2, 3, 3, 2, 5, 6, C.CARD, v);
-    box(7, 3, 3, 7, 5, 6, C.CARD, v);
-    box(2, 3, 3, 7, 5, 3, C.CARD, v);
-    box(3, 3, 6, 3, 5, 6, C.CARD, v);
-    box(6, 3, 6, 6, 5, 6, C.CARD, v);
-  } else {
-    // kangaroo pocket + off-center zip seam (small asymmetry)
-    box(3, 3, 6, 6, 3, 6, C.SHADE, v);
-    v.push([5, 4, 6, C.SHADE], [5, 5, 6, C.SHADE]);
-  }
-
-  const sleeve = o.cardigan ? C.CARD : C.HOODIE;
-  // right arm hangs straight
-  box(8, 4, 4, 8, 5, 5, sleeve, v);
-  box(8, 3, 4, 8, 3, 5, C.SKIN, v);
-  // left arm swings 1 voxel forward (asymmetry keeps the pose alive)
-  box(1, 4, 5, 1, 5, 6, sleeve, v);
-  box(1, 3, 5, 1, 3, 6, C.SKIN, v);
-
-  // hood draped behind the shoulders / lower back of the head
-  box(2, 5, 2, 7, 5, 2, C.HOODIE, v);
-  box(3, 6, 2, 6, 6, 2, C.HOODIE, v);
+  box(x0, 0, 4, x0 + 1, 0, 6, C.BOOT_DK, v);              // sole
+  v.push([x0, 0, 7, C.BOOT], [x0 + 1, 0, 7, C.BOOT]);     // toe caps
+  box(x0, 1, 4, x0 + 1, 1, 6, C.BOOT, v);                 // boot upper
+  box(x0, 2, 4, x0 + 1, 2, 6, C.SKIN, v);                 // bare knee
   return v;
+}
+
+function humanArm(C, x) {
+  const v = [];
+  box(x, 5, 4, x, 5, 5, C.SHIRT, v);                      // short sleeve
+  box(x, 3, 4, x, 4, 5, C.SKIN, v);                       // arm + hand
+  return v;
+}
+
+function humanTorso(C, o) {
+  const v = [];
+  box(2, 3, 3, 7, 3, 6, C.SHORTS, v);                     // shorts (hip row)
+  v.push([2, 3, 6, C.SHORTS_DK], [7, 3, 6, C.SHORTS_DK]); // front hem creases
+  box(2, 4, 3, 7, 5, 6, C.SHIRT, v);                      // warm cream shirt
+  v.push([4, 4, 6, C.SHIRT_SH], [5, 4, 6, C.SHIRT_SH]);   // untucked hem
+  if (o.pack) {
+    box(3, 4, 6, 3, 5, 6, C.PACK_DK, v);                  // backpack straps
+    box(6, 4, 6, 6, 5, 6, C.PACK_DK, v);                  // down the chest
+  }
+  // chunky teal scarf: full wrap ring poking 1 voxel past the torso, plus
+  // x1/x8 shoulder caps — the caps also hide the arm pivots mid-swing
+  box(2, 6, 2, 7, 6, 7, C.SCARF, v);
+  box(1, 6, 4, 1, 6, 5, C.SCARF, v);
+  box(8, 6, 4, 8, 6, 5, C.SCARF, v);
+  v.push([4, 5, 7, C.SCARF], [5, 5, 7, C.SCARF_HI]);      // knot on the chest
+  v.push([2, 6, 7, C.SCARF_HI], [7, 6, 3, C.SCARF_HI]);   // fold highlights
+  return v;
+}
+
+function humanPack(C) {
+  const v = [];
+  box(3, 4, 1, 6, 5, 2, C.PACK, v);                       // main bag
+  box(3, 6, 1, 6, 6, 1, C.PACK_DK, v);                    // rolled top flap
+  v.push([4, 4, 0, C.PACK_DK]);                           // buckle
+  return v;
+}
+
+// Short scarf tail hanging down the back (z0, behind the pack) — its own
+// segment so actors.js can flutter it on a rotation spring.
+function humanScarfTail(C) {
+  return [[5, 6, 0, C.SCARF], [5, 5, 0, C.SCARF],
+          [5, 4, 0, C.SCARF], [5, 3, 0, C.SCARF_HI]];
 }
 
 function humanHead(C, o) {
   const v = [];
-  box(1, 6, 2, 8, 9, 7, C.SKIN, v);        // head core (8 wide, face at z7)
-  box(1, 10, 2, 8, 11, 7, C.HAIR, v);      // full hair mass (chamfer rounds it)
-  box(1, 6, 2, 8, 9, 2, C.HAIR, v);        // hair down the back
-  box(1, 7, 2, 1, 9, 4, C.HAIR, v);        // hair over the ears, both sides
-  box(8, 7, 2, 8, 9, 4, C.HAIR, v);
-  for (const x of o.fringe) v.push([x, 9, 7, C.HAIR]);   // uneven bangs
+  box(1, 7, 2, 8, 10, 7, C.SKIN, v);       // big head core (8 wide, face z7)
+  box(1, 11, 2, 8, 12, 7, C.HAIR, v);      // hair mass (filter rounds it)
+  box(1, 7, 2, 8, 10, 2, C.HAIR, v);       // hair down the back
+  box(1, 8, 2, 1, 10, 4, C.HAIR, v);       // hair over the ears, both sides
+  box(8, 8, 2, 8, 10, 4, C.HAIR, v);
+  for (const x of o.fringe) v.push([x, 10, 7, C.HAIR]);   // uneven bangs
 
-  // chunky 2x2 glasses: dark rimless lenses, pale glint in the top-outer
-  // corner of each, tiny temple arms reaching into the side hair
+  // chunky 2x2 glasses (identity): dark rimless lenses doubling as the
+  // eyes, pale glint in the top-outer corners, temple arms into the hair
   v.push(
-    [2, 8, 7, C.LENS], [3, 8, 7, C.FRAME], [2, 7, 7, C.FRAME], [3, 7, 7, C.FRAME],
-    [6, 8, 7, C.FRAME], [7, 8, 7, C.LENS], [6, 7, 7, C.FRAME], [7, 7, 7, C.FRAME],
-    [1, 8, 7, C.FRAME], [8, 8, 7, C.FRAME]
+    [2, 9, 7, C.LENS], [3, 9, 7, C.FRAME], [2, 8, 7, C.FRAME], [3, 8, 7, C.FRAME],
+    [6, 9, 7, C.FRAME], [7, 9, 7, C.LENS], [6, 8, 7, C.FRAME], [7, 8, 7, C.FRAME],
+    [1, 9, 7, C.FRAME], [8, 9, 7, C.FRAME]
   );
-  v.push([o.mouthX, 6, 7, C.MOUTH]);                       // tiny mouth
-  v.push([1, 7, 7, C.BLUSH], [8, 7, 7, C.BLUSH]);          // cheeks
-  v.push([o.cowlick[0], 12, o.cowlick[1], C.HAIR]);        // one-voxel cowlick
+  v.push([o.mouthX, 7, 7, C.MOUTH]);                       // tiny mouth
+  v.push([1, 8, 7, C.BLUSH], [8, 8, 7, C.BLUSH]);          // cheeks
+  // messy blocky tufts: crown (y13) + sides (y11, poking past the mass)
+  for (const [tx, ty, tz] of o.tufts) v.push([tx, ty, tz, C.HAIR]);
 
   // sheen bands: a lighter stripe across the crown plateau + one across the
   // upper back of the hair, so the rear silhouette has form (the camera
   // co-stars the player's back in every encounter — never a flat void)
-  for (let x = 3; x <= 6; x++) v.push([x, 11, 4, C.SHEEN]);
-  for (let x = 2; x <= 7; x++) v.push([x, 8, 2, C.SHEEN]);
+  for (let x = 3; x <= 6; x++) v.push([x, 12, 4, C.SHEEN]);
+  for (let x = 2; x <= 7; x++) v.push([x, 9, 2, C.SHEEN]);
 
-  // rounded-chunky silhouette (art bible §5.3.3, model-level): the hair
-  // mass becomes a clean 2-step dome — full octagon at y10 (corner columns
-  // knocked off), then a 1-voxel-inset rounded plateau at y11. Back head
-  // corners taper from y8 so the skull reads round, chin/blush stay square.
+  // rounded-chunky silhouette (art bible §5.3.3, model-level): full octagon
+  // at y10/y11 (corner columns knocked off), 1-voxel-inset rounded plateau
+  // at y12, tufts free at y13. Back head corners taper from y9.
   return v.filter(([x, y, z]) => {
-    if (y === 11)
+    if (y === 13) return true;                             // crown tufts
+    if (y === 12)
       return x >= 2 && x <= 7 && z >= 3 && z <= 6 &&
              !((x === 2 || x === 7) && (z === 3 || z === 6));
-    if (y === 10 || y === 9)
-      return !((x === 1 || x === 8) && (z === 2 || z === 7));
-    if (y === 8) return !((x === 1 || x === 8) && z === 2);
+    if (y === 11 || y === 10)
+      return x === 0 || x === 9 ||                         // side tufts
+             !((x === 1 || x === 8) && (z === 2 || z === 7));
+    if (y === 9) return !((x === 1 || x === 8) && z === 2);
     return true;
   });
 }
 
-// PLAYER — mint hoodie, jeans, navy hair, glasses (art bible §2.5).
-// Hair is dark NAVY, never pure black (palette rule): the back of this head
-// fills a third of every encounter shot, and true black reads as a void.
-const PLAYER_C = {
-  HOODIE: 0, SHADE: 1, JEANS: 2, SHOE: 3, SKIN: 4,
-  HAIR: 5, LENS: 6, FRAME: 7, MOUTH: 8, BLUSH: 9, SHEEN: 10
+// Shared palette-index map (player + NPC use the same builder).
+const HUMAN_C = {
+  SHIRT: 0, SHIRT_SH: 1, SHORTS: 2, SHORTS_DK: 3, BOOT: 4, BOOT_DK: 5,
+  SKIN: 6, HAIR: 7, SHEEN: 8, SCARF: 9, SCARF_HI: 10,
+  LENS: 11, FRAME: 12, MOUTH: 13, BLUSH: 14, PACK: 15, PACK_DK: 16
 };
-const PLAYER_PAL = [
-  '#40B0A0',   // 0 hoodie mint
-  '#348F82',   // 1 hoodie shade (pocket, zip seam)
-  '#2E5AAC',   // 2 jeans
-  '#FFFFFF',   // 3 shoes
-  '#FFD9B3',   // 4 skin
-  '#2A3550',   // 5 hair — dark navy-blue
-  '#AEE6FF',   // 6 glasses lens glint
-  '#1A1A22',   // 7 glasses frame / pupils
-  '#E8A87A',   // 8 mouth
-  '#FFB88A',   // 9 blush
-  '#46587A'    // 10 hair sheen band (crown + upper back)
-];
-const playerBodyV = humanBody(PLAYER_C, { cardigan: false });
-const playerHeadV = humanHead(PLAYER_C, {
-  fringe: [1, 2, 4, 7, 8], mouthX: 4, cowlick: [3, 4]
-});
 
-// NPC YOONKI — mustard cardigan over the green hoodie, warm brown hair:
-// the host must read as a DIFFERENT person from the player at a glance
-// (they used to be near-identical black-hair/cool-shirt twins at spawn).
-const NPC_C = {
-  HOODIE: 0, SHADE: 1, CARD: 2, JEANS: 3, SHOE: 4, SKIN: 5,
-  HAIR: 6, LENS: 7, FRAME: 8, MOUTH: 9, BLUSH: 10, SHEEN: 11
-};
-const NPC_PAL = [
-  '#3AA080',   // 0 hoodie green
-  '#2E8A6C',   // 1 hoodie shade
-  '#D9A23E',   // 2 mustard cardigan
-  '#2E5AAC',   // 3 jeans
-  '#FFFFFF',   // 4 shoes
-  '#FFD9B3',   // 5 skin
-  '#6B4A2F',   // 6 hair — warm brown
-  '#AEE6FF',   // 7 lens glint
-  '#1A1A22',   // 8 frame / pupils
-  '#E8A87A',   // 9 mouth
-  '#FFB88A',   // 10 blush
-  '#8A6647'    // 11 hair sheen band
+// PLAYER — cream shirt, teal scarf, brown backpack, khaki shorts, brown
+// boots, glasses + near-black navy hair (identity: still reads as Yoonki;
+// never pure black — the back of this head fills every encounter shot).
+const PLAYER_PAL = [
+  '#F2E3C2',   // 0 shirt — warm cream
+  '#E3CFA3',   // 1 shirt shade (hem)
+  '#9BA05E',   // 2 shorts — khaki olive
+  '#7F8449',   // 3 shorts hem crease
+  '#7A5238',   // 4 boots — warm brown
+  '#5F3E2A',   // 5 boot soles
+  '#FFD9B3',   // 6 skin
+  '#262E44',   // 7 hair — near-black navy
+  '#3E4C6E',   // 8 hair sheen band
+  '#3A9EC9',   // 9 scarf — teal blue
+  '#5BC8DC',   // 10 scarf folds / tail tip
+  '#AEE6FF',   // 11 glasses lens glint
+  '#1A1A22',   // 12 glasses frame / eyes
+  '#E8A87A',   // 13 mouth
+  '#FFB88A',   // 14 blush
+  '#B07A4E',   // 15 backpack
+  '#8A5A3C'    // 16 pack flap / straps / buckle
 ];
-const npcV = humanHead(NPC_C, {
-  fringe: [1, 2, 3, 5, 8], mouthX: 5, cowlick: [6, 5]
-}).concat(humanBody(NPC_C, { cardigan: true }));
+const playerParts = {
+  head: humanHead(HUMAN_C, {
+    fringe: [2, 3, 5, 7], mouthX: 4,
+    tufts: [[2, 13, 4], [4, 13, 3], [6, 13, 5], [7, 13, 4],
+            [0, 11, 4], [9, 11, 3]]
+  }),
+  torso: humanTorso(HUMAN_C, { pack: true }),
+  arm_l: humanArm(HUMAN_C, 1),
+  arm_r: humanArm(HUMAN_C, 8),
+  leg_l: humanLeg(HUMAN_C, 2),
+  leg_r: humanLeg(HUMAN_C, 6),
+  pack: humanPack(HUMAN_C),
+  scarf: humanScarfTail(HUMAN_C)
+};
+
+// NPC YOONKI — same rig, mustard shirt, coral scarf, warm brown hair, NO
+// backpack: the host must read as a DIFFERENT person at a glance.
+const NPC_PAL = [
+  '#D9A23E',   // 0 shirt — mustard
+  '#C08A2E',   // 1 shirt shade
+  '#9BA05E',   // 2 shorts — khaki olive
+  '#7F8449',   // 3 shorts hem crease
+  '#7A5238',   // 4 boots
+  '#5F3E2A',   // 5 boot soles
+  '#FFD9B3',   // 6 skin
+  '#6B4A2F',   // 7 hair — warm brown
+  '#8A6647',   // 8 hair sheen band
+  '#E05A4E',   // 9 scarf — coral red
+  '#F08A7E',   // 10 scarf folds / tail tip
+  '#AEE6FF',   // 11 lens glint
+  '#1A1A22',   // 12 frame / eyes
+  '#E8A87A',   // 13 mouth
+  '#FFB88A',   // 14 blush
+  '#B07A4E',   // 15 (unused — no pack)
+  '#8A5A3C'    // 16 (unused)
+];
+const npcV = [].concat(
+  humanHead(HUMAN_C, {
+    fringe: [3, 4, 6], mouthX: 5,
+    tufts: [[3, 13, 5], [5, 13, 3], [7, 13, 5], [0, 11, 3], [9, 11, 4]]
+  }),
+  humanTorso(HUMAN_C, { pack: false }),
+  humanArm(HUMAN_C, 1), humanArm(HUMAN_C, 8),
+  humanLeg(HUMAN_C, 2), humanLeg(HUMAN_C, 6),
+  humanScarfTail(HUMAN_C));
 
 /* ------------------------------------------------------------------ *
  *  MACRODOC — robot-doc spirit: cream body, CRT-monitor head with a    *
@@ -343,6 +389,42 @@ function makeFunnify() {
 }
 
 /* ------------------------------------------------------------------ *
+ *  LASTHAND — golden hand creature: open "paper" palm, chunky boxy    *
+ *  fingers, a face on the palm, little feet on the wrist base.        *
+ *  (Voxel fallback for the authored lasthand.glb — same silhouette.)  *
+ * ------------------------------------------------------------------ */
+function makeLasthand() {
+  const GOLD = 0, DK = 1, CREAM = 2, INK = 3, CORAL = 4, FOOT = 5;
+  const v = [];
+  // wrist base (darker cuff) with little feet peeking out the front
+  box(4, 0, 1, 8, 2, 3, DK, v);
+  v.push([4, 0, 4, FOOT], [5, 0, 4, FOOT], [7, 0, 4, FOOT], [8, 0, 4, FOOT]);
+  // open palm slab — 9 wide, 3 deep, face side at +Z
+  box(2, 3, 1, 10, 9, 3, GOLD, v);
+  // thumb sweeping out on the left, one step lower than the fingers
+  box(0, 5, 1, 1, 7, 3, GOLD, v);
+  v.push([0, 8, 2, GOLD], [1, 8, 2, GOLD]);
+  // three chunky fingers, staggered heights (middle tallest — "paper")
+  box(2, 10, 1, 3, 11, 3, GOLD, v);              // index
+  box(5, 10, 1, 6, 13, 3, GOLD, v);              // middle
+  box(8, 10, 1, 9, 11, 3, GOLD, v);              // pinky (shortest)
+  v.push([8, 12, 2, GOLD], [9, 12, 2, GOLD]);
+  // cream palm patch = the face plate
+  box(3, 4, 3, 9, 8, 3, CREAM, v);
+  // face painted proud of the palm: big happy eyes + smile + blush
+  v.push([4, 7, 4, INK], [8, 7, 4, INK]);
+  v.push([4, 5, 4, CORAL], [8, 5, 4, CORAL]);    // cheeks
+  v.push([5, 4, 4, INK], [6, 4, 4, INK], [7, 4, 4, INK]);   // smile
+  v.push([6, 5, 4, INK]);                        // open-smile center
+  // two crisp cream highlights on the middle fingertip
+  v.push([5, 13, 3, CREAM], [6, 13, 3, CREAM]);
+  // round the palm: knock the corner columns off
+  let out = cutColumns(v, [[2, 1], [10, 1], [2, 3], [10, 3]], 3, 4);
+  out = cutColumns(out, [[2, 1], [10, 1]], 8, 9);
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
  *  SPOTTED EGG — nursery egg, sage-green spots like the 2D sprite.     *
  * ------------------------------------------------------------------ */
 function makeEgg() {
@@ -369,41 +451,33 @@ function makeEgg() {
 }
 
 /* ------------------------------------------------------------------ */
+// sunRim off for the humans: the painted warm rim turns near-black hair
+// tops into clay-brown patches (worst on the rounded corner cuts). Their
+// charm comes from AO + chamfer + face details instead.
+function humanSeg(palette, voxels) {
+  return {
+    size: [10, 14, 10],
+    palette,
+    voxels: dedupe(voxels),
+    jitter: false,
+    chamfer: 0.25,
+    sunRim: false
+  };
+}
+
 export default {
-  // sunRim off for the humans: the painted warm rim turns near-black hair
-  // tops into clay-brown patches (worst on the rounded corner cuts). Their
-  // charm comes from AO + chamfer + face details instead.
-  player: {
-    size: [10, 13, 10],
-    palette: PLAYER_PAL,
-    voxels: dedupe(playerHeadV.concat(playerBodyV)),   // body last: hood wins
-    jitter: false,
-    chamfer: 0.25,
-    sunRim: false
-  },
-  player_head: {
-    size: [10, 13, 10],
-    palette: PLAYER_PAL,
-    voxels: dedupe(playerHeadV),
-    jitter: false,
-    chamfer: 0.25,
-    sunRim: false
-  },
-  player_body: {
-    size: [10, 13, 10],
-    palette: PLAYER_PAL,
-    voxels: dedupe(playerBodyV),
-    jitter: false,
-    chamfer: 0.25
-  },
-  npc_yoonki: {
-    size: [10, 13, 10],
-    palette: NPC_PAL,
-    voxels: dedupe(npcV),
-    jitter: false,
-    chamfer: 0.25,
-    sunRim: false
-  },
+  // full assembly (viewer + safe fallback if any segment goes missing)
+  player: humanSeg(PLAYER_PAL, Object.values(playerParts).flat()),
+  // segments — one per animated group in the actors.js walk-cycle rig
+  player_head: humanSeg(PLAYER_PAL, playerParts.head),
+  player_torso: humanSeg(PLAYER_PAL, playerParts.torso),
+  player_arm_l: humanSeg(PLAYER_PAL, playerParts.arm_l),
+  player_arm_r: humanSeg(PLAYER_PAL, playerParts.arm_r),
+  player_leg_l: humanSeg(PLAYER_PAL, playerParts.leg_l),
+  player_leg_r: humanSeg(PLAYER_PAL, playerParts.leg_r),
+  player_pack: humanSeg(PLAYER_PAL, playerParts.pack),
+  player_scarf: humanSeg(PLAYER_PAL, playerParts.scarf),
+  npc_yoonki: humanSeg(NPC_PAL, npcV),
 
   creature_macrodoc: {
     size: [12, 15, 9],
@@ -467,6 +541,21 @@ export default {
       '#FFC048'    // 6 lightning-bolt tail
     ],
     voxels: dedupe(makeFunnify()),
+    jitter: false,
+    chamfer: 0.3
+  },
+
+  creature_lasthand: {
+    size: [12, 14, 5],
+    palette: [
+      '#FFC048',   // 0 buttercup-gold palm (lasthand gold)
+      '#D9A32E',   // 1 dark gold wrist cuff
+      '#FFF3D6',   // 2 cream face plate + highlights
+      '#2B2B33',   // 3 eyes / smile
+      '#FF8E72',   // 4 coral cheeks
+      '#7A5238'    // 5 little feet
+    ],
+    voxels: dedupe(makeLasthand()),
     jitter: false,
     chamfer: 0.3
   },

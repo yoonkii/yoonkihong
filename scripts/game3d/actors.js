@@ -1,6 +1,6 @@
 /* ============================================================================
    YOONKI WORLD 3D — actors: player, NPC, creatures, eggs, secret friend
-   Free analog movement with momentum, squash-and-stretch hop cycle,
+   Free analog movement with momentum, segmented walk-cycle player rig,
    wandering creatures with idle bob + emotes, wobbling eggs, blob shadows.
    ========================================================================== */
 
@@ -13,7 +13,7 @@ import { buildMesh, getModel, voxelMaterial, VOXEL_SIZE } from '../voxel/voxel.j
  *  lerp) can warm ONE actor without touching the shared voxel material. */
 function actorMaterial() { return voxelMaterial().clone(); }
 import {
-  REDUCED, hash2, angleLerp, damp,
+  REDUCED, hash2, angleLerp, damp, PLAYER_MOVE,
   NPC_POS, CREATURE_SPOTS, EGG_SLOTS, PLAYER_START, SECRET_POS
 } from './const.js';
 
@@ -154,24 +154,56 @@ function safeActorMesh(name) {
 }
 
 /* ------------------------------------------------------------------ *
- *  PLAYER                                                              *
+ *  PLAYER — segmented rig + real walk cycle                            *
+ *  Replaces the old whole-body hop ("뒤뚱뒤뚱"): opposite arm/leg swing  *
+ *  with frequency tied to actual speed, torso lean into the movement,  *
+ *  subtle head bob, scarf-tail rotation spring. Squash-stretch remains *
+ *  only as landing / stop / bump / about-face ACCENTS.                 *
  * ------------------------------------------------------------------ */
+// [key, model, pivot] — pivots in model-local units (y0 = ground, XZ 0 =
+// model center). Grid contract: characters.js human rig, 8 voxels = 1 wu.
+const PLAYER_PARTS = [
+  ['head',  'player_head',  [0, 0.875, 0]],            // neck (grid y7)
+  ['torso', 'player_torso', [0, 0.375, 0]],            // hips (grid y3)
+  ['pack',  'player_pack',  [0, 0.375, 0]],            // leans with torso
+  ['scarf', 'player_scarf', [0.0625, 0.875, -0.5625]], // tail root (back)
+  ['armL',  'player_arm_l', [-0.4375, 0.75, 0]],       // shoulders (grid y6)
+  ['armR',  'player_arm_r', [0.4375, 0.75, 0]],
+  ['legL',  'player_leg_l', [-0.25, 0.375, 0.0625]],   // hips
+  ['legR',  'player_leg_r', [0.25, 0.375, 0.0625]]
+];
+
+function buildPlayerRig(inner) {
+  if (!PLAYER_PARTS.every(([, m]) => getModel(m))) return null;
+  const off = -10 / 2 * VOXEL_SIZE;         // 10-voxel grid -> XZ-centered
+  const rig = {};
+  for (const [key, model, [px, py, pz]] of PLAYER_PARTS) {
+    const mesh = roundedActorMesh(model, 'corner');
+    mesh.position.set(off - px, -py, off - pz);
+    const pivot = new THREE.Group();
+    pivot.position.set(px, py, pz);
+    pivot.add(mesh);
+    inner.add(pivot);
+    rig[key] = pivot;
+  }
+  return rig;
+}
+
+// Walk tuning. Phase advances (rad/s) with actual speed; each PI = one
+// step. At max speed (5.2): ~15 rad/s ≈ 4.8 steps/s, matching the stride.
+const WALK = {
+  freq: 3.2, freqPerSpeed: 2.3,
+  armAmp: 0.8, legAmp: 0.85,
+  bob: 0.05, headNod: 0.05, lean: 0.15
+};
+
 export function createPlayer(scene) {
   const group = new THREE.Group();
-  const inner = new THREE.Group();            // squash/stretch pivot
+  const inner = new THREE.Group();            // yaw + squash/stretch pivot
   group.add(inner);
 
-  let head = null;
-  if (getModel('player_head') && getModel('player_body')) {
-    const body = roundedActorMesh('player_body', 'corner');
-    head = roundedActorMesh('player_head', 'corner');
-    for (const m of [body, head]) {
-      m.position.set(-10 / 2 * VOXEL_SIZE, 0, -10 / 2 * VOXEL_SIZE);
-    }
-    inner.add(body, head);
-  } else {
-    inner.add(safeActorMesh('player'));
-  }
+  const rig = buildPlayerRig(inner);
+  if (!rig) inner.add(safeActorMesh('player'));
 
   const shadow = makeBlobShadow(0.52);
   group.add(shadow);
@@ -180,18 +212,21 @@ export function createPlayer(scene) {
   group.position.set(PLAYER_START.x, 0, PLAYER_START.z);
 
   const player = {
-    group, inner, head, shadow,
+    group, inner, rig, shadow,
     pos: new THREE.Vector3(PLAYER_START.x, 0, PLAYER_START.z),
     vel: new THREE.Vector2(0, 0),
     yaw: 0,                                    // model front is +Z: faces camera
     lastHit: 0,
     r: 0.3,
     speed: 0,
-    maxSpeed: 4.0,
-    hopPhase: 0,
-    hopY: 0,
+    maxSpeed: PLAYER_MOVE.maxSpeed,
+    walkPhase: 0,
+    bobY: 0,                                   // walk bob (was the 0.22 hop)
+    lean: 0,                                   // torso lean into movement
+    scarfRot: 0, scarfVel: 0,                  // scarf-tail rotation spring
     sy: 1, syVel: 0,                           // squash spring (stops/bumps)
-    landK: 0,                                  // landing-squash envelope
+    landK: 0,                                  // footfall-squash envelope
+    turnCd: 0,                                 // about-face accent cooldown
     wasMoving: false,
     onStep: null                                // cb(pos, speed)
   };
@@ -199,7 +234,8 @@ export function createPlayer(scene) {
   player.update = function (dt, move, colliders, t) {
     // ---- momentum -------------------------------------------------------
     const tx = move.x * player.maxSpeed, tz = move.z * player.maxSpeed;
-    const accel = (move.x !== 0 || move.z !== 0) ? 9 : 12;
+    const accel = (move.x !== 0 || move.z !== 0)
+      ? PLAYER_MOVE.accel : PLAYER_MOVE.decel;
     player.vel.x = damp(player.vel.x, tx, accel, dt);
     player.vel.y = damp(player.vel.y, tz, accel, dt);
     if (Math.abs(player.vel.x) < 0.01) player.vel.x = 0;
@@ -211,34 +247,67 @@ export function createPlayer(scene) {
     player.lastHit = colliders.moveCircle(
       player.pos, player.vel.x * dt, player.vel.y * dt, player.r);
 
-    // ---- facing -----------------------------------------------------------
+    // ---- facing (+ about-face squash accent) -------------------------------
+    player.turnCd -= dt;
     if (player.speed > 0.25) {
       const target = Math.atan2(player.vel.x, player.vel.y);
+      let dyaw = (target - player.yaw) % (Math.PI * 2);
+      if (dyaw > Math.PI) dyaw -= Math.PI * 2;
+      if (dyaw < -Math.PI) dyaw += Math.PI * 2;
+      if (!REDUCED && Math.abs(dyaw) > 2.1 && player.speed > 1.5 &&
+          player.turnCd <= 0) {
+        player.syVel -= 1.8;                   // hard-turn plant accent
+        player.turnCd = 0.45;
+      }
       player.yaw = angleLerp(player.yaw, target, 1 - Math.exp(-14 * dt));
     }
 
-    // ---- hop cycle --------------------------------------------------------
-    // Stretch is driven by the hop phase (tall at APEX, ~1.10), and landing
-    // squash is a short ~60ms envelope (dips to ~0.86) — never a slow spring,
-    // which lagged a full hop behind and read as a permanent crouch.
+    // ---- walk cycle --------------------------------------------------------
     const moving = player.speed > 0.35;
-    let hopStretch = 1;
-    if (!REDUCED && moving) {
-      const prev = player.hopPhase;
-      player.hopPhase += dt * (5 + player.speed * 3.4);
-      const k = Math.min(1, player.speed / player.maxSpeed + 0.25);
-      const arc = Math.abs(Math.sin(player.hopPhase));
-      player.hopY = arc * 0.22 * k;
-      hopStretch = 1 + arc * 0.11 * k;         // peak ~1.10 at apex
-      if (Math.floor(prev / Math.PI) !== Math.floor(player.hopPhase / Math.PI)) {
-        player.landK = 1;                      // landing squash kick (fast envelope)
-        if (player.onStep) player.onStep(player.pos, player.speed);
+    const spdK = Math.min(1, player.speed / player.maxSpeed);
+    if (rig && !REDUCED) {
+      if (moving) {
+        const prev = player.walkPhase;
+        player.walkPhase += dt * (WALK.freq + player.speed * WALK.freqPerSpeed);
+        const k = Math.min(1, spdK + 0.25);
+        const swing = Math.sin(player.walkPhase) * k;
+        rig.armL.rotation.x = -swing * WALK.armAmp;   // opposite arm/leg
+        rig.armR.rotation.x = swing * WALK.armAmp;
+        rig.legL.rotation.x = swing * WALK.legAmp;
+        rig.legR.rotation.x = -swing * WALK.legAmp;
+        player.bobY = Math.abs(Math.sin(player.walkPhase)) * WALK.bob * k;
+        rig.head.rotation.x = Math.sin(player.walkPhase * 2) * WALK.headNod * k;
+        player.lean = damp(player.lean, WALK.lean * spdK, 8, dt);
+        // footfall: every half cycle — step SFX/dust + a tiny weight dip
+        if (Math.floor(prev / Math.PI) !== Math.floor(player.walkPhase / Math.PI)) {
+          player.landK = 1;
+          if (player.onStep) player.onStep(player.pos, player.speed);
+        }
+      } else {
+        for (const kk of ['armL', 'armR', 'legL', 'legR'])
+          rig[kk].rotation.x = damp(rig[kk].rotation.x, 0, 12, dt);
+        rig.head.rotation.x = damp(rig.head.rotation.x, 0, 10, dt);
+        player.lean = damp(player.lean, 0, 8, dt);
+        player.bobY = damp(player.bobY, 0, 14, dt);
       }
-    } else {
-      player.hopY = damp(player.hopY, 0, 14, dt);
+      rig.torso.rotation.x = player.lean;       // lean into the movement
+      rig.pack.rotation.x = player.lean;        // pack rides the torso
+      // scarf tail: lagging rotation spring — lifts with speed, flutters
+      // with the stride, settles softly on stop
+      const scarfTarget = moving
+        ? 0.25 + 0.75 * spdK + Math.sin(player.walkPhase) * 0.15
+        : 0;
+      player.scarfVel += (scarfTarget - player.scarfRot) * 60 * dt;
+      player.scarfVel *= Math.pow(0.001, dt);
+      player.scarfRot = Math.max(-0.5, Math.min(1.5,
+        player.scarfRot + player.scarfVel * dt));
+      rig.scarf.rotation.x = player.scarfRot;
+      // idle: slow head sway (look-around) — cheap "alive" beat
+      rig.head.rotation.y = damp(rig.head.rotation.y,
+        moving ? 0 : Math.sin(t * 0.55) * 0.08, 2.5, dt);
     }
-    // landing squash envelope: dips to ~0.86 at contact, over half recovered
-    // by 60ms — quick enough that the apex still reads tall at full run speed
+
+    // footfall dip envelope: shallow (~0.94) and over half recovered by 60ms
     player.landK *= Math.pow(1e-6, dt);
     if (player.landK < 0.02) player.landK = 0;
     // stop squash: the damped-spring skid settle (sy dips then overshoots)
@@ -247,7 +316,7 @@ export function createPlayer(scene) {
     }
     player.wasMoving = moving;
 
-    // squash spring (stop-skid settle + wall bumps only)
+    // squash spring (stop-skid settle + wall bumps + hard turns only)
     if (!REDUCED) {
       player.syVel += (1 - player.sy) * 120 * dt;
       player.syVel *= Math.pow(0.0005, dt);
@@ -258,13 +327,12 @@ export function createPlayer(scene) {
     // ---- write transform ---------------------------------------------------
     const breathe = REDUCED ? 0 : Math.sin(t * 3.9) * 0.012 * (moving ? 0 : 1);
     group.position.set(player.pos.x, 0, player.pos.z);
-    inner.position.y = player.hopY;
+    inner.position.y = player.bobY;
     inner.rotation.y = player.yaw;
-    const landSquash = REDUCED ? 1 : 1 - 0.14 * player.landK;
-    const sy = Math.max(0.7, (player.sy + breathe) * hopStretch * landSquash);
+    const landSquash = REDUCED ? 1 : 1 - 0.06 * player.landK;
+    const sy = Math.max(0.8, (player.sy + breathe) * landSquash);
     inner.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
-    if (player.head) player.head.position.y = -Math.sin(player.hopPhase) * 0.02;
-    const sh = 1 - Math.min(0.45, player.hopY * 2.2);
+    const sh = 1 - Math.min(0.3, player.bobY * 2.0);
     player.shadow.scale.set(sh, sh, sh);
     player.shadow.material.opacity = sh;
   };
@@ -318,10 +386,11 @@ export function createCreatures(scene, projects, glb = {}) {
     const gm = glb[p.id];
     if (gm) inner.add(gm);
     else inner.add(safeActorMesh('creature_' + p.id));
-    // GLBs run 1.25x: wider anchor. mathwings is wider still — its clamped
-    // wingspan (~1.85 wu, glbassets.js FOOTPRINT_XZ) dwarfs the stock blob,
-    // so it gets a radius sized to the true silhouette.
-    const GLB_BLOB_R = { mathwings: 0.82 };
+    // GLBs run 1.25x: wider anchor. mathwings runs slightly wide still —
+    // the 20260710 superhero re-export spans ~1.72 wu (cape + raised fist),
+    // so it gets a radius sized to the true silhouette (the old owl's
+    // 1.85 wu clamped wingspan wanted 0.82).
+    const GLB_BLOB_R = { mathwings: 0.74 };
     group.add(makeBlobShadow(gm ? (GLB_BLOB_R[p.id] || 0.68) : 0.6));
 
     const c = {
@@ -337,7 +406,12 @@ export function createCreatures(scene, projects, glb = {}) {
       // camera (yaw PI/4) ± a hashed 25° jitter — the faces, not the
       // monitor-backs/rumps, own the overworld screen time
       idleT: 0,
-      camYaw: Math.PI / 4 + (hash2(i, 4, 5) - 0.5) * 0.87
+      camYaw: Math.PI / 4 + (hash2(i, 4, 5) - 0.5) * 0.87,
+      // soft billboard clamp (± rad around the camera azimuth PI/4): the
+      // lasthand model is a flat one-sided hand — edge-on or back-to-camera
+      // it reads as a plain tan plank, so its palm never leaves ±60° of the
+      // fixed camera. Rounder creatures keep free yaw (null).
+      yawClampHalf: p.id === 'lasthand' ? Math.PI / 3 : null
     };
     group.position.set(c.pos.x, 0, c.pos.z);
     creatures.push(c);
@@ -381,10 +455,12 @@ export function createCreatures(scene, projects, glb = {}) {
           }
         }
       }
-      // emotes: double hop or a full spin
+      // emotes: double hop or a full spin (yaw-clamped creatures always
+      // hop — a full spin would fight the billboard clamp below)
       if (!REDUCED && t >= c.emoteAt) {
         c.emoteAt = t + 6 + hash2(Math.floor(t * 11), c.home.x, 11) * 5;
-        if (hash2(Math.floor(t * 37), c.home.z, 12) < 0.5) c.spin = Math.PI * 2;
+        if (c.yawClampHalf == null &&
+            hash2(Math.floor(t * 37), c.home.z, 12) < 0.5) c.spin = Math.PI * 2;
         else c.hopBoost = 2;
       }
       if (c.spin > 0) {
@@ -416,6 +492,13 @@ export function createCreatures(scene, projects, glb = {}) {
         const sy = 1 + Math.sin(t * 3.9 + c.home.x) * 0.018 + c.hopY * 1.3;
         const sxz = 1 / Math.sqrt(sy);
         c.inner.scale.set(sxz, sy, sxz);
+      }
+      // soft billboard: keep flat one-sided models facing camera-ish
+      if (c.yawClampHalf != null) {
+        let dy = (c.yaw - Math.PI / 4) % (Math.PI * 2);
+        if (dy > Math.PI) dy -= Math.PI * 2;
+        if (dy < -Math.PI) dy += Math.PI * 2;
+        c.yaw = Math.PI / 4 + Math.max(-c.yawClampHalf, Math.min(c.yawClampHalf, dy));
       }
       c.group.position.set(c.pos.x, 0, c.pos.z);
       c.inner.position.y = c.hopY;
