@@ -24,7 +24,7 @@ import { createAudio } from './game3d/audio.js';
 import { createCameraRig, screenToGround } from './game3d/camera.js';
 import { createUI } from './game3d/ui.js';
 import { createPost } from './game3d/post.js';
-import { loadGLB } from './game3d/glbassets.js';
+import { loadGLB, provideRenderer } from './game3d/glbassets.js';
 import { createHouseInterior } from './game3d/interior.js';
 
 window.__ywBooted = true;
@@ -149,6 +149,8 @@ async function boot() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // unblocks the deferred KTX2 texture transcodes queued by the preload
+  provideRenderer(renderer);
 
   const scene = new THREE.Scene();
   const uTime = { value: 0 };

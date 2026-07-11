@@ -156,31 +156,47 @@ fine for test assets, wrong for shipping ones: add new names here first.
 - Palette: stay inside the island palette (see `docs/ART_BIBLE.md` §2) —
   warm, saturated-but-soft; the harness's side-by-side voxel reference is the
   color acceptance test.
-- **Author plain glTF 2.0 binary** — no Draco, no KTX2/Basis (no texture
-  transcoder is wired into the loader). Meshopt compression is applied as a
-  mandatory post-export step (§4.1); the loader wires `MeshoptDecoder`, so
-  `EXT_meshopt_compression` + `KHR_mesh_quantization` (+
-  `KHR_texture_transform` for the quantized UVs) are the only extensions a
-  shipping file may use.
+- **Author plain glTF 2.0 binary** — no Draco. Meshopt compression AND
+  ETC1S KTX2 texture compression are applied as mandatory post-export steps
+  (§4.1). A shipping file may use exactly: `EXT_meshopt_compression`,
+  `KHR_mesh_quantization` (+ `KHR_texture_transform` for quantized UVs) and
+  `KHR_texture_basisu`.
 
 ### 4.1 Compression (mandatory before shipping)
 
-Raw exports are ~600 KB each (float32 geometry at ~30-40 bytes/triangle);
-10 assets gated PRESS START behind ~6 MB. Every asset MUST go through
-[gltfpack](https://github.com/zeux/meshoptimizer) before landing in
-`assets/3d/`:
+Raw exports are ~600 KB each (float32 geometry at ~30-40 bytes/triangle)
+plus a ~490 KB JPEG. Every asset MUST go through BOTH steps before landing
+in `assets/3d/`:
 
 ```
-npx -y gltfpack -i <name>.raw.glb -o assets/3d/<name>.glb -cc
+# 1. geometry: quantization + meshopt
+npx -y gltfpack -i <name>.raw.glb -o <name>.packed.glb -cc
+
+# 2. textures: ETC1S KTX2 (added 2026-07-10 evening — cut the shipped set
+#    a further ~36%, 11.9 MB → 7.7 MB, and GPU texture memory ~-80%, and
+#    bakes a proper mip chain that the JPEGs never had).
+#    scripts/toktx2.mjs = gltf-transform script: extract each texture,
+#    encode via the basisu CLI (brew install basis_universal), re-embed as
+#    KHR_texture_basisu. Needs npm deps in the working dir:
+#    npm i @gltf-transform/core @gltf-transform/extensions meshoptimizer
+node scripts/toktx2.mjs <name>.packed.glb assets/3d/<name>.glb 224
 ```
 
-- `-cc` = KHR_mesh_quantization + EXT_meshopt_compression (high ratio);
-  cuts the shipped set ~60% (6.05 MB → 2.4 MB) with untouched textures.
-- Do **not** use `-tc` (KTX2/BasisU): the loader has no KTX2 transcoder and
-  the palette-grade pass (`glbassets.js gradeMap`) needs a canvas-drawable
-  image, which compressed GPU textures are not.
-- The decoder side is already wired (`glbassets.js` →
-  `loader().setMeshoptDecoder(MeshoptDecoder)`); no per-asset work needed.
+- `-cc` = KHR_mesh_quantization + EXT_meshopt_compression (high ratio).
+- ETC1S q224: visually transparent on the toy textures at game zoom
+  (verified building-by-building 2026-07-10). A few dark/noisy textures
+  (lasthand, macrodoc, gomokulike, funnify, namsan) come out 15-30% LARGER
+  than their JPEGs — shipped anyway: the GPU-memory and mip wins beat the
+  download delta, and the set total is still far smaller.
+- Decoder side is wired in `glbassets.js`: `MeshoptDecoder` + a `KTX2Loader`
+  whose loads are DEFERRED until `provideRenderer(renderer)` (game3d.js
+  calls it right after renderer creation — the GLB fetches start before the
+  renderer exists). glbviewer/rigviewer wire their own KTX2Loader directly.
+- The palette gate (`scripts/check_glb_palette.mjs`) unpacks KTX2 via
+  `basisu -unpack` automatically. NB if the dormant runtime regrade
+  (`gradeMap`, GRADE_PROFILES currently empty) is ever revived, graded
+  assets must keep canvas-drawable textures (JPEG/PNG) — compressed GPU
+  textures can't be drawn to a 2D canvas.
 - After any re-export, bump `ASSET_V` in `scripts/game3d/const.js` AND the
   matching `?v=` token on every mutable URL in **both** `index.html` and
   `classic.html` (`styles/main.css?v=`, `scripts/game3d.js?v=`,

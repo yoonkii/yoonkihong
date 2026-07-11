@@ -47,7 +47,7 @@
 import * as THREE from 'three';
 import { createSkyDome, createLights } from './scripts/game3d/sky.js';
 import { makeBlobShadow } from './scripts/game3d/actors.js';
-import { loadGLB, targetHeightFor, TARGET_HEIGHTS } from './scripts/game3d/glbassets.js';
+import { loadGLB, targetHeightFor, TARGET_HEIGHTS, provideRenderer } from './scripts/game3d/glbassets.js';
 import { buildMesh, getModel } from './scripts/voxel/voxel.js';
 import { createGroundPlate } from './scripts/voxel/rig.js';
 import './scripts/voxel/models/index.js';
@@ -79,6 +79,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+provideRenderer(renderer);           // unblocks KTX2 texture transcoding
 
 const scene = new THREE.Scene();
 const sky = createSkyDome();

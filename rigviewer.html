@@ -48,6 +48,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { createSkyDome, createLights } from './scripts/game3d/sky.js';
 import { createGroundPlate } from './scripts/voxel/rig.js';
@@ -113,6 +114,12 @@ paintHUD();
 let mixer = null;
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
+{ // shipped GLBs carry ETC1S KTX2 textures (KHR_texture_basisu)
+  const ktx2 = new KTX2Loader()
+    .setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/basis/')
+    .detectSupport(renderer);
+  loader.setKTX2Loader(ktx2);
+}
 let gltf = null;
 try {
   gltf = await loader.loadAsync('assets/3d/' + NAME + '.glb');

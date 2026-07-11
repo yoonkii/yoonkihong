@@ -21,9 +21,25 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { ASSET_V } from './const.js';
+
+/* ------------------------------------------------------------------ *
+ *  KTX2 renderer handshake                                             *
+ *  Shipped GLBs carry ETC1S KTX2 textures (KHR_texture_basisu — see    *
+ *  GLB_PIPELINE.md). Transcoding needs the renderer's capability        *
+ *  profile, but the GLB fetches are kicked off BEFORE the renderer      *
+ *  exists (two-phase preload). The KTX2Loader below therefore defers    *
+ *  every load until game3d.js calls provideRenderer(renderer).          *
+ * ------------------------------------------------------------------ */
+const BASIS_PATH = 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/basis/';
+let _resolveRenderer = null;
+const _rendererReady = new Promise((r) => { _resolveRenderer = r; });
+export function provideRenderer(renderer) {
+  if (_resolveRenderer) { _resolveRenderer(renderer); _resolveRenderer = null; }
+}
 
 /* ------------------------------------------------------------------ *
  *  CONTRACT (docs/GLB_PIPELINE.md — keep in sync)                      *
@@ -298,6 +314,19 @@ function loader() {
     // shipped GLBs are gltfpack'd (-cc): EXT_meshopt_compression +
     // KHR_mesh_quantization (see docs/GLB_PIPELINE.md compression step)
     _loader.setMeshoptDecoder(MeshoptDecoder);
+    // ETC1S KTX2 textures: detectSupport needs the renderer, which is
+    // created after the fetches start — defer each texture load until
+    // provideRenderer() resolves the handshake (fetches still parallel).
+    const ktx2 = new KTX2Loader().setTranscoderPath(BASIS_PATH);
+    const rawLoad = ktx2.load.bind(ktx2);
+    let detected = false;
+    ktx2.load = (url, onLoad, onProgress, onError) => {
+      _rendererReady.then((r) => {
+        if (!detected) { ktx2.detectSupport(r); detected = true; }
+        rawLoad(url, onLoad, onProgress, onError);
+      });
+    };
+    _loader.setKTX2Loader(ktx2);
   }
   return _loader;
 }

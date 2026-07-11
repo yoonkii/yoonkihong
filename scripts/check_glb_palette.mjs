@@ -34,6 +34,7 @@
    ========================================================================== */
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -102,7 +103,34 @@ print(json.dumps({
               'hiFrac': (ghi/gn if gn else 0) }}))
 `.replace('%HI%', String(TREE_HI_VAL));
 
-function pixelStats(bytes) {
+function pixelStats(bytes, mime) {
+  // shipped GLBs carry ETC1S KTX2 textures (GLB_PIPELINE.md compression
+  // step) — Pillow can't read those, so unpack the top mip to PNG first
+  // via the basisu CLI (brew install basis_universal)
+  if (mime === 'image/ktx2') {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'palgate-'));
+    try {
+      const ktx = path.join(dir, 't.ktx2');
+      fs.writeFileSync(ktx, bytes);
+      // NB: basisu -unpack writes its PNGs to the CWD (-output_path only
+      // moves .basis/.ktx outputs), so run it inside the temp dir
+      const u = spawnSync('basisu', ['-unpack', '-file', ktx],
+        { maxBuffer: 1 << 26, cwd: dir });
+      if (u.status !== 0) {
+        throw new Error('basisu CLI unavailable for KTX2 unpack ' +
+          '(brew install basis_universal)');
+      }
+      // -unpack emits every transcode target; the gate wants the top-mip
+      // RGBA32 RGB plane (uncompressed reference decode)
+      const files = fs.readdirSync(dir);
+      const png = files.find((f) => /_unpacked_rgb_RGBA32_level_0_/.test(f)) ||
+        files.find((f) => /_unpacked_rgb_.*level_0_/.test(f) && f.endsWith('.png'));
+      if (!png) throw new Error('basisu -unpack produced no PNG');
+      bytes = fs.readFileSync(path.join(dir, png));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
   const r = spawnSync('python3', ['-c', PY], { input: bytes, maxBuffer: 1 << 24 });
   if (r.status !== 0) {
     throw new Error('python3+Pillow unavailable (pip install Pillow): ' +
@@ -118,7 +146,7 @@ function checkAsset(glbPath) {
   const images = extractImages(glbPath);
   if (!images.length) notes.push('no embedded textures');
   images.forEach((img, i) => {
-    const { families: fams, greens: greenPx } = pixelStats(img.bytes);
+    const { families: fams, greens: greenPx } = pixelStats(img.bytes, img.mime);
     for (const f of fams) {
       if (f.family === 'neutral') continue;
       if (f.coverage >= DOMINANT_COVERAGE && f.sat > NEON_SAT && f.val > NEON_VAL) {
