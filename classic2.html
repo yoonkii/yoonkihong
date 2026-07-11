@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Yoonki Hong — GTM &amp; product at Google, builder by night</title>
+  <meta name="description" content="Yoonki Hong drives GTM and product at Google Play in San Francisco and ships AI apps, games, and music on the side. This is the quiet version of his portfolio — the loud version is a playable world.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://yoonkihong.com/classic2.html">
+  <meta property="og:title" content="Yoonki Hong — GTM &amp; product at Google, builder by night">
+  <meta property="og:description" content="Yoonki Hong drives GTM and product at Google Play in San Francisco and ships AI apps, games, and music on the side. This is the quiet version of his portfolio — the loud version is a playable world.">
+  <meta property="og:image" content="https://yoonkihong.com/images/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Yoonki Hong — GTM &amp; product at Google, builder by night">
+  <meta name="twitter:image" content="https://yoonkihong.com/images/og.jpg">
+  <link rel="icon" href="images/game/creatures/egg.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600;1,800&family=Geist+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/v2.css">
+  <link rel="preload" href="assets/v2/hero/first.webp" as="image">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- persistent game banner -->
+  <a class="game-banner" href="index.html">
+    <span class="banner-dot" aria-hidden="true"></span>
+    This site is also an interactive game — walk around it, meet the creatures&nbsp;&rarr;&nbsp;<strong>Play it</strong>
+  </a>
+
+  <!-- corner nav -->
+  <nav class="corner-nav" aria-label="Site">
+    <a href="#work">WORK</a>
+    <a href="#products">PRODUCTS</a>
+    <a href="#about">ABOUT</a>
+    <span class="nav-socials">
+      <a href="https://x.com/yoonki1214" target="_blank" rel="noopener" aria-label="X">𝕏</a>
+      <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+      <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener" aria-label="LinkedIn">IN</a>
+    </span>
+  </nav>
+
+  <!-- ============ SECTION 1 — HERO (scroll-scrubbed Seoul -> SF) ========= -->
+  <section class="hero" id="hero" aria-label="Intro">
+    <div class="hero-sticky">
+      <canvas id="hero-canvas" aria-hidden="true"></canvas>
+      <img id="hero-poster" src="assets/v2/hero/first.webp" alt="Illustrated 3D Yoonki waving, Seoul turning into San Francisco">
+      <div class="hero-beats" aria-hidden="true">
+        <p class="beat" data-beat="0">Hi, my name is <em>Yoonki!</em></p>
+        <p class="beat" data-beat="1">I&rsquo;m from <strong>SEOUL</strong></p>
+        <p class="beat" data-beat="2">and now based in <strong>SAN&nbsp;FRANCISCO</strong></p>
+      </div>
+      <div class="hero-lockin">
+        <h1 class="hero-headline">
+          <span class="hl-line">GTM &amp; product at Google <span class="hl-day">by day.</span></span>
+          <span class="hl-line">Builder of small, <em class="hl-accent">playful</em> things <span class="hl-day">by night.</span></span>
+        </h1>
+        <p class="hero-quiet">Seoul &rarr; San Francisco &middot; a decade of taking products to market &middot; builds with AI at work and after hours</p>
+        <a class="hero-cta" href="#products">SEE WHAT I&rsquo;VE BUILT <span class="cta-arrow">&darr;</span></a>
+      </div>
+      <div class="hero-scroll-hint" aria-hidden="true"><span></span>scroll</div>
+    </div>
+  </section>
+
+  <!-- ============ SECTION 2 — WORK (3D icon timeline) ==================== -->
+  <section class="work" id="work" aria-labelledby="work-h">
+    <h2 id="work-h" class="sec-h"><span class="sec-kicker">Work</span>Ten years, three logos</h2>
+    <div class="work-stage">
+      <canvas id="work-canvas" aria-hidden="true"></canvas>
+      <div class="work-cards">
+        <article class="work-card" data-co="naver">
+          <h3>NAVER <span class="wc-when">2014</span></h3>
+          <p>Where it all started — joined through NAVER&rsquo;s global business track, back when LINE was still part of NAVER.</p>
+        </article>
+        <article class="work-card" data-co="line">
+          <h3>LINE, Seoul <span class="wc-when">2014&ndash;2018</span></h3>
+          <p>Growth PM. Helped grow new products from zero to tens of millions of users across Southeast Asia — and stayed through the biggest tech IPO of 2016.</p>
+        </article>
+        <article class="work-card" data-co="google">
+          <h3>Google, Seoul &rarr; San&nbsp;Francisco <span class="wc-when">2018&ndash;now</span></h3>
+          <p>GTM &amp; product at Google Play. I PM a content-forward store experience and take it to market — both sides of the table. Lately it&rsquo;s been all about AI: LLM-based systems before it was cool, agentic tools teams actually use, and figuring out what AI-native apps mean for a platform.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SECTION 3 — ABOUT ====================================== -->
+  <section class="about" id="about" aria-labelledby="about-h">
+    <h2 id="about-h" class="sec-h"><span class="sec-kicker">About</span>After hours</h2>
+    <p class="about-reveal">The part of me that doesn&rsquo;t fit in a job title builds things. I ship AI apps, arcade games, and AI-produced music — everything in the projects list below is something I actually made and put into the world. When I&rsquo;m not building, I&rsquo;m reading about AI, making songs, teaching vibe-coding to Korean seniors in the Bay Area, or playing video games for &ldquo;research&rdquo;.</p>
+  </section>
+
+  <!-- ============ SECTION 4 — PRODUCTS (hanging capsules) ================ -->
+  <section class="products" id="products" aria-labelledby="products-h">
+    <h2 id="products-h" class="sec-h"><span class="sec-kicker">Products</span>Pull a capsule</h2>
+    <p class="products-hint">Everything here is live and real — hover, swat, open.</p>
+    <div class="capsule-stage">
+      <canvas id="capsule-canvas" aria-hidden="true"></canvas>
+      <ul class="capsule-fallback" id="capsule-fallback" hidden></ul>
+    </div>
+    <div class="capsule-card" id="capsule-card" hidden>
+      <button class="cc-close" id="cc-close" aria-label="Close">&times;</button>
+      <img class="cc-sprite" id="cc-sprite" alt="" width="96" height="96">
+      <h3 id="cc-name"></h3>
+      <p id="cc-tagline"></p>
+      <p class="cc-desc" id="cc-desc"></p>
+      <a class="cc-visit" id="cc-visit" target="_blank" rel="noopener">Visit &rarr;</a>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ================================================= -->
+  <footer class="footer">
+    <nav aria-label="Social links">
+      <a href="https://x.com/yoonki1214" target="_blank" rel="noopener">X</a>
+      <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener">LinkedIn</a>
+      <a href="index.html">Play the game</a>
+    </nav>
+    <p>&copy; <span id="year">2026</span> Yoonki Hong &middot; hand-built</p>
+    <img class="peek" id="peek" src="images/game/creatures/funnify.png" alt="" width="120" height="120" loading="lazy">
+  </footer>
+
+  <script src="data/projects.js"></script>
+  <script type="module" src="scripts/v2/main.js"></script>
+</body>
+</html>

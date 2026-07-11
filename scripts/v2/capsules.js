@@ -1,0 +1,226 @@
+/* ============================================================================
+   classic v2 — products as two-tone toy capsules hanging on strings.
+   Verlet pendulum physics: capsules sway with momentum, the cursor shoves
+   them (satisfyingly), click opens the project card. Original capsule
+   design: top shell in a per-project color, cream lower shell, gold seam.
+   ========================================================================== */
+
+import * as THREE from 'three';
+
+const CAPSULE_COLORS = {
+  macrodoc: '#7FD4D9', mathstreet: '#F7D75E', mathwings: '#8FB7F0',
+  funnify: '#FFB35C', lasthand: '#B8A7F0', gunball: '#FF8E72',
+  gomokulike: '#8FD05C', suno: '#F5A8C0', substack: '#C9B79C'
+};
+
+export function initCapsules() {
+  const canvas = document.getElementById('capsule-canvas');
+  const projects = (window.PROJECTS || []);
+  const live = projects.filter((p) => p.kind !== 'egg');
+  const soon = projects.filter((p) => p.kind === 'egg' && p.id !== 'x');
+  const items = [...live, ...soon];
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  } catch (e) { return fallback(items); }
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(32, 1, 0.1, 60);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xD8E4F0, 1.05));
+  const key = new THREE.DirectionalLight(0xFFF3E0, 1.7);
+  key.position.set(-4, 6, 7);
+  scene.add(key);
+
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const N = items.length;
+  const SPACING = 2.05;
+  const capsules = items.map((p, i) => makeCapsule(p, i));
+  capsules.forEach((c) => scene.add(c.group, c.line));
+
+  function makeCapsule(p, i) {
+    const isSoon = p.kind === 'egg';
+    const col = new THREE.Color(CAPSULE_COLORS[p.id] || '#CFCBC2');
+    const group = new THREE.Group();
+    const R = 0.62;
+    const matTop = new THREE.MeshStandardMaterial({
+      color: col, roughness: 0.28, metalness: 0,
+      transparent: isSoon, opacity: isSoon ? 0.55 : 1
+    });
+    const matBot = new THREE.MeshStandardMaterial({
+      color: '#F6EFE2', roughness: 0.35,
+      transparent: isSoon, opacity: isSoon ? 0.55 : 1
+    });
+    const top = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), matTop);
+    const bot = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), matBot);
+    const seam = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.005, R * 1.005, 0.075, 40),
+      new THREE.MeshStandardMaterial({ color: '#C9A25A', roughness: 0.3, metalness: 0.35,
+        transparent: isSoon, opacity: isSoon ? 0.6 : 1 }));
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.028, 10, 18),
+      seam.material);
+    loop.position.y = R + 0.06;
+    group.add(top, bot, seam, loop);
+
+    // pendulum state (verlet): pivot fixed, bob = capsule center
+    const px = (i - (N - 1) / 2) * SPACING;
+    const len = 1.6 + (i % 3) * 0.55;             // varied hang heights
+    const pivot = new THREE.Vector3(px, 3.4, 0);
+    const bob = pivot.clone().add(new THREE.Vector3(0, -len, 0));
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([pivot, bob]),
+      new THREE.LineBasicMaterial({ color: 0x8A94A6, transparent: true, opacity: isSoon ? 0.4 : 0.8 }));
+    return {
+      p, group, line, pivot, len, isSoon,
+      pos: bob.clone(), prev: bob.clone(), spin: 0, spinV: 0
+    };
+  }
+
+  /* labels for the coming-soon pair */
+  const labels = [];
+  capsules.forEach((c) => {
+    if (!c.isSoon) return;
+    const cvs = document.createElement('canvas');
+    cvs.width = 256; cvs.height = 64;
+    const g = cvs.getContext('2d');
+    g.font = '600 34px Geist Mono, monospace';
+    g.textAlign = 'center'; g.fillStyle = 'rgba(90,98,112,0.9)';
+    g.fillText((c.p.name || '').toUpperCase() + ' · SOON', 128, 42);
+    const t = new THREE.CanvasTexture(cvs);
+    t.colorSpace = THREE.SRGBColorSpace;
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
+    spr.scale.set(1.9, 0.48, 1);
+    labels.push({ spr, c });
+    scene.add(spr);
+  });
+
+  /* card DOM */
+  const card = document.getElementById('capsule-card');
+  const ccName = document.getElementById('cc-name');
+  const ccTag = document.getElementById('cc-tagline');
+  const ccDesc = document.getElementById('cc-desc');
+  const ccVisit = document.getElementById('cc-visit');
+  const ccSprite = document.getElementById('cc-sprite');
+  document.getElementById('cc-close').addEventListener('click', closeCard);
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCard(); });
+  function openCard(p) {
+    ccName.textContent = p.name;
+    ccTag.textContent = p.tagline || '';
+    ccDesc.textContent = p.desc || '';
+    ccSprite.src = p.sprite || 'images/game/creatures/' + p.id + '.png';
+    ccSprite.onerror = () => { ccSprite.src = 'images/game/creatures/egg.png'; };
+    if (p.url) { ccVisit.href = p.url; ccVisit.hidden = false; } else ccVisit.hidden = true;
+    card.hidden = false;
+    requestAnimationFrame(() => card.classList.add('open'));
+  }
+  function closeCard() {
+    card.classList.remove('open');
+    setTimeout(() => { card.hidden = true; }, 300);
+  }
+
+  /* pointer: world-space shove + click pick */
+  const ray = new THREE.Raycaster();
+  const ptr = new THREE.Vector2(-2, -2);
+  const ptrWorld = new THREE.Vector3(1e9, 1e9, 0);
+  let ptrPrev = ptrWorld.clone();
+  function toWorld(e) {
+    const r = canvas.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, cam);
+    const t = -ray.ray.origin.z / ray.ray.direction.z;   // z=0 plane
+    return ray.ray.origin.clone().addScaledVector(ray.ray.direction, t);
+  }
+  canvas.addEventListener('pointermove', (e) => { ptrWorld.copy(toWorld(e)); });
+  canvas.addEventListener('pointerleave', () => { ptrWorld.set(1e9, 1e9, 0); });
+  canvas.addEventListener('click', (e) => {
+    toWorld(e);
+    ray.setFromCamera(ptr, cam);
+    const meshes = capsules.map((c) => c.group.children[0]).concat(capsules.map((c) => c.group.children[1]));
+    const hit = ray.intersectObjects(meshes)[0];
+    if (hit) {
+      const c = capsules.find((k) => k.group === hit.object.parent);
+      if (c) openCard(c.p);
+    }
+  });
+
+  function fit() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    renderer.setSize(w, h, false);
+    cam.aspect = w / h;
+    cam.updateProjectionMatrix();
+    // frame the whole row: pull the camera back until the row fits
+    // (+2.0 margin keeps the edge capsules' SOON labels inside the frame)
+    const rowHalf = ((N - 1) / 2) * SPACING + 2.0;
+    const dist = rowHalf / Math.tan((cam.fov * Math.PI / 360)) / cam.aspect;
+    cam.position.set(0, 1.05, Math.max(9, dist));
+    cam.lookAt(0, 1.05, 0);
+  }
+  addEventListener('resize', fit);
+  fit();
+
+  let visible = true;
+  new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); },
+    { rootMargin: '100px' }).observe(canvas);
+
+  const G = new THREE.Vector3(0, -9.8, 0);
+  const tmp = new THREE.Vector3();
+  let last = performance.now();
+  (function loop(now) {
+    requestAnimationFrame(loop);
+    if (!visible) { last = now; return; }
+    const dt = Math.min(0.033, (now - last) / 1000 || 0.016);
+    last = now;
+
+    const ptrVel = tmp.subVectors(ptrWorld, ptrPrev);
+    for (const c of capsules) {
+      // verlet integrate
+      const v = c.pos.clone().sub(c.prev).multiplyScalar(0.985); // damping
+      c.prev.copy(c.pos);
+      c.pos.add(v).addScaledVector(G, dt * dt);
+      if (!REDUCED && ptrWorld.x < 1e8) {
+        const d = c.pos.distanceTo(ptrWorld);
+        if (d < 1.15) {                       // cursor shove w/ momentum
+          const push = c.pos.clone().sub(ptrWorld).normalize()
+            .multiplyScalar((1.15 - d) * 0.05)
+            .addScaledVector(ptrVel, 0.18);
+          c.pos.add(push);
+          c.spinV += (Math.random() - 0.5) * 0.02 + ptrVel.x * 0.05;
+        }
+      }
+      // string constraint (inextensible, pivot fixed)
+      const dir = c.pos.clone().sub(c.pivot);
+      const dLen = dir.length() || 1;
+      c.pos.copy(c.pivot).addScaledVector(dir, c.len / dLen);
+      // apply
+      c.group.position.copy(c.pos);
+      c.spinV *= 0.97;
+      c.spin += c.spinV;
+      const swing = c.pos.clone().sub(c.pivot);
+      c.group.rotation.z = Math.atan2(-swing.x, -swing.y) * 0.9;
+      c.group.rotation.y = c.spin;
+      c.line.geometry.setFromPoints([c.pivot, c.pos]);
+    }
+    ptrPrev.copy(ptrWorld);
+    for (const { spr, c } of labels)
+      spr.position.set(c.pos.x, c.pos.y - 1.05, c.pos.z);
+    renderer.render(scene, cam);
+  })(performance.now());
+
+  function fallback(list) {
+    const ul = document.getElementById('capsule-fallback');
+    ul.hidden = false;
+    canvas.hidden = true;
+    for (const p of list) {
+      const li = document.createElement('li');
+      const a = document.createElement(p.url ? 'a' : 'span');
+      if (p.url) { a.href = p.url; a.target = '_blank'; a.rel = 'noopener'; }
+      const img = document.createElement('img');
+      img.src = p.sprite || 'images/game/creatures/egg.png';
+      img.alt = '';
+      a.append(img, document.createTextNode(p.name + (p.kind === 'egg' ? ' · soon' : '')));
+      li.appendChild(a);
+      ul.appendChild(li);
+    }
+  }
+}
