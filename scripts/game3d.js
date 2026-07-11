@@ -70,9 +70,11 @@ async function boot() {
   const GLB_STREAM = [
     'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'gunball',
     'gomokulike', 'goldie', 'egg', 'npc_yoonki',
-    // skyline landmarks: background decoration in the water band — they pop
-    // in at the map edge whenever they land, never worth gating the title
-    'landmark_namsan', 'landmark_goldengate'
+    // skyline landmark: background decoration in the water band — it pops
+    // in at the map edge whenever it lands, never worth gating the title.
+    // (goldengate is now a procedural voxel model built with the world —
+    // scripts/voxel/models/landmarks.js — no GLB to stream.)
+    'landmark_namsan'
   ];
   // shadow policy: buildings + static props cast real shadow-map shadows —
   // the sun never moves and shadowMap.autoUpdate is false, so this is one

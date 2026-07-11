@@ -22,4 +22,7 @@ registerModels(characters);
 import interior from './interior.js';
 registerModels(interior);
 
+import landmarks from './landmarks.js';
+registerModels(landmarks);
+
 // import nature from './nature.js';         registerModels(nature);

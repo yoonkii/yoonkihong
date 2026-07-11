@@ -680,6 +680,18 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     colliders.addCircle(cl.r[0], cl.r[1], 0.28);
   });
 
+  /* ---- voxel skyline landmarks (must merge before the static chunk) ----
+     Decorative, in the far water band (const.js LANDMARKS), no colliders.
+     The goldengate span + namsan's hill islet ride the static world mesh —
+     zero load cost, zero extra draw calls. GLB entries (the namsan tower)
+     stream in phase 2 via lateGLB -> addLandmark below. */
+  for (const def of LANDMARKS) {
+    if (def.voxel)
+      place(staticGeos, safeGeometry(def.name), def.x, def.y, def.z, def.yaw || 0);
+    if (def.hill)
+      place(staticGeos, safeGeometry(def.hill.model), def.x, def.hill.y, def.z);
+  }
+
   /* ---- static + tree chunks ------------------------------------------- */
   const staticMesh = new THREE.Mesh(mergeGeometries(staticGeos), voxelMaterial());
   staticMesh.castShadow = true;
@@ -820,15 +832,11 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     }
   }
 
-  /* ---- skyline landmarks (Seoul + SF) ---------------------------------
-     Purely decorative GLBs standing in the far water band (const.js
-     LANDMARKS). They stream in phase 2 (never gate PRESS START) via
-     game3d lateGLB -> addLandmark; no voxel fallback and no collider —
-     both sit outside the tree ring where nobody can walk. */
+  /* ---- streamed GLB landmarks (the namsan tower) ----------------------- */
   const placedLandmarks = new Set();
   function addLandmark(name, gm) {
     const def = LANDMARKS.find((l) => l.name === name);
-    if (!def || placedLandmarks.has(name) || !gm) return;
+    if (!def || def.voxel || placedLandmarks.has(name) || !gm) return;
     placedLandmarks.add(name);
     gm.position.set(def.x, def.y, def.z);
     gm.rotation.y = def.yaw || 0;

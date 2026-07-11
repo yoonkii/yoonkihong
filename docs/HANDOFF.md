@@ -21,7 +21,7 @@
 - **최신 배포 상태 (r5, 2026-07-10)**:
   - product **7종**(macrodoc, mathstreet, mathwings, funnify, lasthand, gunball, **gomokulike**) + egg 3종(x 에그는 url 보유 = "HATCHING" 상태, VISIT 가능)
   - **테마 하우스 r5**: 실제 서비스 컨셉 반영해 6개 건물 리뉴얼 + 1개 신규 (모두 gpt-image-2→Meshy) — funnify=게임쇼 스튜디오, mathstreet=NYSE 신전+황금황소, mathwings=아르데코 나이트타워+금날개, macrodoc=세브란스 MDR 오피스(초록 카펫+CRT 인테리어), gunball=SF 글래스 아레나(네온 블루/오렌지), lasthand=지하 포커 덴(팔각 레드펠트), **gomokulike=기원 하노크**(동쪽 연못가 신규 지구, row18 스포크 연장)
-  - **랜드마크**: `landmark_namsan`(N서울타워, 북쪽 바다) + `landmark_goldengate`(골든게이트 타워, 서쪽 바다) — 장식용, GLB_STREAM, `const.js LANDMARKS`→`world.addLandmark`
+  - **랜드마크**: `landmark_namsan`(N서울타워 GLB, 북쪽 바다의 **복셀 언덕 섬 위** — `namsan_hill`) + `landmark_goldengate`(**프로시저럴 복셀 풀스팬 현수교**, 서쪽 바다) — 장식용, `const.js LANDMARKS`. 골든게이트는 Meshy GLB가 데크 잘림으로 폐기(2026-07-10 저녁) → `scripts/voxel/models/landmarks.js`에서 복셀로 재작성해 static 월드 메시에 병합(로드 비용 0). namsan 타워 GLB만 GLB_STREAM→`world.addLandmark`, 언덕은 월드 빌드 시 복셀로 배치(`def.hill`)
   - **소셜 링크 노출 강화**: 타이틀 카드 필 버튼 3종(LinkedIn/Instagram/**X @yoonki1214**), classic 히어로 소셜 필, dlg-links·푸터에 X 추가
   - **E 키 상호작용** 추가 (Space/Z/Enter와 동일 — ui.js isActionKey + 타이틀 시작 + 힌트/헬프 문구)
   - **LINE 명판 수정**: hi-res 24×32 모델(voxelSize 0.0625)로 "LINE" 워드마크+버블, 명판 로고를 화면에서 가로지르던 북측 천장 빔 제거 (models/interior.js 주석 참조)

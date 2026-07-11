@@ -64,10 +64,9 @@ export const TARGET_HEIGHTS = {
   // GOMOKULIKE hanok Go parlor: mid tier, no voxel fallback (footprint contract
   // 2.5 × 2.0 lives in world.js GLB_FOOTPRINT like bld_gunball)
   bld_gomokulike: 3.25,
-  // skyline landmarks (decorative, stand in the sea at SEA_Y −1.9 — heights
-  // are authored ~1.9 taller than their intended above-ground presence)
+  // skyline landmark (decorative; stands on the namsan_hill voxel islet —
+  // the tower's own height, hill adds ~1.7 above the sea)
   landmark_namsan: 6.5,
-  landmark_goldengate: 5.0,
   // props
   tree_a: 1.625,          // oak silhouette (game scatters at 0.9–1.18 scale)
   tree_b: 1.5,            // pine silhouette
