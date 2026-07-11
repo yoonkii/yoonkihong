@@ -58,6 +58,29 @@ export function buildGround(tiles) {
     idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
   }
 
+  /* ---- shoreline foam (2026-07-10 polish pack) -------------------------
+     A soft white band hugging every cliff foot where land meets water —
+     UV v runs 0 at the shore to 1 offshore against a 1D alpha-fade
+     texture, so the band dissolves into the sea instead of ending in a
+     hard edge. Collected per coastal tile below, built as ONE transparent
+     mesh riding slightly above the animated water plane. */
+  const foamPos = [], foamUV = [], foamIdx = [];
+  // (x0,z0) = shore corner A, (x1,z1) = shore corner B; (ox,oz) = offshore
+  // offset. Vertices: A, B (v=0, shore) then B+o, A+o (v=1, faded).
+  function foamStrip(x0, z0, x1, z1, ox, oz) {
+    const b = foamPos.length / 3;
+    foamPos.push(x0, 0, z0, x1, 0, z1, x1 + ox, 0, z1 + oz, x0 + ox, 0, z0 + oz);
+    foamUV.push(0.5, 0, 0.5, 0, 0.5, 1, 0.5, 1);
+    foamIdx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+  }
+  // convex corner cap: inner corner (v=0) fanning to the outer arc (v=1)
+  function foamCorner(cx0, cz0, sx, sz, w) {
+    const b = foamPos.length / 3;
+    foamPos.push(cx0, 0, cz0, cx0 + sx * w, 0, cz0, cx0 + sx * w, 0, cz0 + sz * w, cx0, 0, cz0 + sz * w);
+    foamUV.push(0.5, 0, 0.5, 1, 0.5, 1, 0.5, 1);
+    foamIdx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+  }
+
   for (let ty = 0; ty < MAP_H; ty++) {
     for (let tx = 0; tx < MAP_W; tx++) {
       const t = tiles[ty][tx];
@@ -161,6 +184,19 @@ export function buildGround(tiles) {
         if (waterS && waterW) lipBox(tx - w, tx, ty + 1, ty + 1 + w, 'sw');
         if (waterS && waterE) lipBox(tx + 1, tx + 1 + w, ty + 1, ty + 1 + w, 'se');
       };
+      // shoreline foam band for this tile (width wobbles per tile so the
+      // ring reads organic, not ruled)
+      {
+        const FW = 0.26 + hash2(tx, ty, 31) * 0.16;
+        if (waterN) foamStrip(tx, ty, tx + 1, ty, 0, -FW);
+        if (waterS) foamStrip(tx, ty + 1, tx + 1, ty + 1, 0, FW);
+        if (waterW) foamStrip(tx, ty, tx, ty + 1, -FW, 0);
+        if (waterE) foamStrip(tx + 1, ty, tx + 1, ty + 1, FW, 0);
+        if (waterN && waterW) foamCorner(tx, ty, -1, -1, FW);
+        if (waterN && waterE) foamCorner(tx + 1, ty, 1, -1, FW);
+        if (waterS && waterW) foamCorner(tx, ty + 1, -1, 1, FW);
+        if (waterS && waterE) foamCorner(tx + 1, ty + 1, 1, 1, FW);
+      }
       const lipTop = new THREE.Color(baseGrass).multiplyScalar(0.92);
       const lipSide = new THREE.Color(baseGrass).multiplyScalar(0.7);
       const lipUnder = new THREE.Color(STRATA[1]).multiplyScalar(0.62);
@@ -214,6 +250,34 @@ export function buildGround(tiles) {
   }));
   mesh.receiveShadow = true;
   mesh.castShadow = true;
+
+  // shoreline foam: one merged transparent band, fading offshore via a 1D
+  // alpha gradient (canvas row 0 = v1 = open sea). Rides just above the
+  // animated water plane like the prop foam rings (world.js).
+  if (foamIdx.length) {
+    const fc = document.createElement('canvas');
+    fc.width = 4; fc.height = 64;
+    const fg = fc.getContext('2d');
+    const grad = fg.createLinearGradient(0, 0, 0, 64);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.55, 'rgba(255,255,255,0.20)');
+    grad.addColorStop(1, 'rgba(255,255,255,0.55)');
+    fg.fillStyle = grad;
+    fg.fillRect(0, 0, 4, 64);
+    const fgeo = new THREE.BufferGeometry();
+    fgeo.setAttribute('position', new THREE.Float32BufferAttribute(foamPos, 3));
+    fgeo.setAttribute('uv', new THREE.Float32BufferAttribute(foamUV, 2));
+    fgeo.setIndex(foamIdx);
+    fgeo.computeBoundingSphere();
+    const foam = new THREE.Mesh(fgeo, new THREE.MeshBasicMaterial({
+      map: new THREE.CanvasTexture(fc), color: 0xF4FBF8,
+      transparent: true, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+    }));
+    foam.position.y = SEA_Y + 0.1;
+    foam.renderOrder = 1;
+    mesh.add(foam);
+  }
   return mesh;
 }
 

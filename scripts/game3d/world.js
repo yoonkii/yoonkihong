@@ -345,6 +345,34 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     // shipped GLB's measured bbox like gunball's if it lands off-guide
     gomokulike: { w: 2.5, h: 3.25, d: 2.0 }
   };
+  // contact-shadow pad under every building (2026-07-10 polish pack): the
+  // sun's shadow map falls SE only — this soft all-around base darkening
+  // grounds the facades the same way the creatures' blob shadows do.
+  let padTex = null;
+  function buildingPad(cx, cz, w, d) {
+    if (!padTex) {
+      const pc = document.createElement('canvas');
+      pc.width = pc.height = 128;
+      const pg = pc.getContext('2d');
+      const grad = pg.createRadialGradient(64, 64, 30, 64, 64, 64);
+      grad.addColorStop(0, 'rgba(20,35,50,0.30)');
+      grad.addColorStop(0.62, 'rgba(20,35,50,0.20)');
+      grad.addColorStop(1, 'rgba(20,35,50,0)');
+      pg.fillStyle = grad;
+      pg.fillRect(0, 0, 128, 128);
+      padTex = new THREE.CanvasTexture(pc);
+    }
+    const pad = new THREE.Mesh(
+      new THREE.PlaneGeometry(w + 1.1, d + 1.1),
+      new THREE.MeshBasicMaterial({
+        map: padTex, transparent: true, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1
+      }));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(cx, 0.025, cz);
+    pad.renderOrder = 1;
+    scene.add(pad);
+  }
   let aboutDoor = null;    // front-facade doorstep of the About house
   for (const b of buildingDefs) {
     const model = getModel(b.model) || PLACEHOLDER;
@@ -374,6 +402,7 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
       continue;
     }
     colliders.addAABB(cx - w / 2 + 0.08, cz - d / 2 + 0.08, cx + w / 2 - 0.08, cz + d / 2 - 0.08);
+    buildingPad(cx, cz, w, d);
     // the authored GLB about-house's door sits ~0.3 east of the footprint
     // center (the voxel fallback's door is centered) — the entrance cues
     // (marker / mat / glow) anchor on the VISIBLE door, not the bbox

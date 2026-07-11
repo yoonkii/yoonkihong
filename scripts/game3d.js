@@ -269,7 +269,10 @@ async function boot() {
     if (t2 === 'high') {
       renderer.setPixelRatio(Math.min(dpr, 2));
       lights.sun.castShadow = true;
-      setShadowSize(2048);
+      // 4096 (2026-07-10 polish pack): the map is a one-time static bake
+      // (autoUpdate false), so the doubled resolution costs VRAM only —
+      // tree/roofline shadow edges stop stair-stepping on desktop
+      setShadowSize(4096);
       // every shadow caster is static (terrain/buildings/trees; actors use
       // blob shadows) and the sun never moves — render the map once and
       // freeze it. Saves ~400K tris/frame for pixel-identical output.
