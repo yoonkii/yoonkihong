@@ -6,6 +6,12 @@
    ========================================================================== */
 
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const BASIS_PATH = 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/basis/';
 
 const CAPSULE_COLORS = {
   macrodoc: '#7FD4D9', mathstreet: '#F7D75E', mathwings: '#8FB7F0',
@@ -29,29 +35,24 @@ export function initCapsules() {
 
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(32, 1, 0.1, 60);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xD8E4F0, 1.05));
-  const key = new THREE.DirectionalLight(0xFFF3E0, 1.7);
+  // studio environment: gives the glass its reflections and the gold its
+  // shine — the lights then only need to shape, not carry, the scene
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xD8E4F0, 0.55));
+  const key = new THREE.DirectionalLight(0xFFF3E0, 1.15);
   key.position.set(-4, 6, 7);
   scene.add(key);
+
+  // creature GLBs (the same little residents that roam the game world)
+  const gltf = new GLTFLoader();
+  gltf.setMeshoptDecoder(MeshoptDecoder);
+  gltf.setKTX2Loader(new KTX2Loader().setTranscoderPath(BASIS_PATH).detectSupport(renderer));
 
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const N = items.length;
   const SPACING = 2.05;
   const texLoader = new THREE.TextureLoader();
-  // shared glass-gloss dab (radial white fade) — sells the "toy glass" read
-  const glossTex = (() => {
-    const c = document.createElement('canvas');
-    c.width = c.height = 128;
-    const g = c.getContext('2d');
-    const rg = g.createRadialGradient(56, 52, 6, 64, 64, 62);
-    rg.addColorStop(0, 'rgba(255,255,255,1)');
-    rg.addColorStop(0.3, 'rgba(255,255,255,0.85)');
-    rg.addColorStop(0.55, 'rgba(255,255,255,0.15)');
-    rg.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = rg;
-    g.fillRect(0, 0, 128, 128);
-    return new THREE.CanvasTexture(c);
-  })();
   const capsules = items.map((p, i) => makeCapsule(p, i));
   capsules.forEach((c) => scene.add(c.group, c.line));
   canvas.__caps = capsules;                      // dev handle for the pane
@@ -83,51 +84,59 @@ export function initCapsules() {
     const col = new THREE.Color(CAPSULE_COLORS[p.id] || '#CFCBC2');
     const group = new THREE.Group();
     const R = 0.62;
-    // gacha-glass shells: translucent so the creature INSIDE reads through
+    // real toy glass: clearcoat + env reflections carry the material, a low
+    // base opacity keeps the creature inside crisp
     const matTop = new THREE.MeshPhysicalMaterial({
-      color: col, roughness: 0.18, metalness: 0,
-      transparent: true, opacity: isSoon ? 0.34 : 0.44,
-      depthWrite: false
+      color: col, roughness: 0.06, metalness: 0,
+      clearcoat: 1, clearcoatRoughness: 0.06,
+      transparent: true, opacity: isSoon ? 0.3 : 0.36,
+      envMapIntensity: 1.15, depthWrite: false
     });
     const matBot = new THREE.MeshPhysicalMaterial({
-      color: '#FBF6EA', roughness: 0.2,
-      transparent: true, opacity: isSoon ? 0.26 : 0.32,
-      depthWrite: false
+      color: '#FFFFFF', roughness: 0.14, metalness: 0,
+      clearcoat: 1, clearcoatRoughness: 0.1,
+      transparent: true, opacity: isSoon ? 0.22 : 0.26,
+      envMapIntensity: 1.0, depthWrite: false
     });
-    const top = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), matTop);
-    const bot = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), matBot);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), matTop);
+    const bot = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 24, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), matBot);
     const goldMat = new THREE.MeshStandardMaterial({
-      color: '#E3BC72', roughness: 0.28, metalness: 0.4,
-      emissive: '#5A431C', emissiveIntensity: 0.35,
-      transparent: isSoon, opacity: isSoon ? 0.6 : 1
+      color: '#E8C070', roughness: 0.22, metalness: 0.9,
+      transparent: isSoon, opacity: isSoon ? 0.65 : 1
     });
-    const seam = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.005, R * 1.005, 0.07, 40), goldMat);
+    const seam = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.008, R * 1.008, 0.075, 48), goldMat);
     const loop = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.028, 10, 18), goldMat);
     loop.position.y = R + 0.06;
-    // the resident: project creature floating inside the glass
-    const spriteUrl = p.sprite || ('images/game/creatures/' + (isSoon ? 'egg' : p.id) + '.png');
-    const stex = texLoader.load(spriteUrl, undefined, undefined, () => {
-      const egg = texLoader.load('images/game/creatures/egg.png');
-      egg.colorSpace = THREE.SRGBColorSpace;
-      resident.material.map = egg;
-      resident.material.needsUpdate = true;
-    });
-    stex.colorSpace = THREE.SRGBColorSpace;
-    const resident = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: stex, transparent: true, opacity: isSoon ? 0.55 : 1, depthWrite: false
-    }));
-    resident.scale.setScalar(0.78);
-    resident.position.y = -0.03;
-    resident.renderOrder = 1;
     [top, bot].forEach((m) => { m.renderOrder = 2; });
     seam.renderOrder = 3;
-    const gloss = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: glossTex, transparent: true, opacity: 0.9, depthWrite: false
-    }));
-    gloss.scale.setScalar(0.3);
-    gloss.position.set(-0.22, 0.26, 0.56);
-    gloss.renderOrder = 4;
-    group.add(resident, top, bot, seam, loop, gloss);
+    group.add(top, bot, seam, loop);
+
+    // the resident, in actual 3D — same little companion as in the game.
+    // Slides in when its GLB lands; a 2D sprite only as failure fallback.
+    const den = new THREE.Group();
+    den.position.y = -0.04;
+    group.add(den);
+    gltf.load('assets/3d/' + (isSoon ? 'egg' : p.id) + '.glb', (g) => {
+      const obj = g.scene;
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = box.getSize(new THREE.Vector3());
+      obj.scale.setScalar(0.8 / Math.max(size.x, size.y, size.z));
+      box.setFromObject(obj);
+      obj.position.sub(box.getCenter(new THREE.Vector3()));
+      if (isSoon) obj.traverse((o) => {
+        if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.62; }
+      });
+      den.add(obj);
+    }, undefined, () => {
+      const stex = texLoader.load(p.sprite || 'images/game/creatures/egg.png');
+      stex.colorSpace = THREE.SRGBColorSpace;
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: stex, transparent: true, depthWrite: false
+      }));
+      spr.scale.setScalar(0.74);
+      spr.renderOrder = 1;
+      den.add(spr);
+    });
 
     // pendulum state (verlet): pivot fixed, bob = capsule center
     const px = (i - (N - 1) / 2) * SPACING;
@@ -138,7 +147,7 @@ export function initCapsules() {
       new THREE.BufferGeometry().setFromPoints([pivot, bob]),
       new THREE.LineBasicMaterial({ color: 0x8A94A6, transparent: true, opacity: isSoon ? 0.4 : 0.8 }));
     return {
-      p, group, line, pivot, len, isSoon, shells: [top, bot],
+      p, group, line, pivot, len, isSoon, shells: [top, bot], den,
       pos: bob.clone(), prev: bob.clone(), spin: 0, spinV: 0
     };
   }
@@ -302,6 +311,8 @@ export function initCapsules() {
       c.group.scale.setScalar(1 + c.hoverLerp * 0.07);
       c.spinV *= 0.96;
       c.spin += c.spinV;
+      // the resident slowly turns in place, showing itself off
+      c.den.rotation.y = t * 0.45 + ci * 1.3;
       const swing = c.pos.clone().sub(c.pivot);
       c.group.rotation.z = Math.atan2(-swing.x, -swing.y) * 0.9;
       c.group.rotation.y = c.spin;

@@ -93,14 +93,39 @@ function initScrub() {
     ctx.drawImage(im, (cw - w) / 2, (ch - h) / 2, w, h);
   }
 
-  // text beat windows in scroll-progress space, aligned to the film:
+  // The scrub is EASED, not linear: a gentle start (the first frames crawl,
+  // ~1/3 speed) so the Seoul street breathes, quicker through the morph,
+  // slow again as SF settles. tf = film progress 0..1.
+  const easeFilm = (x) => 0.35 * x + 0.65 * (x * x * (3 - 2 * x));
+
+  // text beat windows in FILM space (glued to imagery, immune to easing):
   // frames 0-36 Seoul, 37-55 the morph (wordless — let it play), 56+ SF
-  const WINDOWS = [[0.03, 0.15], [0.165, 0.26], [0.40, 0.56]];
-  function beatAlpha(p, [a, b]) {
-    const fade = 0.05;
-    if (p < a || p > b) return 0;
-    return clamp(Math.min(p - a, b - p) / fade, 0, 1);
-  }
+  const WINDOWS = [[0.05, 0.22], [0.26, 0.375], [0.62, 0.85]];
+  const FADE_IN = 0.045, FADE_OUT = 0.055;
+
+  // split each beat line into word spans so the words cascade up out of
+  // the mask — the reveal is MONOTONIC (rise in, fade+lift out; a line
+  // never slides back down while you read it)
+  beats.forEach((el) => {
+    const wrapWords = (node) => {
+      [...node.childNodes].forEach((ch) => {
+        if (ch.nodeType === Node.TEXT_NODE) {
+          const frag = document.createDocumentFragment();
+          ch.textContent.split(/( )/).forEach((tok) => {
+            if (tok === ' ') { frag.append(' '); return; }
+            if (!tok) return;
+            const s = document.createElement('span');
+            s.className = 'w2';
+            s.textContent = tok;
+            frag.append(s);
+          });
+          ch.replaceWith(frag);
+        } else if (ch.nodeType === Node.ELEMENT_NODE) wrapWords(ch);
+      });
+    };
+    wrapWords(el.querySelector('.mk'));
+    el.querySelectorAll('.w2').forEach((w, wi) => w.style.setProperty('--i', wi));
+  });
 
   let ticking = false;
   function onScroll() {
@@ -111,15 +136,21 @@ function initScrub() {
       const max = hero.offsetHeight - innerHeight;
       const p = DBG_P !== null ? DBG_P
         : clamp((scrollY - hero.offsetTop) / max, 0, 1);
-      target = Math.round(clamp(p / SCRUB_END, 0, 1) * (FRAMES - 1));
+      const tf = easeFilm(clamp(p / SCRUB_END, 0, 1));
+      target = Math.round(tf * (FRAMES - 1));
       draw();
       let maxA = 0;
       beats.forEach((el, bi) => {
-        const a = beatAlpha(p, WINDOWS[bi]);
-        maxA = Math.max(maxA, a);
-        el.style.opacity = Math.min(1, a * 1.6);
-        // the line rises out of its own clip box as the beat plays
-        el.querySelector('.mk').style.setProperty('--r', (a * 100) + '%');
+        const [a, b] = WINDOWS[bi];
+        const tIn = clamp((tf - a) / FADE_IN, 0, 1);
+        const tOut = clamp((tf - (b - FADE_OUT)) / FADE_OUT, 0, 1);
+        const alpha = tf < a || tf > b + 0.02 ? 0 : tIn * (1 - tOut);
+        maxA = Math.max(maxA, alpha);
+        el.style.opacity = alpha;
+        // words rise while entering (tIn only — never re-descend); on the
+        // way out the whole line lifts and fades instead
+        el.style.setProperty('--r', tIn * 100);
+        el.style.transform = `translateX(-50%) translateY(${-tOut * 26}px)`;
       });
       const lk = clamp((p - 0.70) / 0.10, 0, 1);
       lockin.style.opacity = lk > 0 ? 1 : 0;
