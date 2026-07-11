@@ -20,7 +20,7 @@ export function createUI(audio) {
     encText: $('enc-text'), encMenu: $('enc-menu'), encMore: $('enc-more'),
     fx: $('fx'), hud: $('hud'), btnMute: $('btn-mute'), btnHelp: $('btn-help'),
     hudProgress: $('hud-progress'),
-    help: $('help'), helpClose: $('help-close'), hint: $('hint'),
+    help: $('help'), helpClose: $('help-close'), hint: $('hint'), toast: $('toast'),
     joy: $('joy'), joyKnob: $('joy-knob'),
     fallback: $('fallback'), vignette: $('vignette')
   };
@@ -30,8 +30,9 @@ export function createUI(audio) {
   };
 
   // live while the first-run HOW TO PLAY hint is showing (maybeShowHint):
-  // touch players never fire a keydown, so the joystick / A/B pointerdown
-  // paths and any dialog/encounter open dismiss it through this hook too
+  // touch players never fire a keydown, so the B-button pointerdown path
+  // and any dialog/encounter open dismiss it through this hook too
+  // (movement — keys or joystick — deliberately does NOT dismiss it)
   let hintDismiss = null;
 
   /* ------------------------------------------------------------------ *
@@ -98,7 +99,8 @@ export function createUI(audio) {
     els.joy.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       joy.active = true; joy.id = e.pointerId;
-      if (hintDismiss) hintDismiss();
+      // moving must NOT dismiss the HOW TO PLAY hint — walking is the
+      // hint's own first lesson (see maybeShowHint)
       if (handlers.any) handlers.any();
       // capture can throw on a pointer already released (fast tap) — never
       // let that kill the input handling above
@@ -120,7 +122,9 @@ export function createUI(audio) {
     b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       b.classList.add('active');
-      if (hintDismiss) hintDismiss();
+      // only B (back) dismisses the hint directly — mirroring X/Esc on
+      // keyboard; A leads to a dialog/encounter which dismisses it anyway
+      if (kind === 'cancel' && hintDismiss) hintDismiss();
       if (handlers.any) handlers.any();
       if (handlers[kind]) handlers[kind]();
     });
@@ -363,6 +367,7 @@ export function createUI(audio) {
   const dlgMenu = createChoiceMenu(els.dlgMenu);
   function openDialogShell(name, onClose) {
     if (hintDismiss) hintDismiss();            // never float over an open box
+    hideToast();
     dialog.onClose = onClose || null;
     els.dlgName.textContent = name;
     els.dlgLinks.hidden = true;
@@ -482,6 +487,7 @@ export function createUI(audio) {
   const encMenu = createChoiceMenu(els.encMenu);
   function showEncounter(p, isEgg, onVisit, onRun) {
     if (hintDismiss) hintDismiss();            // never cover the name plate
+    hideToast();
     enc.project = p; enc.mode = 'intro';
     enc.onVisit = onVisit || null; enc.onRun = onRun || null;
     if (window.ywTrack) ywTrack('encounter_opened', { project: p.id, egg: !!isEgg });
@@ -647,20 +653,54 @@ export function createUI(audio) {
     if (e.key === 'Escape' && !els.help.hidden) closeHelp();
   });
 
+  /* one-time contextual toasts (e.g. "press SPACE to step inside" on the
+     first approach to the house door): hint-card styling, auto-dismissing,
+     localStorage-keyed so returning visitors are never nagged twice */
+  let toastTimer = null;
+  function hideToast() {
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    if (els.toast) els.toast.hidden = true;
+  }
+  function showToastOnce(key, html) {
+    if (!els.toast) return;
+    try {
+      if (localStorage.getItem('yw3_toast_' + key) === '1') return;
+      localStorage.setItem('yw3_toast_' + key, '1');
+    } catch (e) { /* noop */ }
+    els.toast.innerHTML = '<div class="hint-card gba-box">' + html + '</div>';
+    els.toast.hidden = false;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 5000);
+    els.toast.addEventListener('click', hideToast, { once: true });
+  }
+
   function maybeShowHint() {
     let seen = false;
     try { seen = localStorage.getItem('yw_hint') === '1'; } catch (e) { /* noop */ }
     if (seen) return;
     els.hint.hidden = false;
+    const shownAt = performance.now();
     const dismiss = () => {
       hintDismiss = null;
       els.hint.hidden = true;
-      try { localStorage.setItem('yw_hint', '1'); } catch (e) { /* noop */ }
-      window.removeEventListener('keydown', dismiss);
+      // only a hint that stayed up long enough to be READ counts as seen —
+      // an instant dismissal (start-mash spillover, an eager first walk
+      // straight into a dialog) re-arms it for the next visit instead of
+      // permanently burning the one controls tutorial
+      if (performance.now() - shownAt >= 4000) {
+        try { localStorage.setItem('yw_hint', '1'); } catch (e) { /* noop */ }
+      }
+      window.removeEventListener('keydown', onKey);
       els.hint.removeEventListener('click', dismiss);
     };
-    hintDismiss = dismiss;                     // touch paths + overlay opens
-    window.addEventListener('keydown', dismiss);
+    // movement keys must NOT dismiss: walking is the hint's own first
+    // lesson (line 1), and dismissing on it destroyed lines 2-3 before a
+    // first-time visitor could read them. Only an explicit back/close
+    // (X/Esc), a click/tap, an opened dialog (via hintDismiss) or the
+    // timeout takes it down.
+    const onKey = (e) => { if (isCancelKey(e.key)) dismiss(); };
+    hintDismiss = dismiss;                     // touch B + overlay opens
+    window.addEventListener('keydown', onKey);
     els.hint.addEventListener('click', dismiss);
     setTimeout(() => { if (!els.hint.hidden) dismiss(); }, 9000);
   }
@@ -726,7 +766,7 @@ export function createUI(audio) {
     get dialogOpen() { return !els.dialog.hidden; },
     showEncounter, encMove, encConfirm, encCancel, encHide,
     transitionIn, transitionOut,
-    paintMute, setProgress, maybeShowHint,
+    paintMute, setProgress, maybeShowHint, showToastOnce, hideToast,
     setLoad, enableStart, showFallback,
     get started() { return started; }
   };

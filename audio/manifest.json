@@ -1,22 +1,69 @@
 {
-  "generated": "2026-07-08",
+  "generated": "2026-07-10",
   "provider": "ElevenLabs",
   "music_api_worked": false,
-  "music_api_note": "POST /v1/music returned 401 missing_permissions (music_generation) — existing BGM kept unchanged",
+  "music_api_note": "POST /v1/music retried 2026-07-10 \u2014 still 401 missing_permissions (music_generation); used sound-generation fallback",
   "bgm": {
-    "overworld": { "file": "audio/overworld.mp3", "bytes": 960931, "status": "existing, unchanged" },
-    "encounter": { "file": "audio/encounter.mp3", "bytes": 721022, "status": "existing, unchanged" }
+    "method": "eleven_text_to_sound_v2 sound-generation (loop:true, 30s, mp3_44100_128) + sample-exact PCM tile loop-extend, re-encoded libmp3lame 128kbps CBR",
+    "overworld": {
+      "file": "audio/overworld.mp3",
+      "bytes": 1441122,
+      "duration_s": 90.0,
+      "bpm_est": 129,
+      "rms_db": -19.3,
+      "desc": "upbeat energetic 16-bit SNES overworld theme, square-wave lead, chiptune drums",
+      "loop": true
+    },
+    "encounter": {
+      "file": "audio/encounter.mp3",
+      "bytes": 960887,
+      "duration_s": 60.0,
+      "bpm_est": 161,
+      "rms_db": -17.0,
+      "desc": "exciting fast 16-bit SNES battle theme, heroic hook, energetic drums",
+      "loop": true
+    }
   },
   "sfx": {
     "model": "eleven_text_to_sound_v2",
     "format": "mp3_44100_64",
     "files": {
-      "footstep_grass": { "file": "audio/sfx/footstep_grass.mp3", "bytes": 4432, "duration_s": 0.52, "desc": "single soft cute step on grass" },
-      "bump": { "file": "audio/sfx/bump.mp3", "bytes": 4432, "duration_s": 0.52, "desc": "soft toy knock" },
-      "pop": { "file": "audio/sfx/pop.mp3", "bytes": 4432, "duration_s": 0.52, "desc": "cute bubble pop" },
-      "encounter_sting": { "file": "audio/sfx/encounter_sting.mp3", "bytes": 12373, "duration_s": 1.52, "desc": "short cheerful game sting" },
-      "blip": { "file": "audio/sfx/blip.mp3", "bytes": 4432, "duration_s": 0.52, "desc": "soft UI tick" },
-      "fireworks": { "file": "audio/sfx/fireworks.mp3", "bytes": 16553, "duration_s": 2.04, "desc": "celebratory pop burst" }
+      "footstep_grass": {
+        "file": "audio/sfx/footstep_grass.mp3",
+        "bytes": 4432,
+        "duration_s": 0.52,
+        "desc": "single soft cute step on grass"
+      },
+      "bump": {
+        "file": "audio/sfx/bump.mp3",
+        "bytes": 4432,
+        "duration_s": 0.52,
+        "desc": "soft toy knock"
+      },
+      "pop": {
+        "file": "audio/sfx/pop.mp3",
+        "bytes": 4432,
+        "duration_s": 0.52,
+        "desc": "cute bubble pop"
+      },
+      "encounter_sting": {
+        "file": "audio/sfx/encounter_sting.mp3",
+        "bytes": 12373,
+        "duration_s": 1.52,
+        "desc": "short cheerful game sting"
+      },
+      "blip": {
+        "file": "audio/sfx/blip.mp3",
+        "bytes": 4432,
+        "duration_s": 0.52,
+        "desc": "soft UI tick"
+      },
+      "fireworks": {
+        "file": "audio/sfx/fireworks.mp3",
+        "bytes": 16553,
+        "duration_s": 2.04,
+        "desc": "celebratory pop burst"
+      }
     }
   }
 }

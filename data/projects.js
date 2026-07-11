@@ -44,7 +44,7 @@ window.PROJECTS = [
     name: "MathStreet",
     url: "https://apps.apple.com/us/app/mathstreet/id6760241309",
     tagline: "Trade smart. Climb higher.",
-    desc: "A wild MathStreet appeared! This speedy math platformer sends a little trader leaping up a Wall Street skyline — solve arithmetic problems fast to jump higher while a market crash rises from below. Quick answers earn combo bonuses, and leaderboards decide who's the sharpest trader on the street.",
+    desc: "This speedy math platformer sends a little trader leaping up a Wall Street skyline — solve arithmetic problems fast to jump higher while a market crash rises from below. Quick answers earn combo bonuses, and leaderboards decide who's the sharpest trader on the street.",
     kind: "creature",
     category: "product",
     sprite: "images/game/creatures/mathstreet.png",

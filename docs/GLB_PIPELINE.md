@@ -80,11 +80,16 @@ normalized GLB occupies exactly the old silhouette's space.
 | `player`     | **1.625** | skinned 26-node skeleton, clips `walk` (1.0s loop) + `idle` (8.0s). The 1-wu-tile yardstick — never boosted. |
 | `npc_yoonki` | **1.625** | same skeleton/clip names; mint hoodie, no backpack. |
 
-Both ship facing the **(-X,+Z) diagonal** (Meshy's rigging retarget keeps the
-3/4 concept angle) — the loader's `YAW_OFFSET` table (+45°, own wrapper group)
-restores the +Z contract, so actor yaw math is unchanged. A re-rigged export
-that genuinely faces +Z must remove its `YAW_OFFSET` entry. Verify facing in
-game (yaw sweep) or `rigviewer.html?yaw=N`, not just at turntable spin start.
+Meshy's rigging retarget does not honor the +Z front contract — the loader's
+`YAW_OFFSET` table (own wrapper group) restores it, so actor yaw math is
+unchanged. The offset is **per-retarget**: every re-rigged export ships its
+own front (measured 2026-07-10: player 0.2 rad, npc_yoonki 0.35 rad), so it
+MUST be re-measured **in-game** after each character re-export — walk
+screen-down in a headed browser and step the offset until the face points at
+the camera dead-on (walk screen-up to confirm the backpack centers). Do not
+derive it from rigviewer front angles; they have disagreed with the in-game
+measurement. A re-rigged export that genuinely faces +Z must remove its
+`YAW_OFFSET` entry.
 
 ### Buildings
 
@@ -171,9 +176,13 @@ npx -y gltfpack -i <name>.raw.glb -o assets/3d/<name>.glb -cc
   image, which compressed GPU textures are not.
 - The decoder side is already wired (`glbassets.js` →
   `loader().setMeshoptDecoder(MeshoptDecoder)`); no per-asset work needed.
-- After any re-export, bump `ASSET_V` in `scripts/game3d/const.js` (and the
-  matching `styles/main.css?v=` token in `index.html`) so returning visitors
-  can't be served a mixed old/new asset set from cache.
+- After any re-export, bump `ASSET_V` in `scripts/game3d/const.js` AND the
+  matching `?v=` token on every mutable URL in **both** `index.html` and
+  `classic.html` (`styles/main.css?v=`, `scripts/game3d.js?v=`,
+  `data/projects.js?v=`) so returning visitors can't be served a mixed
+  old/new asset set from cache. classic.html is easy to forget — an
+  unversioned stylesheet there served recruiters stale styles for up to
+  the GitHub Pages max-age (600 s) after a deploy.
 
 ## 5. Budgets
 

@@ -20,6 +20,7 @@ import { buildGeometry, buildMesh, getModel, voxelMaterial } from '../voxel/voxe
 import '../voxel/models/index.js';
 import { CAM, REDUCED, LIGHT_SCALE, dirFromAngles, damp, clamp } from './const.js';
 import { createColliders } from './world.js';
+import { createSparklePool } from './particles.js';
 
 /* Room metrics (must match scripts/voxel/models/interior.js house_room):
    shell 72 x 52 voxels = 9 x 6.5 wu, walls 0.25 thick, door gap at
@@ -36,26 +37,36 @@ const ROOM = {
 const PLAQUES = [
   {
     id: 'plaque_naver', model: 'house_plaque_naver', x: 2.2, name: 'NAVER',
-    line: 'A green plaque with a blocky white N. NAVER — where the journey started.',
+    line: 'A green plaque with a blocky white N. NAVER — where it all started.',
     more: [
-      'First badge, first shipped work, first taste of how big products ' +
-      'actually get made.'
+      'I joined through NAVER\'s global business track — and walked ' +
+      'straight into the LINE division, back when LINE was still part ' +
+      'of NAVER.',
+      'Day one of a decade-long adventure in taking products global.'
     ]
   },
   {
     id: 'plaque_line', model: 'house_plaque_line', x: 4.5, name: 'LINE',
     line: 'A green plaque with a friendly speech bubble. LINE, Seoul — growth product manager, 2014-2018.',
     more: [
-      'Four years of experiments, funnels, and shipping features for ' +
-      'millions of chatty users.'
+      'Four years growing a global messenger across Southeast Asia — ' +
+      'user growth was the scoreboard, and I lived in it.',
+      'Also built and ran brand-new services around the messenger: ' +
+      'content, community, UGC, in-app promotions. The years that ' +
+      'taught me how products actually spread.'
     ]
   },
   {
     id: 'plaque_google', model: 'house_plaque_google', x: 6.8, name: 'GOOGLE',
-    line: 'A bright plaque with a big colorful G. GOOGLE — 2018 to now.',
+    line: 'A bright plaque with a big colorful G. GOOGLE — Google Play, 2018 to now.',
     more: [
-      'Product marketing at Google Korea (2018-2021), then go-to-market ' +
-      'in San Francisco (2021-now). Launches by day... this island by night.'
+      'Google Play, both sides of the Pacific. In Korea: running the ' +
+      'store and curating its content for one of the world\'s toughest ' +
+      'app markets.',
+      'In San Francisco since 2021: AI/Social category strategy and new ' +
+      'features — including launching Promotional Content. And since ' +
+      '2025, PM for an AI agentic content system. By day, that is. By ' +
+      'night, this island happens.'
     ]
   }
 ];
@@ -175,6 +186,13 @@ export function createHouseInterior() {
     scene.add(pivot);
     lanterns.push({ pivot, light, base: light.intensity, phase: d.phase });
   }
+  /* ---- plaque-open sparkles --------------------------------------------- */
+  // a small additive star burst over the board when a plaque is read —
+  // its own mini pool (the overworld particle system lives in the other
+  // scene and its ambient emitters are world-coordinate-bound)
+  const sparkles = createSparklePool(scene);
+  function sparkleAt(x, y, z) { sparkles.burst(x, y, z); }
+
   // warm ambient wrap + a soft shaping key so Lambert faces keep definition
   scene.add(new THREE.HemisphereLight(0xFFE0B8, 0x4A3626, 0.5 * LIGHT_SCALE));
   const key = new THREE.DirectionalLight(0xFFEFD8, 0.42 * LIGHT_SCALE);
@@ -249,7 +267,11 @@ export function createHouseInterior() {
     target.x = damp(target.x, tx, 5, dt);
     target.z = damp(target.z, tz, 5, dt);
     placeCamera();
+    sparkles.update(dt, t, halfH, window.innerHeight);
   }
 
-  return { scene, camera, colliders, interactables, enter, exit, update, setAspect, ROOM };
+  return {
+    scene, camera, colliders, interactables, enter, exit, update, setAspect,
+    sparkleAt, ROOM
+  };
 }

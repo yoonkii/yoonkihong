@@ -205,7 +205,13 @@ const WALK = {
    steps — REF_SPEED is tuned so max run (5.2 wu/s) lands ~4.8 steps/s,
    matching the old procedural stride. */
 const XFADE = 0.15;
-const WALK_REF_SPEED = 2.2;      // wu/s at walk timeScale 1
+/* wu/s at walk timeScale 1. Re-checked 2026-07-10 for the fleece player
+   re-rig: new walk clip stride is 0.575 wu p2p (old 0.38) at the same 1.0s
+   / 2-step loop, so keeping 2.2 preserves the approved max-run cadence
+   (~4.7 steps/s) while foot coverage per second IMPROVES (slide fraction
+   1 - 2*stride/REF: 65% -> 48%). Raising the divisor would restore the old
+   slide — don't. Re-measure stride (rigviewer foot-bone p2p) per re-export. */
+const WALK_REF_SPEED = 2.2;
 function createCharacterAnim(gm) {
   const clips = (gm.userData && gm.userData.animations) || [];
   const walkClip = clips.find((c) => c.name === 'walk');
@@ -415,8 +421,9 @@ export function createNPC(scene, glb = {}) {
   const inner = new THREE.Group();
   group.add(inner);
   // rigged GLB twin of the player (mint hoodie, no backpack): idle clip
-  // only — the greeter never walks. Missing GLB -> rounded voxel model.
-  const anim = glb.npc_yoonki ? createCharacterAnim(glb.npc_yoonki) : null;
+  // only — the greeter never walks. Missing GLB -> rounded voxel model
+  // (possibly hot-swapped later via setGLB — two-phase preload).
+  let anim = glb.npc_yoonki ? createCharacterAnim(glb.npc_yoonki) : null;
   if (anim) inner.add(glb.npc_yoonki);
   else inner.add(roundedActorMesh('npc_yoonki') || safeActorMesh('npc_yoonki'));
   group.add(makeBlobShadow(0.52));
@@ -424,7 +431,7 @@ export function createNPC(scene, glb = {}) {
 
   const npc = {
     group, inner, yaw: 0.15, glb: !!anim,
-    tickAnim: anim ? (dt) => anim.mixer.update(dt) : null,
+    tickAnim: (dt) => { if (anim) anim.mixer.update(dt); },
     pos: { x: NPC_POS.x, z: NPC_POS.z }, r: 0.35, speed: 0
   };
   npc.update = function (dt, playerPos, t) {
@@ -438,6 +445,17 @@ export function createNPC(scene, glb = {}) {
     if (anim) anim.mixer.update(dt);                // authored idle breathe
     else if (!REDUCED) inner.scale.y = 1 + Math.sin(t * 3.2) * 0.012;
   };
+  /** Two-phase preload: swap the voxel stand-in for the rigged GLB. */
+  npc.setGLB = function (gm) {
+    if (anim || !gm) return;
+    const a = createCharacterAnim(gm);
+    if (!a) return;                          // clipless: keep the voxel body
+    anim = a;
+    inner.clear();
+    inner.scale.y = 1;                       // drop the voxel breathe scale
+    inner.add(gm);
+    npc.glb = true;
+  };
   scene.add(group);
   return npc;
 }
@@ -445,6 +463,13 @@ export function createNPC(scene, glb = {}) {
 /* ------------------------------------------------------------------ *
  *  CREATURES                                                           *
  * ------------------------------------------------------------------ */
+// GLBs run 1.25x: wider blob-shadow anchor. mathwings runs slightly wide
+// still — the 20260710 superhero re-export spans ~1.72 wu (cape + raised
+// fist), so it gets a radius sized to the true silhouette (the old owl's
+// 1.85 wu clamped wingspan wanted 0.82).
+const GLB_BLOB_R = { mathwings: 0.74 };
+const VOXEL_BLOB_R = 0.6;
+
 export function createCreatures(scene, projects, glb = {}) {
   const products = projects.filter(p => p.kind !== 'egg' && (p.category || 'product') === 'product');
   const creatures = [];
@@ -457,19 +482,21 @@ export function createCreatures(scene, projects, glb = {}) {
     // authored GLB body if the asset shipped (already Lambert-harmonized,
     // normalized to contract height, origin ground-center, front +Z) —
     // the hop/bob/squash below animates `inner`, so the GLB rides the same
-    // procedural animation as the voxel body. Missing GLB -> voxel model.
+    // procedural animation as the voxel body. Missing GLB -> voxel model
+    // (possibly hot-swapped later via setGLB: two-phase preload streams
+    // creature GLBs in behind PRESS START).
     const gm = glb[p.id];
     if (gm) inner.add(gm);
-    else inner.add(safeActorMesh('creature_' + p.id));
-    // GLBs run 1.25x: wider anchor. mathwings runs slightly wide still —
-    // the 20260710 superhero re-export spans ~1.72 wu (cape + raised fist),
-    // so it gets a radius sized to the true silhouette (the old owl's
-    // 1.85 wu clamped wingspan wanted 0.82).
-    const GLB_BLOB_R = { mathwings: 0.74 };
-    group.add(makeBlobShadow(gm ? (GLB_BLOB_R[p.id] || 0.68) : 0.6));
+    else if (getModel('creature_' + p.id)) inner.add(safeActorMesh('creature_' + p.id));
+    // no authored voxel fallback (e.g. gunball): stay hidden until the
+    // streamed GLB lands via setGLB — never show the magenta placeholder
+    // box to a slow-network visitor
+    else group.visible = false;
+    const shadow = makeBlobShadow(gm ? (GLB_BLOB_R[p.id] || 0.68) : VOXEL_BLOB_R);
+    group.add(shadow);
 
     const c = {
-      id: p.id, project: p, group, inner, glb: !!gm,
+      id: p.id, project: p, group, inner, shadow, glb: !!gm,
       home: { x: spot.x + 0.5, z: spot.y + 0.5 },
       pos: new THREE.Vector3(spot.x + 0.5, 0, spot.y + 0.5),
       target: null, yaw: Math.PI / 4, r: 0.34, speed: 0,
@@ -581,7 +608,22 @@ export function createCreatures(scene, projects, glb = {}) {
     }
   }
 
-  return { creatures, update };
+  /** Two-phase preload: swap the voxel stand-in body for a late-arriving
+   *  authored GLB (same contract — normalized height, ground-center origin,
+   *  front +Z — so it rides the same `inner` hop/bob/squash pivot).
+   *  Idempotent: no-op once the creature is already on a GLB body. */
+  function setGLB(c, gm) {
+    if (c.glb || !gm) return;
+    c.inner.clear();
+    c.inner.add(gm);
+    c.glb = true;
+    c.group.visible = true;                    // fallback-less creatures hid
+    // widen the blob shadow to the GLB anchor radius (creature shadows are
+    // never scale-animated, so a uniform scale is safe here)
+    c.shadow.scale.setScalar((GLB_BLOB_R[c.id] || 0.68) / VOXEL_BLOB_R);
+  }
+
+  return { creatures, update, setGLB };
 }
 
 /* ------------------------------------------------------------------ *
@@ -601,19 +643,15 @@ const EGG_STYLE_CYCLE = [
 export function createEggs(scene, projects, glb = {}) {
   const eggProjects = projects.filter(p => p.kind === 'egg');
   const eggs = [];
-  eggProjects.forEach((p, i) => {
-    if (i >= EGG_SLOTS.length) return;
-    const s = EGG_SLOTS[i];
-    const group = new THREE.Group();
-    const inner = new THREE.Group();
-    group.add(inner);
-    // authored GLB egg if it shipped (already Lambert-harmonized + normalized
-    // to the as-placed contract height): every nursery egg clones the one
-    // source group — clone(true) shares BufferGeometry, so N eggs cost N
-    // draw calls but near-zero extra GPU memory. The wobble animates
-    // `inner`, so the GLB rides the same wobble as the voxel egg.
-    // Missing GLB -> voxel egg.
-    const eggGlb = glb.egg ? glb.egg.clone(true) : null;
+  /** One egg body: authored GLB (tinted per project) if a source group is
+   *  available, else the voxel egg. Shared by build time and the two-phase
+   *  late swap (setGLB). Every nursery egg clones the one source group —
+   *  clone(true) shares BufferGeometry, so N eggs cost N draw calls but
+   *  near-zero extra GPU memory. */
+  function buildEggBody(p, i, eggSource) {
+    // authored GLB egg (already Lambert-harmonized + normalized to the
+    // as-placed contract height). Missing GLB -> voxel egg.
+    const eggGlb = eggSource ? eggSource.clone(true) : null;
     // egg: 1.5x hero scale, project-colored spots, seated in a straw nest
     const baseModel = getModel('egg_spotted');
     if (eggGlb) {
@@ -641,8 +679,9 @@ export function createEggs(scene, projects, glb = {}) {
         o.material = Array.isArray(o.material)
           ? o.material.map(retint) : retint(o.material);
       });
-      inner.add(eggGlb);
-    } else if (baseModel) {
+      return eggGlb;
+    }
+    if (baseModel) {
       const [shell, spot] = EGG_STYLES[p.id] || EGG_STYLE_CYCLE[i % EGG_STYLE_CYCLE.length];
       const mesh = buildMesh(
         { ...baseModel, palette: [shell, spot] },
@@ -651,10 +690,19 @@ export function createEggs(scene, projects, glb = {}) {
       mesh.receiveShadow = false;
       mesh.scale.setScalar(1.5);
       mesh.position.y = 0.1;                          // settled into the straw
-      inner.add(mesh);
-    } else {
-      inner.add(safeActorMesh('egg_spotted'));
+      return mesh;
     }
+    return safeActorMesh('egg_spotted');
+  }
+  eggProjects.forEach((p, i) => {
+    if (i >= EGG_SLOTS.length) return;
+    const s = EGG_SLOTS[i];
+    const group = new THREE.Group();
+    const inner = new THREE.Group();
+    group.add(inner);
+    // the wobble animates `inner`, so the GLB rides the same wobble as the
+    // voxel egg (which may be hot-swapped later — two-phase preload)
+    inner.add(buildEggBody(p, i, glb.egg));
     if (getModel('egg_nest')) {
       const nest = buildMesh('egg_nest');
       nest.castShadow = false;
@@ -666,7 +714,7 @@ export function createEggs(scene, projects, glb = {}) {
     group.position.set(s.x, 0, s.z);
     group.rotation.y = hash2(i, 5, 13) * Math.PI * 2;
     const egg = {
-      id: p.id, project: p, group, inner,
+      id: p.id, project: p, group, inner, i, glbBody: !!glb.egg,
       pos: { x: s.x, z: s.z }, r: 0.28,
       wobbleAt: 2 + i * 1.6 + hash2(i, 6, 13) * 3, wobbleT: -1
     };
@@ -691,7 +739,17 @@ export function createEggs(scene, projects, glb = {}) {
       }
     }
   }
-  return { eggs, update };
+  /** Two-phase preload: rebuild every still-voxel egg on the authored GLB. */
+  function setGLB(gm) {
+    if (!gm) return;
+    for (const e of eggs) {
+      if (e.glbBody) continue;
+      e.inner.clear();
+      e.inner.add(buildEggBody(e.project, e.i, gm));
+      e.glbBody = true;
+    }
+  }
+  return { eggs, update, setGLB };
 }
 
 /* ------------------------------------------------------------------ *
@@ -737,6 +795,13 @@ export function createSecret(scene, glb = {}) {
     if (REDUCED) return;
     inner.position.y = Math.abs(Math.sin(t * 2.2)) * 0.06;
     inner.rotation.y = Math.sin(t * 0.7) * 0.5;
+  };
+  /** Two-phase preload: swap the voxel blob for the authored GLB. */
+  s.setGLB = function (gm) {
+    if (s.glb || !gm) return;
+    inner.clear();
+    inner.add(gm);
+    s.glb = true;
   };
   return s;
 }

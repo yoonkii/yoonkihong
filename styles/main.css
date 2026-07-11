@@ -224,7 +224,7 @@ body:not(.game-started) #help { z-index: 80; }
 .enc-plate {
   position: absolute;
   top: calc(16px + env(safe-area-inset-top, 0px));
-  left: 16px;
+  left: calc(16px + env(safe-area-inset-left, 0px));
   display: flex;
   align-items: center;
   gap: 10px;
@@ -360,8 +360,8 @@ body:not(.game-started) #help { z-index: 80; }
 .fx.iris.closed { clip-path: circle(76% at 50% 50%); }
 .fx.black, .fx.fade { background: #000; }
 
-/* ---------- hint + help ---------- */
-#hint {
+/* ---------- hint + toast + help ---------- */
+#hint, #toast {
   position: fixed;
   z-index: 45;
   top: calc(56px + env(safe-area-inset-top, 0px));
@@ -370,6 +370,10 @@ body:not(.game-started) #help { z-index: 80; }
   justify-content: center;
   pointer-events: none;
 }
+/* the one-time toast sits a notch lower so it can never overlap the
+   first-run HOW TO PLAY hint if both happen to be on screen */
+#toast { top: calc(128px + env(safe-area-inset-top, 0px)); }
+#toast .hint-card strong { color: #C96F2E; }
 .hint-card {
   pointer-events: auto;
   cursor: pointer;
@@ -387,6 +391,9 @@ body:not(.game-started) #help { z-index: 80; }
 @media (pointer: coarse) {
   .kb-only { display: none; }
   .touch-only { display: inline; }
+  /* comfortable thumb targets: 11px/5px-pad chips were ~28px tall next to
+     the notch — bump to ~40px (secondary controls; keep the 8px gap) */
+  #hud button, #hud a, #hud span { font-size: 12px; padding: 10px 12px; }
 }
 
 #help {
@@ -522,6 +529,8 @@ body.in-dialog #joy { display: none; }
   font-size: 14px;
   color: #b9c9e8;
   margin: 0 0 26px;
+  /* sits over the bright island center — needs a real scrim-shadow */
+  text-shadow: 0 1px 2px rgba(8, 18, 38, 0.9), 0 0 12px rgba(8, 18, 38, 0.55);
 }
 /* keeps its box while fading (opacity only) so PRESS START never shifts */
 .load-wrap { margin: 0 auto 22px; width: min(280px, 70vw); transition: opacity 0.45s ease 0.4s; }
@@ -554,18 +563,25 @@ body.in-dialog #joy { display: none; }
   border: none;
   cursor: pointer;
   padding: 12px 16px;
+  /* hard drop + dark glow: white pixel text over the bright sand/green
+     island read at ~40% perceived opacity with the soft shadow alone */
+  text-shadow: 0 2px 0 rgba(8, 18, 38, 0.85), 0 0 8px rgba(8, 18, 38, 0.5);
   animation: blink 1.1s steps(2, start) infinite;
 }
-@keyframes blink { 50% { opacity: 0; } }
+/* dip, never vanish: the primary CTA was fully invisible half the time
+   (50% duty cycle to opacity 0) — any given glance could miss it */
+@keyframes blink { 50% { opacity: 0.45; } }
 .title-classic {
   display: block;
   margin-top: 26px;
-  font-size: 12.5px;
-  color: #8fa5cf;
+  font-size: 14px;
+  color: #c6d5f2;
   text-decoration: underline;
   text-underline-offset: 3px;
+  /* the recruiter escape hatch must read over the bright island */
+  text-shadow: 0 1px 2px rgba(8, 18, 38, 0.9), 0 0 12px rgba(8, 18, 38, 0.55);
 }
-.title-classic:hover { color: #c6d5f2; }
+.title-classic:hover { color: #ffffff; }
 
 /* ---------- small screens ---------- */
 @media (max-width: 640px) {
@@ -584,6 +600,27 @@ body.in-dialog #joy { display: none; }
   .enc-panel { margin-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   /* drop the name plate below the HUD row so 0/4 never paints over it */
   .enc-plate { top: calc(48px + env(safe-area-inset-top, 0px)); }
+}
+
+/* ---------- short landscape phones ---------- */
+/* Keep the bottom panels clear of the A/B cluster (z 52): at 812x375 the
+   A button painted on top of the encounter menu's VISIT button (a tap ran
+   encConfirm on the SELECTED item instead), and #dialog (z 55) painted over
+   A/B leaving dead tap zones. The max-width 640px rules above never match
+   landscape phones (width 812/932), so they got desktop margins. */
+@media (pointer: coarse) and (max-height: 540px) {
+  .enc-panel {
+    align-self: flex-end;
+    width: calc(100% - 176px - env(safe-area-inset-right, 0px));
+    margin-right: calc(156px + env(safe-area-inset-right, 0px));
+    margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  #dialog {
+    margin: 0;
+    left: calc(12px + env(safe-area-inset-left, 0px));
+    right: calc(156px + env(safe-area-inset-right, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ---------- reduced motion ---------- */

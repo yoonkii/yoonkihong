@@ -45,21 +45,40 @@ async function boot() {
   if (!webglOK()) { ui.showFallback('WebGL unavailable'); return; }
   const yieldFrame = () => new Promise(r => setTimeout(r, 16));
 
-  /* ---- authored GLB assets: preload during the title screen -------------
-     Every VERIFIED asset from docs/GLB_PIPELINE.md is fetched in parallel
-     while the engine/terrain phases run. loadGLB resolves null on any
-     missing/broken file (per-asset fallback -> the voxel model stays), so
-     the game boots fine even with an empty assets/3d/. */
-  const GLB_PRELOAD = [
-    'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'gunball',
-    'goldie',
+  /* ---- authored GLB assets: TWO-PHASE preload ----------------------------
+     Phase 1 (gates PRESS START): only what the title diorama shows big —
+     the 7 buildings, trees, fountain, and the player. Phase 2 (streamed in
+     parallel, never gates): creatures/goldie/egg/npc_yoonki — those actors
+     spawn on their voxel fallback and hot-swap to the GLB the moment it
+     lands (the per-asset null-fallback contract actors.js already ships,
+     made late-binding via lateGLB below). Gating everything held PRESS
+     START behind ~7.7 MB of models (~45-50 s on Fast-3G-class mobile);
+     the split cuts the gate to ~4.3 MB with zero visual cost on fast
+     connections (phase 2 usually lands before the world even builds).
+     loadGLB resolves null on any missing/broken file (per-asset fallback ->
+     the voxel model stays), so the game boots fine even with an empty
+     assets/3d/. */
+  const GLB_CRITICAL = [
     'bld_about_house', 'bld_macrodoc', 'bld_mathstreet', 'bld_mathwings',
     'bld_funnify', 'bld_lasthand', 'bld_gunball',
-    'tree_a', 'tree_b', 'fountain', 'egg',
-    // rigged hero characters (skinned + walk/idle clips; loader clones via
-    // SkeletonUtils) — actors.js falls back to the voxel rig on null
-    'player', 'npc_yoonki'
+    'tree_a', 'tree_b', 'fountain',
+    // rigged hero character (skinned + walk/idle clips; loader clones via
+    // SkeletonUtils) — front and center from the first frame, must never
+    // pop from voxel to GLB. actors.js falls back to the voxel rig on null.
+    'player'
   ];
+  const GLB_STREAM = [
+    'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'gunball',
+    'goldie', 'egg', 'npc_yoonki'
+  ];
+  // shadow policy: buildings + static props cast real shadow-map shadows —
+  // the sun never moves and shadowMap.autoUpdate is false, so this is one
+  // static bake. Trees matter most — const.js SUN elevation (34°) is
+  // calibrated so the coastal ring visibly stripes the cream paths (the
+  // voxel treeMesh had castShadow=true; the GLB swap must not lose that
+  // grounding cue). Creatures/eggs stay on blob shadows.
+  const glbCastsShadow = (n) => n.startsWith('bld_') ||
+    n === 'tree_a' || n === 'tree_b' || n === 'fountain';
   // monotonic progress: GLB downloads race the engine phases, so the bar
   // only ever moves forward no matter which callback lands first
   let loadPct = 0;
@@ -73,23 +92,15 @@ async function boot() {
   // byte-level progress: the model phase (14 -> 62) is the longest stretch on
   // real networks — aggregate per-file download fractions so the bar moves
   // continuously instead of freezing between per-asset jumps
-  const glbProgress = new Array(GLB_PRELOAD.length).fill(0);
+  const glbProgress = new Array(GLB_CRITICAL.length).fill(0);
   function bumpModelLoad() {
     const sum = glbProgress.reduce((a, b) => a + b, 0);
-    bumpLoad(14 + Math.round(48 * sum / GLB_PRELOAD.length),
-      'LOADING... MODELS ' + glbDone + '/' + GLB_PRELOAD.length);
+    bumpLoad(14 + Math.round(48 * sum / GLB_CRITICAL.length),
+      'LOADING... MODELS ' + glbDone + '/' + GLB_CRITICAL.length);
   }
-  const glbReady = Promise.all(GLB_PRELOAD.map((n, i) =>
+  const glbReady = Promise.all(GLB_CRITICAL.map((n, i) =>
     loadGLB(n, {
-      // buildings + static props cast real shadow-map shadows: the sun never
-      // moves and shadowMap.autoUpdate is false, so this is one static bake.
-      // Trees matter most — const.js SUN elevation (34°) is calibrated so the
-      // coastal ring visibly stripes the cream paths (the voxel treeMesh had
-      // castShadow=true; the GLB swap must not lose that grounding cue). The
-      // ±0.014 rad idle sway is far below shadow-map texel size, so the baked
-      // shadow never visibly desyncs. Creatures/eggs stay on blob shadows.
-      castShadow: n.startsWith('bld_') ||
-        n === 'tree_a' || n === 'tree_b' || n === 'fountain',
+      castShadow: glbCastsShadow(n),
       onProgress: (k) => { glbProgress[i] = Math.max(glbProgress[i], k); bumpModelLoad(); }
     }).then((g) => {
       glbAssets[n] = g;
@@ -98,6 +109,16 @@ async function boot() {
       bumpModelLoad();
     })
   )).then(() => glbAssets);
+  // phase 2 fires immediately (shares the pipe but never gates the bar):
+  // whatever lands before the actor systems build is consumed directly at
+  // build time; the rest hot-swaps through lateGLB once it's assigned.
+  let lateGLB = null;                          // assigned after actors exist
+  for (const n of GLB_STREAM) {
+    loadGLB(n, { castShadow: glbCastsShadow(n) }).then((g) => {
+      glbAssets[n] = g;
+      if (g && lateGLB) lateGLB(n, g);
+    });
+  }
 
   bumpLoad(6, 'LOADING... ENGINE');
   await yieldFrame();
@@ -363,12 +384,61 @@ async function boot() {
       markerX: e.pos.x, markerY: 1.15, markerZ: e.pos.z, r: 1.3
     });
   }
+  // creatures get an interact radius derived from their ACTUAL footprint:
+  // the flat 1.5 wu left wide bodies (MATHSTREET/GUNBALL span ~1.6-1.75 wu)
+  // with a dead zone — standing visually pressed against a flank measured
+  // d≈1.65 from center, so no "!" appeared and Space did nothing. Reach
+  // stays ~1.0 wu from the body hull for every silhouette (buildings
+  // already size r from their footprint the same way in world.js).
+  const _fpBox = new THREE.Box3();
+  function creatureInteractR(obj) {
+    try {
+      _fpBox.setFromObject(obj);
+      const fp = Math.max(_fpBox.max.x - _fpBox.min.x, _fpBox.max.z - _fpBox.min.z);
+      if (fp > 0.2 && fp < 4) return Math.max(1.5, 1.0 + fp / 2);
+    } catch (e) { /* noop */ }
+    return 1.5;
+  }
   for (const c of creatureSys.creatures) {
     interactables.push({
       id: 'creature_' + c.id, kind: 'creature', project: c.project,
       pos: c.pos, creature: c, dynamic: true, mesh: c.inner,
-      markerY: 1.7, r: 1.5
+      markerY: 1.7, r: creatureInteractR(c.inner)
     });
+  }
+
+  /* ---- phase-2 GLB arrivals: hot-swap the voxel stand-ins ---------------
+     Same models, same contract (normalized height, ground-center origin,
+     front +Z) — each actor system replaces its fallback body in place.
+     Swaps are idempotent, so the sweep below also covers assets that
+     resolved between actor creation and this assignment. */
+  lateGLB = (name, gm) => {
+    if (!gm) return;
+    if (name === 'npc_yoonki') return npc.setGLB(gm);
+    if (name === 'goldie') return secret.setGLB(gm);
+    if (name === 'egg') return eggSys.setGLB(gm);
+    const c = creatureSys.creatures.find((k) => k.id === name);
+    if (!c || c.glb) return;
+    creatureSys.setGLB(c, gm);
+    c.subjH = null;                            // encounter zoom re-measures
+    const it = interactables.find((k) => k.id === 'creature_' + name);
+    if (it) it.r = Math.max(it.r, creatureInteractR(c.inner));
+  };
+  for (const n of GLB_STREAM) if (glbAssets[n]) lateGLB(n, glbAssets[n]);
+
+  // first-approach nudge: the About house hides a whole career room behind
+  // its door — surface the control the moment a first-time visitor gets close
+  const houseDoor = interactables.find(i => i.kind === 'house');
+  let houseNudged = false;
+  function maybeNudgeHouse() {
+    if (houseNudged || !houseDoor) return;
+    if (Math.hypot(player.pos.x - houseDoor.pos.x,
+      player.pos.z - houseDoor.pos.z) > 4.6) return;
+    houseNudged = true;                        // checked once per session
+    ui.showToastOnce('house_door',
+      '<strong>YOONKI\'S HOUSE</strong>' +
+      '<span class="kb-only">Walk to the door and press <b>SPACE</b> to step inside</span>' +
+      '<span class="touch-only">Walk to the door and tap <b>A</b> to step inside</span>');
   }
 
   function nearestInteractable() {
@@ -382,12 +452,14 @@ async function boot() {
     return best;
   }
 
-  /* ---- "!" marker (ART_BIBLE 6.6): compact 3-voxel glyph — cream shell,
-          warm gold core dot — with a soft 25% halo copy, bobbing above the
-          target. Small on purpose: never a scaffolding pole at rooflines. --- */
+  /* ---- "!" marker (ART_BIBLE 6.6): compact 3-voxel glyph — warm gold on
+          every face (the old cream shell read as path-colored against the
+          sand) — with a 1.6x 35% halo copy, bobbing above the target, plus
+          a quick scale pop when it (re)appears so the eye catches it.
+          Still small on purpose: never a scaffolding pole at rooflines. --- */
   const markerGeo = buildGeometry({
-    palette: ['#FFF3D6', '#F7D75E'],
-    // warm gold column + cream dot: reads on cream plaster AND on grass
+    palette: ['#F7B733', '#F7D75E'],
+    // warm gold column + amber dot: reads on cream plaster, grass AND sand
     voxels: [[0, 0, 0, 0], [0, 2, 0, 1], [0, 3, 0, 1]],
     ao: false, sunRim: false, chamfer: 0.3
   }, { voxelSize: 0.19 });
@@ -396,14 +468,16 @@ async function boot() {
     new THREE.MeshBasicMaterial({ vertexColors: true }));
   const markerHalo = new THREE.Mesh(markerGeo,
     new THREE.MeshBasicMaterial({
-      color: 0xF7D75E, transparent: true, opacity: 0.25, depthWrite: false
+      color: 0xF7D75E, transparent: true, opacity: 0.35, depthWrite: false
     }));
-  markerHalo.scale.setScalar(1.32);
+  markerHalo.scale.setScalar(1.6);
   markerHalo.position.y = -0.1;                       // keep the halo centered
   marker.add(markerHalo, markerCore);
   marker.rotation.y = Math.PI / 4;
   marker.visible = false;
   scene.add(marker);
+  let markerFor = null;                       // interactable the "!" hovers on
+  let markerPulse = 0;                        // 1 -> 0 appear-pop envelope
 
   /* ---- facing-target emissive lerp (150ms): the nearest interactable's
           mesh warms up softly while the "!" hovers over it ----------------- */
@@ -442,8 +516,8 @@ async function boot() {
         'Go say hi to the creatures — walk up and press the action button. Check the eggs in the nursery, and peek at the DEMO LAB if you like experiments.'
       ] },
       { label: 'CAREER', pages: [
-        'The career log: NAVER first — where the journey started. Then LINE, Seoul (2014-2018), growth PM. Then GOOGLE — Korea (2018-2021), product marketing, and San Francisco (2021-now), GTM.',
-        'Want the full chapters? Step into my house — there\'s a plaque on the wall for every badge I\'ve worn.'
+        'The career log: joined NAVER\'s global business track straight into the LINE division. Grew LINE across Southeast Asia as a growth PM (2014-2018), then moved to GOOGLE — Google Play in Korea (2018-2021), and Google Play in San Francisco since 2021.',
+        'Want the full chapters? Step inside my house — the one with the mat by the door, up north — and read the wall of logos. NAVER, LINE and GOOGLE each keep a plaque there.'
       ] },
       { label: 'LINKS', links: true, line: 'Find me out there in the wild:' },
       { label: 'BYE', close: true }
@@ -674,8 +748,11 @@ async function boot() {
         // everyone is restored under the exit fade). GOLDIE hides too: the
         // bld_mathstreet close-up otherwise reveals it over the tree ring.
         const hideR = Math.max(5, halfH * 2.6);
+        // c.group.visible: skip actors already hidden (fallback-less
+        // creatures awaiting their streamed GLB) so the exit restore
+        // can't force an empty group + floating blob shadow visible
         encounterCtx.hidden = [...creatureSys.creatures, secret].filter((c) =>
-          c !== creature &&
+          c !== creature && c.group.visible &&
           Math.hypot(c.pos.x - focus.x, c.pos.z - focus.z) < hideR);
         for (const c of encounterCtx.hidden) c.group.visible = false;
       }
@@ -748,7 +825,10 @@ async function boot() {
         audio.sfx.blip(); return openMenuDialog('YOONKI', NPC_SCRIPT);
       case 'house': return enterHouse();
       case 'plaque':
-        audio.sfx.blip();
+        // reading a plaque feels like polishing a trophy: sparkle chime +
+        // a star burst over the board (the interior owns its own pool)
+        audio.sfx.sparkle();
+        if (house) house.sparkleAt(it.markerX, 2.3, 0.85);
         return openMenuDialog(it.name, {
           intro: it.line,
           menu: [{ label: 'MORE', pages: it.more }, { label: 'BACK', close: true }]
@@ -783,14 +863,43 @@ async function boot() {
   // done-callback one frame (camera.js) — this grace window is the second
   // layer, covering "mash START twice" on keyboard AND the mobile A button.
   let introSkippedAt = -1;
+  let worldStartAt = -1;                     // set when the intro hands over
+  let movedSinceStart = false;               // first walk input arms interact
+  // the visitor's first interact must be DELIBERATE: measured start-key
+  // mashing spans 0.8-1.5s of extra Enter/Space/A presses — far past any
+  // few-hundred-ms grace window. Arm on the first movement input (the
+  // natural first act, and what the HOW TO PLAY hint teaches), or after
+  // 2s of world time for the stand-still-then-press visitor.
+  function interactArmed() {
+    return movedSinceStart ||
+      (worldStartAt >= 0 && performance.now() - worldStartAt > 2000);
+  }
   ui.handlers.start = () => {
     audio.bgm.start();
     audio.sfx.unlock();
     state = 'intro';
-    const played = cam.startIntro(player.pos, () => { if (state === 'intro') state = 'world'; });
+    // returning visitors (refresh / back-button in the same tab session)
+    // already saw the sweep — skip straight to gameplay instead of
+    // replaying the 3.6s cold intro on every reload
+    let returning = false;
+    try {
+      returning = sessionStorage.getItem('yw3_started') === '1';
+      sessionStorage.setItem('yw3_started', '1');
+    } catch (e) { /* noop */ }
+    const played = cam.startIntro(player.pos, () => {
+      if (state === 'intro') {
+        state = 'world';
+        worldStartAt = performance.now();
+      }
+    });
+    if (played && returning) {
+      cam.skipIntro();                       // snaps to follow framing;
+      introSkippedAt = performance.now();    // done-cb fires next frame
+    }
     if (!played) {
       state = 'world';                       // reduced-motion: no sweep at all —
       introSkippedAt = performance.now();    // still swallow the start-mash
+      worldStartAt = performance.now();
     }
   };
   ui.handlers.any = () => {
@@ -801,7 +910,10 @@ async function boot() {
   };
   ui.handlers.action = () => {
     if (introSkippedAt >= 0 && performance.now() - introSkippedAt < 250) return;
-    if (state === 'world' || state === 'interior') interact();
+    if (state === 'world' || state === 'interior') {
+      if (!interactArmed()) return;          // start-mash never opens a box
+      interact();
+    }
     else if (state === 'dialog') ui.advanceDialog();
     else if (state === 'encounter') ui.encConfirm();  // RUN exits via onRun
   };
@@ -854,6 +966,8 @@ async function boot() {
       const m = ui.getMove();
       move.x = S2 * (m.x + m.z);
       move.z = S2 * (m.z - m.x);
+      // first walk input arms interact() (see interactArmed)
+      if (!movedSinceStart && (move.x !== 0 || move.z !== 0)) movedSinceStart = true;
     }
 
     if (state !== 'title') {
@@ -868,6 +982,7 @@ async function boot() {
       if (inHouse) {
         house.update(dt, t, player.pos);
       } else {
+        if (inWorld) maybeNudgeHouse();
         npc.update(dt, player.pos, t);
         creatureSys.update(dt, t, colliders, player.pos);
         eggSys.update(dt, t);
@@ -889,15 +1004,23 @@ async function boot() {
     if (inWorld || inRoom) {
       const it = nearestInteractable();
       if (it) {
+        if (markerFor !== it) {              // (re)appear: quick scale pop
+          markerFor = it;
+          markerPulse = REDUCED ? 0 : 1;
+        }
         marker.visible = true;
         const mx = it.dynamic ? it.pos.x : it.markerX;
         const mz = it.dynamic ? it.pos.z : it.markerZ;
         const bounce = REDUCED ? 0 : Math.sin(t * 5) * 0.08;   // sin(now/200)
         marker.position.set(mx, it.markerY + bounce, mz);
-      } else marker.visible = false;
+        markerPulse = Math.max(0, markerPulse - dt / 0.22);
+        const pop = 1 + 0.45 * markerPulse * markerPulse;
+        marker.scale.setScalar((it.markerScale || 1) * pop);   // door "!" reads bigger
+      } else { marker.visible = false; markerFor = null; }
       updateHighlight(it ? it.mesh || null : null, dt);
     } else {
       marker.visible = false;
+      markerFor = null;
       updateHighlight(null, dt);
     }
 

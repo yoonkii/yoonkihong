@@ -153,6 +153,31 @@ class Pool {
 }
 
 /* ------------------------------------------------------------------ */
+/** Tiny standalone sparkle pool for mini-scenes (the house interior).
+    Reuses the star texture + Pool but carries NONE of the overworld's
+    ambient emitters (smoke/fireflies/petals are world-coordinate-bound
+    and would spawn inside the room at nonsense positions). */
+export function createSparklePool(scene) {
+  const glow = new Pool(scene, 64, makeTexture('star'), THREE.AdditiveBlending);
+  return {
+    burst(x, y, z, color = '#FFE9A8') {
+      if (REDUCED) return;
+      for (let i = 0; i < 12; i++) glow.spawn({
+        x: x + (Math.random() - 0.5) * 0.8, y: y + (Math.random() - 0.4) * 0.7,
+        z: z + (Math.random() - 0.5) * 0.3,
+        vx: (Math.random() - 0.5) * 0.7, vy: 0.4 + Math.random() * 0.8,
+        vz: (Math.random() - 0.5) * 0.35,
+        ttl: 0.5 + Math.random() * 0.45, size: 0.11 + Math.random() * 0.09,
+        color, drag: 0.1, twinkle: 0.5
+      });
+    },
+    update(dt, t, camHalfH, viewH) {
+      glow.uPPU.value = viewH / (2 * camHalfH);
+      glow.update(dt, t);
+    }
+  };
+}
+
 export function createParticles(scene) {
   const soft = new Pool(scene, 420, makeTexture('soft'), THREE.NormalBlending);
   const glow = new Pool(scene, 520, makeTexture('star'), THREE.AdditiveBlending);

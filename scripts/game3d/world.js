@@ -340,6 +340,7 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
   // docs/GLB_PIPELINE.md §3 — colliders/markers/zoom are sized from these
   // exactly like the voxel footprints size everything else.
   const GLB_FOOTPRINT = { gunball: { w: 2.42, h: 2.75, d: 2.24 } };
+  let aboutDoor = null;    // front-facade doorstep of the About house
   for (const b of buildingDefs) {
     const model = getModel(b.model) || PLACEHOLDER;
     const fp = GLB_FOOTPRINT[b.model];
@@ -363,6 +364,10 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
         glowQuad(cx + g.x, g.y, cz + g.z, g.w, g.h, g.f, g.c);
     }
     colliders.addAABB(cx - w / 2 + 0.08, cz - d / 2 + 0.08, cx + w / 2 - 0.08, cz + d / 2 - 0.08);
+    // the authored GLB about-house's door sits ~0.3 east of the footprint
+    // center (the voxel fallback's door is centered) — the entrance cues
+    // (marker / mat / glow) anchor on the VISIBLE door, not the bbox
+    const doorX = b.id === 'about' ? cx + (gm ? 0.3 : 0) : cx;
     interactables.push({
       id: 'bld_' + b.id,
       kind: b.id === 'about' ? 'house' : 'building',
@@ -372,9 +377,45 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
       // marker capped at eave level (ART_BIBLE 6.6) and pushed to the front
       // facade (camera side) — it reads against the building's own wall,
       // never silhouetting against sky/water, never buried in the roof
-      markerY: Math.min(h * 0.55, 2.1), markerX: cx, markerZ: cz + d / 2 + 0.35,
+      markerY: Math.min(h * 0.55, 2.1), markerX: doorX, markerZ: cz + d / 2 + 0.35,
+      // the About door is an ENTRANCE, not an encounter — its "!" reads a
+      // third bigger so it never passes for one of the lit windows beside it
+      markerScale: b.id === 'about' ? 1.35 : 1,
       r: Math.max(w, d) / 2 + 1.2
     });
+    if (b.id === 'about') aboutDoor = { x: doorX, z: cz + d / 2 };
+  }
+
+  /* ---- About-house doorstep dressing (discoverability) ----------------
+     The career room hides behind this door and playtests showed visitors
+     walking straight past it. Two cues: the interior's own welcome mat
+     repeated OUTSIDE on the doorstep, and a soft warm glow pooled on the
+     door tile that breathes (pulsed in updateFlora) — "you can come in". */
+  place(staticGeos, safeGeometry('house_mat'), aboutDoor.x, 0, aboutDoor.z + 0.4);
+  let doorGlow = null;
+  {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g2 = c.getContext('2d');
+    const grad = g2.createRadialGradient(32, 32, 2, 32, 32, 31);
+    grad.addColorStop(0, 'rgba(255,217,160,0.95)');
+    grad.addColorStop(0.55, 'rgba(255,217,160,0.38)');
+    grad.addColorStop(1, 'rgba(255,217,160,0)');
+    g2.fillStyle = grad;
+    g2.fillRect(0, 0, 64, 64);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    doorGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.1, 1.6),
+      new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, opacity: 0.42, depthWrite: false,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    doorGlow.rotation.x = -Math.PI / 2;
+    doorGlow.position.set(aboutDoor.x, 0.035, aboutDoor.z + 0.45);
+    doorGlow.renderOrder = 1;                 // over the ground, under actors
+    scene.add(doorGlow);
   }
 
   /* ---- tree ring ---------------------------------------------------- */
@@ -711,7 +752,13 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
   const tiltQ = new THREE.Quaternion(), yawQ = new THREE.Quaternion();
   const axis = new THREE.Vector3();
   let glbTreeT = 0;
+  let doorGlowT = 0;
   function updateFlora(dt, actors, onPop) {
+    // About-door glow breathes gently (static under reduced-motion)
+    if (doorGlow && !REDUCED) {
+      doorGlowT += dt;
+      doorGlow.material.opacity = 0.4 + Math.sin(doorGlowT * 2.1) * 0.18;
+    }
     // GLB trees: gentle whole-tree rotation idle (their stand-in for the
     // voxel wind-sway shader). Tiny angles, base-pivoted — toy-like breathing.
     if (glbTrees.length && !REDUCED) {

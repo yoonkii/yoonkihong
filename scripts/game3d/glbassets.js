@@ -102,12 +102,16 @@ const FOOTPRINT_XZ = {
    the caller-owned outer group and the normalize wrapper). The Meshy
    rigging/animation retarget ships the player/npc clips facing the (-X,+Z)
    diagonal — the 3/4 concept angle — instead of the contract's +Z.
-   Re-measured in-game 2026-07-10 (user-reported skew): the retarget's true
-   front sits ~25deg past the assumed diagonal, so PI/4 over-rotates. 0.35 rad
-   is the empirical value where walking screen-down faces the camera dead-on
-   (verified for down/right walks via headed-browser screenshots). */
+   The offset is PER-RETARGET: every re-rig ships its own front, so it must
+   be re-measured in-game after any character re-export (walk screen-down,
+   face must point at the camera dead-on — see GLB_PIPELINE.md §3).
+   - npc_yoonki: 0.35 rad, measured in-game 2026-07-10 for the original rig
+     (retarget front ~25deg past the assumed diagonal, so PI/4 over-rotated).
+   - player: 0.2 rad, re-measured in-game 2026-07-10 for the Patagonia-fleece
+     re-rig (headed-browser sweep -0.35..0.7 in 0.1-0.2 steps, walking
+     screen-down AND screen-up; 0.2 centers both the face and the backpack). */
 const YAW_OFFSET = {
-  player: 0.35,
+  player: 0.2,
   npc_yoonki: 0.35
 };
 
