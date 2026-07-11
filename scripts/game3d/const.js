@@ -24,7 +24,7 @@ export const REDUCED = (() => {
    with the styles/main.css ?v= token in index.html — bump BOTH whenever any
    asset is re-exported, so returning visitors never get a mixed old/new set
    (GitHub Pages caches assets for ~10 min, browsers heuristically longer). */
-export const ASSET_V = '20260711a';
+export const ASSET_V = '20260711b';
 
 /* ---- player locomotion -------------------------------------------------
    2026-07: top speed +30% (4.0 -> 5.2 wu/s); accel/decel damp rates x1.3
@@ -148,9 +148,13 @@ export const CREATURE_SPOTS = [
   { x: 15, y: 20 },                   // funnify (SW court — greets the gate)
   { x: 14, y: 4 },                    // lasthand (NW court, beside its building)
   { x: 5, y: 19 },                    // gunball
-  { x: 34, y: 19 }                    // gomokulike (below its parlor, between
-                                      // the row-18 street and the Demo Lab
-                                      // fence — wander graze is by design)
+  { x: 31.5, y: 18 }                  // gomokulike — open patch WEST of its
+                                      // parlor on the row-18 street. The old
+                                      // (34,19) pinned it in a 2-wu alley
+                                      // between the parlor, the Demo Lab
+                                      // fence and the tree ring: it could
+                                      // barely shuffle and read as stuck
+                                      // (user report 2026-07-11)
 ];
 // Nursery interior slots ring the gazebo; first three (live eggs) spread
 // NW / NE / S so the garden reads full from the SE camera.

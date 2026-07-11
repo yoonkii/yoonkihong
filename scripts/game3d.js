@@ -889,24 +889,15 @@ async function boot() {
     audio.bgm.start();
     audio.sfx.unlock();
     state = 'intro';
-    // returning visitors (refresh / back-button in the same tab session)
-    // already saw the sweep — skip straight to gameplay instead of
-    // replaying the 3.6s cold intro on every reload
-    let returning = false;
-    try {
-      returning = sessionStorage.getItem('yw3_started') === '1';
-      sessionStorage.setItem('yw3_started', '1');
-    } catch (e) { /* noop */ }
+    // 2026-07-11: the r4 "returning visitor skips the sweep" sessionStorage
+    // gate is GONE — the owner missed the sweep ("사라진 거 정말 아쉬워").
+    // The sweep now plays on every PRESS START; any input still skips it.
     const played = cam.startIntro(player.pos, () => {
       if (state === 'intro') {
         state = 'world';
         worldStartAt = performance.now();
       }
     });
-    if (played && returning) {
-      cam.skipIntro();                       // snaps to follow framing;
-      introSkippedAt = performance.now();    // done-cb fires next frame
-    }
     if (!played) {
       state = 'world';                       // reduced-motion: no sweep at all —
       introSkippedAt = performance.now();    // still swallow the start-mash

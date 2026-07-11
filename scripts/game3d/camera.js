@@ -67,6 +67,10 @@ export function createCameraRig(aspect) {
       fromH: state.halfH, toH: to.halfH,
       fromA: state.azimuth, toA: to.azimuth != null ? to.azimuth : state.azimuth,
       fromE: state.elevation, toE: to.elevation != null ? to.elevation : state.elevation,
+      // optional cinematic arc: azimuth bulges sin(π·k)·azBulge mid-tween
+      // and lands back on toA — a swing WITHOUT the r2-era "spin the whole
+      // island 200°" disorientation (start and end framing stay canonical)
+      azBulge: to.azBulge || 0,
       after
     };
   }
@@ -172,8 +176,14 @@ export function createCameraRig(aspect) {
         .addScaledVector(right, -frame.heroX)
         .addScaledVector(up, -(frame.lift != null ? frame.lift : frame.halfH * 0.04));
       startTween({
-        target, halfH: frame.halfH, azimuth: CAM.azimuth, elevation: el
-      }, REDUCED ? 0.01 : 0.9, () => {
+        target, halfH: frame.halfH, azimuth: CAM.azimuth, elevation: el,
+        // cinematic arc-in (2026-07-11 restore): the camera swings ~12°
+        // around the subject on its way to the two-shot and settles back on
+        // the world's 45° — the r4 fixed-azimuth cut read as "the pan is
+        // gone" (user report). Arc side follows the hero slot so the swing
+        // wraps AROUND the subject instead of away from it.
+        azBulge: (frame.heroX >= 0 ? -12 : 12)
+      }, REDUCED ? 0.01 : 1.1, () => {
         state.mode = 'hold';
         state.hold = { h0: frame.halfH, t: 0 };
       });
@@ -185,7 +195,8 @@ export function createCameraRig(aspect) {
         target: new THREE.Vector3(playerPos.x, 0.4, playerPos.z),
         halfH: baseHalfH,
         azimuth: CAM.azimuth,
-        elevation: CAM.elevation
+        elevation: CAM.elevation,
+        azBulge: 7                              // gentle arc-out on RUN
       }, REDUCED ? 0.01 : 0.7, () => { state.mode = 'follow'; });
     },
 
@@ -201,7 +212,8 @@ export function createCameraRig(aspect) {
         const k = easeInOut(Math.min(1, tw.t / tw.dur));
         state.target.lerpVectors(tw.fromT, tw.toT, k);
         state.halfH = tw.fromH + (tw.toH - tw.fromH) * k;
-        state.azimuth = tw.fromA + (tw.toA - tw.fromA) * k;
+        state.azimuth = tw.fromA + (tw.toA - tw.fromA) * k +
+          (tw.azBulge ? tw.azBulge * Math.sin(Math.PI * k) : 0);
         state.elevation = tw.fromE + (tw.toE - tw.fromE) * k;
         applyProjection();
         if (tw.t >= tw.dur) {
