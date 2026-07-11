@@ -60,7 +60,7 @@ async function boot() {
      assets/3d/. */
   const GLB_CRITICAL = [
     'bld_about_house', 'bld_macrodoc', 'bld_mathstreet', 'bld_mathwings',
-    'bld_funnify', 'bld_lasthand', 'bld_gunball',
+    'bld_funnify', 'bld_lasthand', 'bld_gunball', 'bld_gomokulike',
     'tree_a', 'tree_b', 'fountain',
     // rigged hero character (skinned + walk/idle clips; loader clones via
     // SkeletonUtils) — front and center from the first frame, must never
@@ -69,7 +69,10 @@ async function boot() {
   ];
   const GLB_STREAM = [
     'macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'gunball',
-    'goldie', 'egg', 'npc_yoonki'
+    'gomokulike', 'goldie', 'egg', 'npc_yoonki',
+    // skyline landmarks: background decoration in the water band — they pop
+    // in at the map edge whenever they land, never worth gating the title
+    'landmark_namsan', 'landmark_goldengate'
   ];
   // shadow policy: buildings + static props cast real shadow-map shadows —
   // the sun never moves and shadowMap.autoUpdate is false, so this is one
@@ -414,6 +417,7 @@ async function boot() {
      resolved between actor creation and this assignment. */
   lateGLB = (name, gm) => {
     if (!gm) return;
+    if (name.startsWith('landmark_')) return world.addLandmark(name, gm);
     if (name === 'npc_yoonki') return npc.setGLB(gm);
     if (name === 'goldie') return secret.setGLB(gm);
     if (name === 'egg') return eggSys.setGLB(gm);

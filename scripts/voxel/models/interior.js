@@ -70,8 +70,12 @@ function makeRoom() {
   box(DOOR_X1 + 1, 1, RD - 2, DOOR_X1 + 2, 13, RD - 1, TIMBER, v);
   box(DOOR_X0 - 2, 13, RD - 2, DOOR_X1 + 2, 14, RD - 1, TIMBER, v);
 
-  // ceiling beams spanning X (open top — the camera looks straight in)
-  box(0, 24, 12, RW - 1, 25, 13, TIMBER, v);
+  // ceiling beam spanning X (open top — the camera looks straight in).
+  // There used to be a second beam at z 12-13 (1.5-1.75 wu): from the fixed
+  // quarter camera it projected EXACTLY across the plaque logos (band
+  // y 1.86-2.11 on the z 0.6 wall plane — measured 2026-07-10 after a user
+  // report of hidden logos). Nothing hangs from it since the lanterns moved
+  // to this mid-room beam, so it is gone rather than dodged.
   box(0, 24, 32, RW - 1, 25, 33, TIMBER, v);
 
   // woven rug mid-room (1 voxel proud of the floor, corners knocked off)
@@ -103,7 +107,9 @@ function makeNaver() {
   const BOARD = 0, TRIM = 1, GRN = 2, WHT = 3;
   const v = [];
   plaqueBoard(v, BOARD, TRIM);
-  box(2, 3, 1, 9, 12, 1, GRN, v);                    // green plate
+  box(1, 1, 1, 10, 14, 1, GRN, v);                   // green plate fills the frame
+                                                     // (app-icon look, matches the
+                                                     // hi-res LINE plaque)
   // blocky N: two 2-wide columns + a thick stepped diagonal, proud of the plate
   box(3, 5, 2, 4, 11, 2, WHT, v);
   box(7, 5, 2, 8, 11, 2, WHT, v);
@@ -112,16 +118,39 @@ function makeNaver() {
   return v;
 }
 
-// LINE — green plate, white speech bubble
+// LINE — green plate, white speech bubble + the actual "LINE" wordmark.
+// Authored at DOUBLE resolution (24x32x6, voxelSize 0.0625 — same 1.5x2.0 wu
+// board): at the shared 12x16 grid the wordmark physically can't fit
+// (4 letters x 3 cols + gaps = 15 > 8 plate cols) and the bare bubble read
+// as a generic chat icon, not LINE (user report 2026-07-10).
 function makeLine() {
   const BOARD = 0, TRIM = 1, GRN = 2, WHT = 3;
   const v = [];
-  plaqueBoard(v, BOARD, TRIM);
-  box(2, 3, 1, 9, 12, 1, GRN, v);
-  // rounded bubble (cross union) + tail toward bottom-left
-  box(4, 6, 2, 7, 11, 2, WHT, v);
-  box(3, 7, 2, 8, 10, 2, WHT, v);
-  v.push([4, 5, 2, WHT], [3, 4, 2, WHT]);
+  // hi-res board: backboard z0-1, trim + plate z2-3, artwork proud z4-5
+  box(0, 0, 0, 23, 31, 1, BOARD, v);                 // backboard
+  box(0, 0, 2, 23, 1, 3, TRIM, v);                   // trim frame, proud
+  box(0, 30, 2, 23, 31, 3, TRIM, v);
+  box(0, 2, 2, 1, 29, 3, TRIM, v);
+  box(22, 2, 2, 23, 29, 3, TRIM, v);
+  box(2, 2, 2, 21, 29, 3, GRN, v);                   // brand-green plate fills the
+                                                     // whole inner frame (app-icon
+                                                     // look; dark margins read as
+                                                     // gaps at hi-res)
+  // speech bubble, top half (rounded cross union + tail toward bottom-left)
+  box(9, 18, 4, 14, 24, 5, WHT, v);
+  box(8, 19, 4, 15, 23, 5, WHT, v);
+  v.push([9, 17, 4, WHT], [8, 16, 4, WHT]);
+  // "LINE" wordmark, bottom half — 2-wide strokes, 7 tall (y8-14)
+  box(3, 8, 4, 4, 14, 5, WHT, v);                    // L spine
+  box(5, 8, 4, 6, 9, 5, WHT, v);                     // L foot
+  box(8, 8, 4, 9, 14, 5, WHT, v);                    // I
+  box(11, 8, 4, 12, 14, 5, WHT, v);                  // N left
+  box(14, 8, 4, 15, 14, 5, WHT, v);                  // N right
+  box(13, 10, 4, 13, 12, 5, WHT, v);                 // N diagonal
+  box(17, 8, 4, 18, 14, 5, WHT, v);                  // E spine
+  box(19, 13, 4, 20, 14, 5, WHT, v);                 // E top arm
+  v.push([19, 11, 4, WHT], [19, 10, 4, WHT]);        // E mid arm
+  box(19, 8, 4, 20, 9, 5, WHT, v);                   // E bottom arm
   return v;
 }
 
@@ -130,7 +159,7 @@ function makeGoogle() {
   const BOARD = 0, TRIM = 1, WHT = 2, R = 3, Y = 4, G = 5, B = 6;
   const v = [];
   plaqueBoard(v, BOARD, TRIM);
-  box(2, 3, 1, 9, 12, 1, WHT, v);                    // white plate
+  box(1, 1, 1, 10, 14, 1, WHT, v);                   // white plate fills the frame
   // G ring, colored by segment, opening at the top-right, blue crossbar
   box(4, 11, 2, 7, 11, 2, R, v);                     // top arc
   v.push([3, 10, 2, R], [8, 10, 2, R]);
@@ -215,8 +244,9 @@ export default {
   },
 
   house_plaque_line: {
-    size: [12, 16, 3],
-    palette: [...PLAQUE_WOOD, '#35C06A', '#FFF6E8'],
+    size: [24, 32, 6],
+    voxelSize: 0.0625,                     // hi-res: wordmark needs the columns
+    palette: [...PLAQUE_WOOD, '#1FC160', '#FFF6E8'],
     voxels: dedupe(makeLine()),
     jitter: false, chamfer: 0.15, sunRim: false
   },

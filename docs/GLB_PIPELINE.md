@@ -26,10 +26,11 @@ assets/3d/<name>.glb        (binary glTF 2.0, .glb only)
 
 | category  | canonical names |
 |-----------|-----------------|
-| creatures | `macrodoc` `mathstreet` `mathwings` `funnify` `lasthand` `goldie` `gunball` |
-| buildings | `bld_about_house` `bld_macrodoc` `bld_mathstreet` `bld_mathwings` `bld_funnify` `bld_lasthand` `bld_gunball` |
+| creatures | `macrodoc` `mathstreet` `mathwings` `funnify` `lasthand` `goldie` `gunball` `gomokulike` |
+| buildings | `bld_about_house` `bld_macrodoc` `bld_mathstreet` `bld_mathwings` `bld_funnify` `bld_lasthand` `bld_gunball` `bld_gomokulike` |
 | characters| `player` `npc_yoonki` (rigged/skinned — clips `walk` + `idle`, see §7) |
 | props     | `tree_a` `tree_b` `fountain` `egg` |
+| landmarks | `landmark_namsan` `landmark_goldengate` (decorative skyline, stand in the sea) |
 
 - Building files are prefixed `bld_` so `macrodoc` (creature) and
   `bld_macrodoc` (building) never collide.
@@ -72,6 +73,7 @@ normalized GLB occupies exactly the old silhouette's space.
 | `lasthand`   | **1.5**   | 1.05 × 0.35 | `creature_lasthand` (tall thin hand — footprint from the 1.31 × 0.41 × 1.90 raw bbox) |
 | `goldie`     | **1.0**   | 0.63 × 0.75 | secret friend (actors.js `SECRET_MODEL`) |
 | `gunball`    | **1.375** | 1.75 × 1.32 | new (GUNBALL) — no voxel fallback; shoulder-launcher pose is wide (raw 1.90 × 1.73 × 1.43), `FOOTPRINT_XZ` clamps to 1.75 |
+| `gomokulike` | **1.5**   | ~1.3 × 1.3  | new (Gomokulike, 2026-07-10) — Go-stone jester, no voxel fallback; `FOOTPRINT_XZ` clamps to 1.75 |
 
 ### Characters (rigged — NO creature boost)
 
@@ -102,6 +104,7 @@ measurement. A re-rigged export that genuinely faces +Z must remove its
 | `bld_funnify`     | **3.75**  | 2.50 × 1.75 | `funnify` |
 | `bld_lasthand`    | **2.875** | 2.50 × 2.50 | `lasthand` (nearly cubic raw bbox → 2.49 × 2.52 at contract height) |
 | `bld_gunball`     | **2.75**  | 2.42 × 2.24 | new (GUNBALL) — compact neon arena kiosk, no voxel fallback (raw 1.67 × 1.90 × 1.54); integrator sizes collider from this footprint |
+| `bld_gomokulike`  | **3.25**  | 2.50 × 2.00 | new (Gomokulike, 2026-07-10) — hanok Go parlor by the east pond, no voxel fallback; collider from `world.js GLB_FOOTPRINT`. GLB-only buildings whose GLB fails now leave an EMPTY LOT (no magenta placeholder, no collider/marker) |
 
 Building footprints are load-bearing: collision AABBs, interaction radii and
 the emissive glow-quad positions (`world.js GLOWS`) are derived from the
@@ -116,6 +119,8 @@ signage) on the +Z face.
 | `tree_b`   | **1.5**   | pine: conical, ~1.0 wide. Same scatter scaling. |
 | `fountain` | **1.44**  | **width-driven**: the footprint is the contract (~1.75 dia, collider r = 1.02 + plaza ring are sized from it). The shipped GLB is squat (bbox aspect 1.22 w/h) so 1.44 = 1.75 × (1.569/1.912); at the old height-1.0 value it rendered ~1.22 dia — 40% undersized inside its own collider. A re-authored fountain with a different aspect must re-derive this: `height = 1.75 × rawH / max(rawW, rawD)`. Radially symmetric. |
 | `egg`      | **1.18**  | 0.9 × the old 1.3125 as-placed size (voxel `egg_spotted` × its in-game 1.5 scale): the GLB egg is nearly spherical (1.746w × 1.911h) and at 1.3125 the closest `EGG_SLOTS` pairs (1.2 wu apart) visually touched. Sits in a straw nest at y += 0.1; keep the base slightly rounded, not flared. |
+| `landmark_namsan`     | **6.5** | N Seoul Tower — stands in the north sea band (`const.js LANDMARKS`, y −1.95 on the SEA_Y −1.9 surface), so ~1.9 wu of height is underwater budget. Streamed (GLB_STREAM), no collider/marker. |
+| `landmark_goldengate` | **5.0** | Golden Gate tower section — west sea band, yaw π/2 so the deck runs along the coast. Same streaming/no-collider rules. |
 
 The loader also enforces per-asset **XZ footprint clamps** (`glbassets.js
 FOOTPRINT_XZ`) where a wide model would blow its contract footprint after

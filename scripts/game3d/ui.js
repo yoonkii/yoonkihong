@@ -46,7 +46,7 @@ export function createUI(audio) {
   const keys = new Set();
   const joy = { active: false, id: null, x: 0, z: 0 };
 
-  function isActionKey(k) { return k === 'z' || k === 'Z' || k === 'Enter' || k === ' '; }
+  function isActionKey(k) { return k === 'z' || k === 'Z' || k === 'e' || k === 'E' || k === 'Enter' || k === ' '; }
   function isCancelKey(k) { return k === 'x' || k === 'X' || k === 'Escape'; }
   function helpVisible() { return !els.help.hidden; }
 
@@ -492,17 +492,21 @@ export function createUI(audio) {
     enc.onVisit = onVisit || null; enc.onRun = onRun || null;
     if (window.ywTrack) ywTrack('encounter_opened', { project: p.id, egg: !!isEgg });
     const soon = !isEgg && !p.url;               // non-egg without a live link
+    const hatching = isEgg && !!p.url;           // egg whose link has arrived
     els.encName.textContent = (isEgg ? 'EGG (' + p.name + ')' : p.name).toUpperCase();
-    els.encTag.textContent = isEgg ? 'INCUBATING' : (soon ? 'COMING SOON' : 'WILD');
+    els.encTag.textContent = isEgg ? (hatching ? 'HATCHING!' : 'INCUBATING')
+      : (soon ? 'COMING SOON' : 'WILD');
     els.encTag.classList.toggle('soon', soon);
     enc.introText = isEgg
-      ? 'You found an EGG! It\'s still incubating...\n"' + p.tagline + '"'
+      ? (hatching
+        ? 'The EGG is cracking! Something inside is chirping already...\n"' + p.tagline + '"'
+        : 'You found an EGG! It\'s still incubating...\n"' + p.tagline + '"')
       : 'A wild ' + p.name.toUpperCase() + ' appeared!\n"' + p.tagline + '"';
     enc.pages = paginate(p.desc
       + (soon ? '\n\nThis one isn\'t ready for visitors yet — check back soon!' : ''));
     enc.menuIdx = 0;
     enc.menuItems = [{ act: 'details', label: 'DETAILS' }];
-    if (!isEgg && p.url) enc.menuItems.push({ act: 'visit', label: 'VISIT', href: p.url });
+    if (p.url) enc.menuItems.push({ act: 'visit', label: 'VISIT', href: p.url });
     enc.menuItems.push({ act: 'run', label: isEgg ? 'BACK' : 'RUN' });
     encMenu.hide();
     els.encMore.style.visibility = 'hidden';
@@ -746,7 +750,8 @@ export function createUI(audio) {
   window.addEventListener('keydown', (e) => {
     if (started) return;
     if (e.target && e.target.closest && e.target.closest('a, button, input, select, textarea')) return;
-    if (e.key === 'Enter' || e.key === ' ' || e.key === 'z' || e.key === 'Z') {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'z' || e.key === 'Z' ||
+        e.key === 'e' || e.key === 'E') {
       e.preventDefault();
       tryStart();
     }

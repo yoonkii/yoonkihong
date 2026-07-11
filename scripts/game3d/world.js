@@ -13,7 +13,7 @@ import '../voxel/models/index.js';
 import {
   MAP_W, MAP_H, tileAt, hash2, FONT3X5, REDUCED,
   HOME_SLOT, BUILDING_SLOTS, NPC_POS, SIGN_POS, FOUNTAIN, NURSERY_GAZEBO,
-  EGG_SLOTS, LETTERS, DEMO_LAB, SECRET_POS
+  EGG_SLOTS, LETTERS, DEMO_LAB, SECRET_POS, LANDMARKS
 } from './const.js';
 import { SEA_Y } from './ground.js';
 
@@ -339,7 +339,12 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
   // GLB-only buildings (no voxel fallback model): footprints from
   // docs/GLB_PIPELINE.md §3 — colliders/markers/zoom are sized from these
   // exactly like the voxel footprints size everything else.
-  const GLB_FOOTPRINT = { gunball: { w: 2.42, h: 2.75, d: 2.24 } };
+  const GLB_FOOTPRINT = {
+    gunball: { w: 2.42, h: 2.75, d: 2.24 },
+    // hanok Go parlor — contract guide (no voxel fallback); refine to the
+    // shipped GLB's measured bbox like gunball's if it lands off-guide
+    gomokulike: { w: 2.5, h: 3.25, d: 2.0 }
+  };
   let aboutDoor = null;    // front-facade doorstep of the About house
   for (const b of buildingDefs) {
     const model = getModel(b.model) || PLACEHOLDER;
@@ -358,10 +363,15 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
       gm.position.set(cx, 0, cz);
       scene.add(gm);
       glbUsed.push('bld_' + b.model);
-    } else {
+    } else if (getModel(b.model)) {
       place(staticGeos, safeGeometry(b.model), cx, 0, cz);
       for (const g of GLOWS[b.model] || [])
         glowQuad(cx + g.x, g.y, cz + g.z, g.w, g.h, g.f, g.c);
+    } else {
+      // GLB-only building (gunball / gomokulike) whose GLB failed to load:
+      // an empty lot beats the magenta placeholder box. Skip the collider
+      // and marker too — nothing visible should not block or beckon.
+      continue;
     }
     colliders.addAABB(cx - w / 2 + 0.08, cz - d / 2 + 0.08, cx + w / 2 - 0.08, cz + d / 2 - 0.08);
     // the authored GLB about-house's door sits ~0.3 east of the footprint
@@ -810,12 +820,29 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     }
   }
 
+  /* ---- skyline landmarks (Seoul + SF) ---------------------------------
+     Purely decorative GLBs standing in the far water band (const.js
+     LANDMARKS). They stream in phase 2 (never gate PRESS START) via
+     game3d lateGLB -> addLandmark; no voxel fallback and no collider —
+     both sit outside the tree ring where nobody can walk. */
+  const placedLandmarks = new Set();
+  function addLandmark(name, gm) {
+    const def = LANDMARKS.find((l) => l.name === name);
+    if (!def || placedLandmarks.has(name) || !gm) return;
+    placedLandmarks.add(name);
+    gm.position.set(def.x, def.y, def.z);
+    gm.rotation.y = def.yaw || 0;
+    scene.add(gm);
+    glbUsed.push(name);
+  }
+
   return {
     interactables,
     staticMesh,
     treeMesh,
     updateFlora,
     glbUsed,
+    addLandmark,
     hasDemos: demoProjects.length > 0
   };
 }

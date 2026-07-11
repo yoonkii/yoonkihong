@@ -105,7 +105,10 @@ export function createHouseInterior() {
     mesh.castShadow = false;
     mesh.receiveShadow = false;
     mesh.position.set(p.x, 1.2, 0.25 + 0.1875);    // board back against wall
-                                                   // (top 3.2 — under the 3.25 wall cap)
+                                                   // (top 3.2 — under the 3.25 wall
+                                                   // cap. The ceiling beam that used
+                                                   // to slice the logos on screen is
+                                                   // gone — see models/interior.js)
     scene.add(mesh);
     // keep the player's head out of the proud logo voxels
     colliders.addAABB(p.x - 0.8, -2, p.x + 0.8, 0.7);

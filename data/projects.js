@@ -93,6 +93,16 @@ window.PROJECTS = [
     sprite: "images/game/creatures/gunball.png"
   },
   {
+    id: "gomokulike",
+    name: "Gomokulike",
+    url: "https://gomokulike.com/",
+    tagline: "Five in a row, jokers wild — Balatro meets Gomoku. (beta)",
+    desc: "First sighted in a hushed Go parlor, this stone-stacking creature plays five-in-a-row like a card shark. It's a roguelike take on Gomoku: joker-style upgrades warp every stone you place, combos snowball into absurd scores, and each run bends the board's rules a little further. Still in beta — its rules are said to mutate between sightings.",
+    kind: "creature",
+    category: "product",
+    sprite: "images/game/creatures/gomokulike.png"
+  },
+  {
     id: "suno",
     name: "Music",
     url: "",
@@ -109,11 +119,14 @@ window.PROJECTS = [
     kind: "egg"
   },
   {
+    // the link arrived (2026-07-10) — the egg is HATCHING: it keeps its
+    // nursery spot + egg body, but encounters now offer VISIT (ui.js
+    // treats egg-with-url as 'hatching')
     id: "x",
     name: "X",
-    url: "",
-    tagline: "Thoughts in the wild.",
-    desc: "A twitchy little egg that chirps in short bursts. Follow along once it hatches.",
+    url: "https://x.com/yoonki1214",
+    tagline: "Thoughts in the wild — @yoonki1214.",
+    desc: "A twitchy little egg that chirps in short bursts. It has started chirping in public — crack it open to follow along at @yoonki1214.",
     kind: "egg"
   }
 ];

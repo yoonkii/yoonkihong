@@ -23,13 +23,30 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles/main.css?v=20260710j">
-  <script defer src="scripts/analytics.js?v=20260710i"></script>
+  <link rel="stylesheet" href="styles/main.css?v=20260710k">
+  <script defer src="scripts/analytics.js?v=20260710k"></script>
   <!-- kick off the render-critical three.js fetches with the HTML instead of
        waiting for the game3d.js -> three -> core discovery waterfall -->
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js">
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.core.min.js">
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/meshopt_decoder.module.js">
+  <!-- start the PRESS-START-gating GLB downloads with the HTML parse instead
+       of after the module-graph waterfall (~1 RTT + three.js parse earlier).
+       MUST mirror game3d.js GLB_CRITICAL and carry the current ASSET_V token
+       (crossorigin=anonymous matches GLTFLoader's fetch: cors/same-origin —
+       without it the preload double-downloads). Update on every ASSET_V bump. -->
+  <link rel="preload" href="assets/3d/player.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_about_house.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_macrodoc.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_mathstreet.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_mathwings.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_funnify.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_lasthand.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_gunball.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_gomokulike.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/tree_a.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/tree_b.glb?v=20260710k" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/fountain.glb?v=20260710k" as="fetch" crossorigin="anonymous">
   <script type="importmap">
   {
     "imports": {
@@ -82,6 +99,7 @@
       <a href="classic.html">CLASSIC SITE</a>
       <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener">LINKEDIN</a>
       <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener">INSTAGRAM</a>
+      <a href="https://x.com/yoonki1214" target="_blank" rel="noopener">X</a>
     </div>
     <div id="dlg-menu" aria-label="Choices" hidden></div>
     <div id="dlg-more" aria-hidden="true">&#9660;</div>
@@ -107,7 +125,7 @@
   <div id="hint" hidden>
     <div class="hint-card gba-box">
       <strong>HOW TO PLAY</strong>
-      <span class="kb-only">Arrows / WASD — walk &nbsp;&middot;&nbsp; Z, ENTER or SPACE — interact &nbsp;&middot;&nbsp; X or ESC — back</span>
+      <span class="kb-only">Arrows / WASD — walk &nbsp;&middot;&nbsp; E, Z, ENTER or SPACE — interact &nbsp;&middot;&nbsp; X or ESC — back</span>
       <span class="touch-only">Left stick — walk &nbsp;&middot;&nbsp; A — interact &nbsp;&middot;&nbsp; B — back</span>
       <em>Walk up to anything with a "!" over it. Push the crates. Bother the bowling pins.</em>
     </div>
@@ -122,7 +140,7 @@
       <strong>CONTROLS</strong>
       <ul>
         <li><b>Move</b> — arrow keys / WASD, or the on-screen stick</li>
-        <li><b>Interact</b> — Z, ENTER or SPACE (A button) near a "!"</li>
+        <li><b>Interact</b> — E, Z, ENTER or SPACE (A button) near a "!"</li>
         <li><b>Back / close</b> — X or ESC (B button)</li>
       </ul>
       <p>Every creature and building on the island is a real project —
@@ -158,13 +176,20 @@
         <div id="load-label">LOADING... 0%</div>
       </div>
       <button id="press-start" type="button" hidden>&#9658; PRESS START</button>
+      <!-- socials live ON the title card (user request: LinkedIn/Instagram/X
+           must be findable without playing) — ui.js tryStart ignores <a> clicks -->
+      <nav class="title-socials" aria-label="Find Yoonki online">
+        <a href="https://www.linkedin.com/in/yoonki-hong/" target="_blank" rel="noopener">LINKEDIN</a>
+        <a href="https://www.instagram.com/yoonkihong/" target="_blank" rel="noopener">INSTAGRAM</a>
+        <a href="https://x.com/yoonki1214" target="_blank" rel="noopener">X</a>
+      </nav>
       <a class="title-classic" href="classic.html">prefer a simple site? &rarr; view classic version</a>
     </div>
   </div>
 
   <!-- mutable JS entry points carry the same ?v= token as main.css so a
        cached HTML can never mix an old entry module with new assets -->
-  <script src="data/projects.js?v=20260710j"></script>
+  <script src="data/projects.js?v=20260710k"></script>
   <script>
     // Boot watchdog: if the module graph never arrives (ancient browser,
     // no importmap, CDN block), fall back to the friendly card.
@@ -176,6 +201,6 @@
       if (f) f.hidden = false;
     }, 15000);
   </script>
-  <script type="module" src="scripts/game3d.js?v=20260710j"></script>
+  <script type="module" src="scripts/game3d.js?v=20260710k"></script>
 </body>
 </html>

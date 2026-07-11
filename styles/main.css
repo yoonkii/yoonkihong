@@ -571,6 +571,29 @@ body.in-dialog #joy { display: none; }
 /* dip, never vanish: the primary CTA was fully invisible half the time
    (50% duty cycle to opacity 0) — any given glance could miss it */
 @keyframes blink { 50% { opacity: 0.45; } }
+/* socials on the title card: pill buttons in the dlg-links vocabulary so
+   they read as UI (clickable) over the bright island, not as caption text */
+.title-socials {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+.title-socials a {
+  font-family: "Geist Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: #eef3ff;
+  text-decoration: none;
+  padding: 7px 14px;
+  border: 2px solid rgba(238, 243, 255, 0.85);
+  border-radius: 999px;
+  background: rgba(8, 18, 38, 0.45);
+  text-shadow: 0 1px 2px rgba(8, 18, 38, 0.9);
+}
+.title-socials a:hover,
+.title-socials a:focus-visible { background: #4c5c8c; border-color: #fff; }
 .title-classic {
   display: block;
   margin-top: 26px;
@@ -711,6 +734,24 @@ body.in-dialog #joy { display: none; }
   font-weight: 700;
 }
 .hero-sub { color: var(--muted); font-size: 15.5px; margin: 0; }
+/* socials get first-screen billing on the classic page (user request) */
+.hero-socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.hero-socials a {
+  font-family: "Geist Mono", monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  color: var(--fg);
+  text-decoration: none;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.hero-socials a:hover { border-color: var(--accent); color: var(--accent); }
 
 section { margin-top: 56px; }
 section h2 {

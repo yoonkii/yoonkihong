@@ -24,7 +24,7 @@ export const REDUCED = (() => {
    with the styles/main.css ?v= token in index.html — bump BOTH whenever any
    asset is re-exported, so returning visitors never get a mixed old/new set
    (GitHub Pages caches assets for ~10 min, browsers heuristically longer). */
-export const ASSET_V = '20260710i';
+export const ASSET_V = '20260710k';
 
 /* ---- player locomotion -------------------------------------------------
    2026-07: top speed +30% (4.0 -> 5.2 wu/s); accel/decel damp rates x1.3
@@ -57,9 +57,9 @@ const RAW_MAP = [
   'WWTGLLLLLGGGGGGGGPPPPPPGGGGGGGGGGWWWGTWW',
   'WWTGLLLLLGGGGGPPPPPPPPPPPGGGGGGGFWWWGTWW',
   'WWTGGGGGGGGGGGPPPPPPPPPPPPPGGGGGGWWWGTWW',
-  'WWTGGGGGGGGGGGPPGFPPPPFGGPPPPGGGGGFGGTWW',
+  'WWTGGGGGGGGGGGPPGFPPPPFGGPPPPGGGGGGGGTWW',
   'WWTGGGGGGGGGGGPPGGGPPGGGGGGPPPPGGGGGGTWW',
-  'WWTGGGGGGGGGGGPPGGGPPGGGGGGGGPPPPGGGGTWW',
+  'WWTGGGGGGGGGGGPPGGGPPGGGGGGGGPPPPPPPGTWW',
   'WWTGGGGFGGFPPPPGGGFPPFGGGGGGGGFPPFGGGTWW',
   'WWTGGGFPPPPPPGGGXXXPPXXXXGGGGGGPPGGGGTWW',
   'WWTGGGFPPPPPPGGFXGGGGGGGXFGLLLGGGGGGGTWW',
@@ -132,7 +132,11 @@ export const BUILDING_SLOTS = [
   { x: 29, y: 4 },                    // mathwings  -> (31, 6)  NE court, east
   { x: 10, y: 16 },                   // funnify    -> (12, 18) SW court, east
   { x: 10, y: 4 },                    // lasthand   -> (12, 6)  NW court, east
-  { x: 6, y: 16 }                     // gunball    -> (8, 18)  SW court, west
+  { x: 6, y: 16 },                    // gunball    -> (8, 18)  SW court, west
+  { x: 33, y: 15 }                    // gomokulike -> (35, 17) east pond-side:
+                                      // the Go parlor overlooks the pond
+                                      // (rows 13-15), fronted by the extended
+                                      // SE-spoke street on row 18
 ];
 // Creature homes flank their own building ~3 tiles off the district
 // street, so wander circles (r <= 2.2) barely graze the path network.
@@ -143,7 +147,10 @@ export const CREATURE_SPOTS = [
                                       // tree-gap alcove clear of bystanders)
   { x: 15, y: 20 },                   // funnify (SW court — greets the gate)
   { x: 14, y: 4 },                    // lasthand (NW court, beside its building)
-  { x: 5, y: 19 }                     // gunball
+  { x: 5, y: 19 },                    // gunball
+  { x: 34, y: 19 }                    // gomokulike (below its parlor, between
+                                      // the row-18 street and the Demo Lab
+                                      // fence — wander graze is by design)
 ];
 // Nursery interior slots ring the gazebo; first three (live eggs) spread
 // NW / NE / S so the garden reads full from the SE camera.
@@ -156,6 +163,16 @@ export const SIGN_POS = { x: 22.6, z: 15.6 };        // plaza SE corner, by the 
 export const PLAYER_START = { x: 20.5, z: 15.9 };    // plaza south rim, fountain behind
 export const FOUNTAIN = { x: 20, z: 14, r: 1.02 };   // plaza centerpiece = map center
 export const NURSERY_GAZEBO = { x: 20.5, z: 23.4, r: 1.05 };
+
+// Skyline landmarks (Seoul + SF, user request 2026-07-10) — decorative GLBs
+// standing in the far water band (north + west = the background from the SE
+// camera), outside the tree ring and unreachable: no colliders, no markers.
+// Placed by world.addLandmark when the streamed GLB lands (game3d lateGLB).
+// y anchors them to the sea surface (SEA_Y -1.9), slightly submerged.
+export const LANDMARKS = [
+  { name: 'landmark_namsan', x: 27.5, z: 0.95, y: -1.95, yaw: 0 },
+  { name: 'landmark_goldengate', x: 0.95, z: 11.5, y: -1.95, yaw: Math.PI / 2 }
+];
 
 // YOONKI voxel letters on the lawn wedge NW of the plaza, read over the
 // fountain from the SE camera.

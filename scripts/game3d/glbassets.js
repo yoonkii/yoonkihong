@@ -42,6 +42,8 @@ export const TARGET_HEIGHTS = {
   goldie: 1.0,
   // GUNBALL: round soccer-ball creature — ball body dominant, reads wide
   gunball: 1.375,
+  // GOMOKULIKE: round Go-stone jester — chunky sphere-ish body
+  gomokulike: 1.5,
   // rigged hero characters (skinned, clips walk/idle — NOT creatures: no
   // 1.25x boost; these are the 1-wu-tile yardstick everything scales from)
   player: 1.625,
@@ -59,6 +61,13 @@ export const TARGET_HEIGHTS = {
   bld_lasthand: 2.875,
   // GUNBALL neon arena kiosk: compact — shortest building tier with bld_mathwings
   bld_gunball: 2.75,
+  // GOMOKULIKE hanok Go parlor: mid tier, no voxel fallback (footprint contract
+  // 2.5 × 2.0 lives in world.js GLB_FOOTPRINT like bld_gunball)
+  bld_gomokulike: 3.25,
+  // skyline landmarks (decorative, stand in the sea at SEA_Y −1.9 — heights
+  // are authored ~1.9 taller than their intended above-ground presence)
+  landmark_namsan: 6.5,
+  landmark_goldengate: 5.0,
   // props
   tree_a: 1.625,          // oak silhouette (game scatters at 0.9–1.18 scale)
   tree_b: 1.5,            // pine silhouette
@@ -81,7 +90,7 @@ export const DEFAULT_HEIGHT = 1.5;
    authored to the voxel silhouettes, but at overworld zoom (~40px tall) they
    washed out against the buildings. The bump keeps them key-readable wide
    while the encounter camera (halfH 3.1) still frames them comfortably. */
-const CREATURES = new Set(['macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'goldie', 'gunball']);
+const CREATURES = new Set(['macrodoc', 'mathstreet', 'mathwings', 'funnify', 'lasthand', 'goldie', 'gunball', 'gomokulike']);
 const CREATURE_SCALE = 1.25;
 
 /* Per-asset max XZ footprint (largest of width/depth, wu). Height
@@ -95,7 +104,9 @@ const FOOTPRINT_XZ = {
   mathwings: 1.85,
   // gunball's shoulder-launcher pose lands 1.89 wu wide at contract height ×
   // boost (raw 1.898 × 1.727 × 1.429) — clamp to the widest creature guide
-  gunball: 1.75
+  gunball: 1.75,
+  // gomokulike: safety net for the jester-hat/held-stone silhouette
+  gomokulike: 1.75
 };
 
 /* Per-asset yaw correction (radians, applied in a dedicated wrapper between
