@@ -222,6 +222,33 @@ function labSignModel() {
   };
 }
 
+/* small wooden nameplate: "YOONKI" on a single-line board (placed at
+   0.5x scale by the About-house doorstep) */
+function yoonkiSignModel() {
+  const BOARD = 0, TEXT = 1, POST = 2;
+  const v = [];
+  const W = 27, H0 = 5, H1 = 11;             // 6 glyphs * 4 - 1 + margins
+  for (let y = 0; y < H0 + 2; y++) {
+    v.push([3, y, 1, POST], [4, y, 1, POST]);
+    v.push([W - 4, y, 1, POST], [W - 5, y, 1, POST]);
+  }
+  for (let x = 0; x < W; x++) for (let y = H0; y <= H1; y++) for (let z = 0; z <= 1; z++) {
+    const edge = x === 0 || x === W - 1 || y === H0 || y === H1;
+    v.push([x, y, z, edge ? POST : BOARD]);
+  }
+  let cx = 2;
+  for (const ch of 'YOONKI') {
+    const rows = FONT3X5[ch];
+    for (let ry = 0; ry < 5; ry++) for (let rx = 0; rx < 3; rx++)
+      if (rows[ry][rx] === '1') v.push([cx + rx, H0 + 1 + (4 - ry), 1, TEXT]);
+    cx += 4;
+  }
+  return {
+    palette: ['#B9855C', '#FFF6E3', '#96683F'],
+    voxels: v, chamfer: 0.15
+  };
+}
+
 /* ------------------------------------------------------------------ *
  *  DEMO STALL (small striped market pedestal)                          *
  * ------------------------------------------------------------------ */
@@ -443,6 +470,15 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
      repeated OUTSIDE on the doorstep, and a soft warm glow pooled on the
      door tile that breathes (pulsed in updateFlora) — "you can come in". */
   place(staticGeos, safeGeometry('house_mat'), aboutDoor.x, 0, aboutDoor.z + 0.4);
+  // third cue (2026-07-11 feedback): a little wooden YOONKI nameplate by
+  // the doorstep — "whose house is this?" answered before you knock.
+  // Decor only: no interactable, so it never steals the door's marker.
+  {
+    const signYo = buildGeometry(yoonkiSignModel(), {});
+    place(staticGeos, signYo, aboutDoor.x - 1.55, 0, aboutDoor.z + 0.62, 0.18, 0.5);
+    colliders.addAABB(aboutDoor.x - 2.25, aboutDoor.z + 0.42,
+      aboutDoor.x - 0.85, aboutDoor.z + 0.82);
+  }
   let doorGlow = null;
   {
     const c = document.createElement('canvas');

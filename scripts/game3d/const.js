@@ -25,7 +25,7 @@ export const REDUCED = (() => {
    with the styles/main.css ?v= token in index.html — bump BOTH whenever any
    asset is re-exported, so returning visitors never get a mixed old/new set
    (GitHub Pages caches assets for ~10 min, browsers heuristically longer). */
-export const ASSET_V = '20260711d';
+export const ASSET_V = '20260711e';
 
 /* ---- player locomotion -------------------------------------------------
    2026-07: top speed +30% (4.0 -> 5.2 wu/s); accel/decel damp rates x1.3

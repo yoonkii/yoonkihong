@@ -141,6 +141,45 @@ export function createHouseInterior() {
   scene.add(table);
   colliders.addAABB(2.7 - 0.95, 4.1 - 0.65, 2.7 + 0.95, 4.1 + 0.65);
 
+  /* ---- bed + desk (2026-07-11 feedback: "someone LIVES here") ----------
+     Bed against the east wall, desk-with-MacBook against the west wall —
+     both interactable with the same line/MORE menu shape as the plaques. */
+  const bed = buildMesh('house_bed', { material: voxelMaterial() });
+  bed.castShadow = false;
+  bed.receiveShadow = false;
+  bed.position.set(8.05, 0, 2.15);          // headboard toward the north wall
+  scene.add(bed);
+  colliders.addAABB(8.05 - 0.6, 2.15 - 1.1, 8.05 + 0.6, 2.15 + 1.1);
+  interactables.push({
+    id: 'house_bed', kind: 'plaque', name: 'BED',
+    line: 'A neatly made bed. The blanket matches the rug — intentional, obviously.',
+    more: [
+      'This is where the "by day / by night" switch flips. Eight hours ' +
+      'here allegedly powers everything else on this island.',
+      'The pillow smells faintly of midnight ideas.'
+    ],
+    pos: { x: 7.3, z: 2.15 }, mesh: bed,
+    markerX: 8.05, markerY: 1.5, markerZ: 2.15, r: 1.3
+  });
+
+  const desk = buildMesh('house_desk', { material: voxelMaterial() });
+  desk.castShadow = false;
+  desk.receiveShadow = false;
+  desk.position.set(1.05, 0, 2.5);          // MacBook screen faces the room
+  scene.add(desk);
+  colliders.addAABB(1.05 - 0.6, 2.5 - 0.9, 1.05 + 0.85, 2.5 + 0.9);
+  interactables.push({
+    id: 'house_desk', kind: 'plaque', name: 'DESK',
+    line: 'A humming MacBook, a cold coffee — the night-shift HQ.',
+    more: [
+      'Forty-seven tabs open. Every single one is "important".',
+      'Every creature outside was born right here, one late night at a ' +
+      'time. The mug has seen things.'
+    ],
+    pos: { x: 1.95, z: 2.5 }, mesh: desk,
+    markerX: 1.05, markerY: 1.7, markerZ: 2.5, r: 1.35
+  });
+
   /* ---- hanging lanterns + warm lights ----------------------------------- */
   // pivot groups sit ON the beams (beam undersides at y 3.0) so the sway
   // rotates around the hook, not the lantern's own center

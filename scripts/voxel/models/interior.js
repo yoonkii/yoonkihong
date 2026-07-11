@@ -201,6 +201,49 @@ function makeLantern() {
   return v;
 }
 
+// cozy single bed (long axis = z, headboard at low z): wood frame,
+// cream mattress, pillow, terracotta blanket matching the rug
+function makeBed() {
+  const FRAME = 0, LEG = 1, MATT = 2, PILLOW = 3, BLANKET = 4;
+  const v = [];
+  const W = 9, D = 17;                               // 1.125 x 2.125 wu
+  for (const [lx, lz] of [[0, 0], [W - 1, 0], [0, D - 1], [W - 1, D - 1]])
+    box(lx, 0, lz, lx, 1, lz, LEG, v);
+  box(0, 2, 0, W - 1, 2, D - 1, FRAME, v);           // slat base
+  box(0, 2, 0, W - 1, 6, 0, FRAME, v);               // headboard
+  box(0, 2, D - 1, W - 1, 4, D - 1, FRAME, v);       // footboard
+  box(1, 3, 1, W - 2, 4, D - 2, MATT, v);            // mattress
+  box(2, 5, 2, W - 3, 5, 5, PILLOW, v);              // pillow
+  box(1, 5, 7, W - 2, 5, D - 2, BLANKET, v);         // blanket
+  box(1, 4, 7, W - 2, 4, 7, BLANKET, v);             // tucked fold
+  return v;
+}
+
+// work desk (long axis = z) with an OPEN MACBOOK and a little stool --
+// the night-shift HQ. Screen face points +x (into the room).
+function makeDesk() {
+  const TOP = 0, LEG = 1, ALU = 2, SCREEN = 3, KEYS = 4, MUG = 5, SEAT = 6;
+  const v = [];
+  const W = 7, D = 14;                               // desk 0.875 x 1.75 wu
+  for (const [lx, lz] of [[0, 0], [W - 1, 0], [0, D - 1], [W - 1, D - 1]])
+    box(lx, 0, lz, lx, 4, lz, LEG, v);
+  box(0, 5, 0, W - 1, 5, D - 1, TOP, v);
+  // MacBook: base on the desk, screen upright facing +x (into the room)
+  box(2, 6, 4, 4, 6, 9, ALU, v);                     // base plate
+  box(3, 6, 5, 4, 6, 8, KEYS, v);                    // keyboard inset
+  box(2, 7, 4, 2, 10, 9, ALU, v);                    // lid (back at x2)
+  for (let y = 7; y <= 10; y++)
+    for (let z = 5; z <= 8; z++) v.push([3, y, z, SCREEN]); // glowing face
+  box(4, 6, 11, 5, 7, 12, MUG, v);                   // coffee mug
+  // stool beside the desk (+x side, toward the room)
+  box(9, 0, 5, 9, 2, 5, LEG, v);
+  box(12, 0, 5, 12, 2, 5, LEG, v);
+  box(9, 0, 8, 9, 2, 8, LEG, v);
+  box(12, 0, 8, 12, 2, 8, LEG, v);
+  box(8, 3, 4, 13, 3, 9, SEAT, v);
+  return v;
+}
+
 // woven door mat
 function makeMat() {
   const MAT = 0, BORDER = 1;
@@ -281,6 +324,34 @@ export default {
       '#C9A25A'   // 2 gold finial
     ],
     voxels: dedupe(makeLantern()),
+    jitter: false, chamfer: 0.2, sunRim: false
+  },
+
+  house_bed: {
+    size: [9, 7, 17],
+    palette: [
+      '#6B4A33',  // 0 frame
+      '#4A3328',  // 1 legs
+      '#F0E6D2',  // 2 mattress
+      '#FFF6E8',  // 3 pillow
+      '#C96F4A'   // 4 blanket (rug terracotta)
+    ],
+    voxels: dedupe(makeBed()),
+    jitter: false, chamfer: 0.2, sunRim: false
+  },
+
+  house_desk: {
+    size: [14, 11, 14],
+    palette: [
+      '#B08654',  // 0 desk top
+      '#82603C',  // 1 legs
+      '#C8CDD4',  // 2 aluminum
+      '#AEE6FF',  // 3 screen glow
+      '#3A3F4A',  // 4 keyboard
+      '#E06B52',  // 5 mug
+      '#A67C4E'   // 6 stool seat
+    ],
+    voxels: dedupe(makeDesk()),
     jitter: false, chamfer: 0.2, sunRim: false
   },
 
