@@ -72,7 +72,7 @@ a { color: inherit; }
 .nav-socials { display: flex; gap: 12px; padding-left: 14px; border-left: 1px solid var(--hairline); }
 
 /* ---------- hero ---------- */
-.hero { height: 430vh; position: relative; }
+.hero { height: 640vh; position: relative; }   /* long = unhurried scrub */
 .hero-sticky {
   position: sticky; top: 0;
   height: 100vh; height: 100svh;
@@ -93,20 +93,29 @@ a { color: inherit; }
 .hero-beats { position: absolute; inset: 0; pointer-events: none; }
 .beat {
   position: absolute;
-  left: 50%; top: 16%;
+  left: 50%; top: 8%;
   transform: translate(-50%, 24px);
   opacity: 0;
-  font-size: clamp(28px, 4.6vw, 58px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: clamp(26px, 4vw, 50px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
   text-align: center;
   color: var(--ink);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55), 0 10px 34px rgba(255, 255, 255, 0.45);
   white-space: nowrap;
   will-change: transform, opacity;
 }
+/* highlighter-marker reveal: a cream bar sweeps open behind the words
+   (--r 0% -> 100%, driven by scroll) — ties the type to the film like a
+   caption card and keeps it readable over any frame */
+.mk {
+  padding: 0.12em 0.22em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  background: linear-gradient(rgba(255, 247, 234, 0.94), rgba(255, 247, 234, 0.94))
+    no-repeat left center / var(--r, 0%) 100%;
+}
 .beat em { font-style: italic; color: var(--accent); }
-.beat strong { font-weight: 900; letter-spacing: 0.01em; }
+.beat strong { font-weight: 800; letter-spacing: 0.01em; }
 
 .hero-lockin {
   position: absolute;
@@ -118,16 +127,16 @@ a { color: inherit; }
   will-change: transform, opacity;
 }
 .hero-headline {
-  font-size: clamp(34px, 6.2vw, 92px);
-  line-height: 1.02;
-  font-weight: 900;
-  letter-spacing: -0.035em;
+  font-size: clamp(28px, 4.8vw, 68px);
+  line-height: 1.14;
+  font-weight: 800;
+  letter-spacing: -0.028em;
   text-wrap: balance;
   color: var(--ink);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 18px 60px rgba(250, 247, 241, 0.55);
 }
-.hl-line { display: block; }
-.hl-day { color: var(--ink-soft); font-weight: 800; }
+.hl-line { display: inline; }
+.hl-line + .hl-line::before { content: '\A'; white-space: pre; }
+.hl-day { color: var(--ink-soft); }
 .hl-accent { font-style: italic; color: var(--accent); }
 .hero-quiet {
   margin-top: 18px;
@@ -348,7 +357,7 @@ section { position: relative; }
 @media (max-width: 720px) {
   .corner-nav { top: 96px; right: 12px; gap: 12px; font-size: 11.5px; }
   .nav-socials { padding-left: 10px; gap: 9px; }
-  .hero { height: 380vh; }
+  .hero { height: 560vh; }
   .beat { white-space: normal; width: 92vw; }
   .work-cards { grid-template-columns: 1fr; }
   #work-canvas { height: 280px; }

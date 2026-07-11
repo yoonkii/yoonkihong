@@ -115,12 +115,23 @@ function initScrub() {
       beats.forEach((el, bi) => {
         const a = beatAlpha(p, WINDOWS[bi]);
         el.style.opacity = a;
-        el.style.transform = `translate(-50%, ${(1 - a) * 24}px)`;
+        el.style.transform = `translate(-50%, ${(1 - a) * 14}px)`;
+        // highlighter bar sweeps open with the beat, closes on the way out
+        el.querySelector('.mk').style.setProperty('--r', (a * 100) + '%');
       });
-      const lk = clamp((p - 0.70) / 0.08, 0, 1);
-      lockin.style.opacity = lk;
-      lockin.style.transform = `translateX(-50%) translateY(${(1 - lk) * 28}px)`;
+      const lk = clamp((p - 0.70) / 0.10, 0, 1);
+      lockin.style.opacity = lk > 0 ? 1 : 0;
+      lockin.style.transform = `translateX(-50%) translateY(${(1 - lk) * 20}px)`;
       lockin.style.pointerEvents = lk > 0.5 ? 'auto' : 'none';
+      // staggered marker sweep per headline line, then quiet+CTA fade
+      const marks = lockin.querySelectorAll('.hero-headline .mk');
+      marks.forEach((mk, mi) => {
+        const seg = clamp((lk - mi * 0.35) / 0.5, 0, 1);
+        mk.style.setProperty('--r', (seg * 100) + '%');
+      });
+      const tail = clamp((lk - 0.75) / 0.25, 0, 1);
+      lockin.querySelector('.hero-quiet').style.opacity = tail;
+      lockin.querySelector('.hero-cta').style.opacity = tail;
       hint.style.opacity = p < 0.02 ? 1 : 0;
     });
   }

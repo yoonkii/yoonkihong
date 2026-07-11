@@ -77,21 +77,25 @@ export function initCapsules() {
     };
   }
 
-  /* labels for the coming-soon pair */
+  /* a quiet name label under EVERY capsule — the row reads as a product
+     list at a glance, hover brightens the hovered one */
   const labels = [];
   capsules.forEach((c) => {
-    if (!c.isSoon) return;
+    const text = (c.p.name || '').toUpperCase() + (c.isSoon ? ' · SOON' : '');
     const cvs = document.createElement('canvas');
-    cvs.width = 256; cvs.height = 64;
+    cvs.width = 512; cvs.height = 64;
     const g = cvs.getContext('2d');
-    g.font = '600 34px Geist Mono, monospace';
-    g.textAlign = 'center'; g.fillStyle = 'rgba(90,98,112,0.9)';
-    g.fillText((c.p.name || '').toUpperCase() + ' · SOON', 128, 42);
+    g.font = '600 30px Geist Mono, monospace';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#3A424F';
+    g.fillText(text, 256, 34);
     const t = new THREE.CanvasTexture(cvs);
     t.colorSpace = THREE.SRGBColorSpace;
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
-    spr.scale.set(1.9, 0.48, 1);
-    labels.push({ spr, c });
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: t, transparent: true, opacity: c.isSoon ? 0.45 : 0.6
+    }));
+    spr.scale.set(2.6, 0.325, 1);
+    labels.push({ spr, c, base: c.isSoon ? 0.45 : 0.6 });
     scene.add(spr);
   });
 
@@ -131,17 +135,27 @@ export function initCapsules() {
     const t = -ray.ray.origin.z / ray.ray.direction.z;   // z=0 plane
     return ray.ray.origin.clone().addScaledVector(ray.ray.direction, t);
   }
-  canvas.addEventListener('pointermove', (e) => { ptrWorld.copy(toWorld(e)); });
-  canvas.addEventListener('pointerleave', () => { ptrWorld.set(1e9, 1e9, 0); });
-  canvas.addEventListener('click', (e) => {
-    toWorld(e);
+  let hovered = null;
+  function pick() {
     ray.setFromCamera(ptr, cam);
     const meshes = capsules.map((c) => c.group.children[0]).concat(capsules.map((c) => c.group.children[1]));
     const hit = ray.intersectObjects(meshes)[0];
-    if (hit) {
-      const c = capsules.find((k) => k.group === hit.object.parent);
-      if (c) openCard(c.p);
-    }
+    return hit ? capsules.find((k) => k.group === hit.object.parent) : null;
+  }
+  canvas.addEventListener('pointermove', (e) => {
+    ptrWorld.copy(toWorld(e));
+    hovered = pick();
+    canvas.style.cursor = hovered ? 'pointer' : '';
+  });
+  canvas.addEventListener('pointerleave', () => { ptrWorld.set(1e9, 1e9, 0); hovered = null; });
+  canvas.addEventListener('click', (e) => {
+    toWorld(e);
+    const c = pick();
+    if (!c) return;
+    // a happy tug before the card: pull the capsule down, let the string
+    // spring it back — the card opens as it rebounds
+    c.prev.y = c.pos.y + 0.16;
+    setTimeout(() => openCard(c.p), 240);
   });
 
   function fit() {
@@ -165,47 +179,80 @@ export function initCapsules() {
 
   const G = new THREE.Vector3(0, -9.8, 0);
   const tmp = new THREE.Vector3();
+  const MAX_SWING = 0.42;          // rad from vertical — capsules sway, never orbit
   let last = performance.now();
+  let t = 0;
   (function loop(now) {
     requestAnimationFrame(loop);
     if (!visible) { last = now; return; }
     const dt = Math.min(0.033, (now - last) / 1000 || 0.016);
     last = now;
+    t += dt;
 
-    const ptrVel = tmp.subVectors(ptrWorld, ptrPrev);
-    for (const c of capsules) {
-      // verlet integrate
-      const v = c.pos.clone().sub(c.prev).multiplyScalar(0.985); // damping
+    // pointer velocity — ONLY when both samples are real (the enter frame
+    // against the parked sentinel used to inject a huge impulse and flung
+    // the whole row: the "broken physics" bug)
+    const ptrLive = ptrWorld.x < 1e8 && ptrPrev.x < 1e8;
+    const ptrVel = ptrLive ? tmp.subVectors(ptrWorld, ptrPrev) : tmp.set(0, 0, 0);
+    if (ptrVel.length() > 0.5) ptrVel.setLength(0.5);
+
+    capsules.forEach((c, ci) => {
+      // verlet integrate with firm damping
+      const v = c.pos.clone().sub(c.prev).multiplyScalar(0.965);
       c.prev.copy(c.pos);
       c.pos.add(v).addScaledVector(G, dt * dt);
+      // idle breeze: barely-there life even with no cursor around
+      if (!REDUCED)
+        c.pos.x += Math.sin(t * 0.7 + ci * 1.7) * 0.0006;
       if (!REDUCED && ptrWorld.x < 1e8) {
         const d = c.pos.distanceTo(ptrWorld);
-        if (d < 1.15) {                       // cursor shove w/ momentum
+        if (d < 1.0) {                       // gentle, capped shove
           const push = c.pos.clone().sub(ptrWorld).normalize()
-            .multiplyScalar((1.15 - d) * 0.05)
-            .addScaledVector(ptrVel, 0.18);
+            .multiplyScalar((1.0 - d) * 0.03)
+            .addScaledVector(ptrVel, 0.12);
+          if (push.length() > 0.05) push.setLength(0.05);
           c.pos.add(push);
-          c.spinV += (Math.random() - 0.5) * 0.02 + ptrVel.x * 0.05;
+          c.spinV += clampN(ptrVel.x * 0.03, 0.02);
         }
       }
       // string constraint (inextensible, pivot fixed)
       const dir = c.pos.clone().sub(c.pivot);
       const dLen = dir.length() || 1;
       c.pos.copy(c.pivot).addScaledVector(dir, c.len / dLen);
+      // soft swing clamp: past MAX_SWING the string "hits the hook" and
+      // eases back — capsules can never wind over the top
+      const ang = Math.atan2(c.pos.x - c.pivot.x, -(c.pos.y - c.pivot.y));
+      if (Math.abs(ang) > MAX_SWING) {
+        const a2 = Math.sign(ang) * (MAX_SWING + (Math.abs(ang) - MAX_SWING) * 0.25);
+        c.pos.set(
+          c.pivot.x + Math.sin(a2) * c.len,
+          c.pivot.y - Math.cos(a2) * c.len,
+          c.pos.z);
+      }
       // apply
+      const hoverK = c === hovered ? 1 : 0;
+      c.hoverLerp = (c.hoverLerp || 0) + (hoverK - (c.hoverLerp || 0)) * 0.15;
       c.group.position.copy(c.pos);
-      c.spinV *= 0.97;
+      c.group.scale.setScalar(1 + c.hoverLerp * 0.07);
+      c.spinV *= 0.96;
       c.spin += c.spinV;
       const swing = c.pos.clone().sub(c.pivot);
       c.group.rotation.z = Math.atan2(-swing.x, -swing.y) * 0.9;
       c.group.rotation.y = c.spin;
-      c.line.geometry.setFromPoints([c.pivot, c.pos]);
-    }
+      // string attaches at the capsule's top loop, not its center
+      const att = c.pos.clone().addScaledVector(swing.normalize(), -0.68);
+      c.line.geometry.setFromPoints([c.pivot, att]);
+    });
     ptrPrev.copy(ptrWorld);
-    for (const { spr, c } of labels)
-      spr.position.set(c.pos.x, c.pos.y - 1.05, c.pos.z);
+    for (const L of labels) {
+      L.spr.position.set(L.c.pos.x, L.c.pos.y - 1.0, L.c.pos.z);
+      const want = L.c === hovered ? 1 : L.base;
+      L.spr.material.opacity += (want - L.spr.material.opacity) * 0.15;
+    }
     renderer.render(scene, cam);
   })(performance.now());
+
+  function clampN(v, m) { return Math.max(-m, Math.min(m, v)); }
 
   function fallback(list) {
     const ul = document.getElementById('capsule-fallback');

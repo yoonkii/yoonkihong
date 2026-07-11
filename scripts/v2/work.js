@@ -8,8 +8,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const COMPANIES = [
-  { id: 'naver', bg: '#2FBF6B', draw: drawNaver },
-  { id: 'line', bg: '#1FC160', draw: drawLine },
+  { id: 'naver', bg: '#03C75A', draw: drawNaver },
+  { id: 'line', bg: '#06C755', draw: drawLine },
   { id: 'google', bg: '#FFFFFF', draw: drawGoogle }
 ];
 
@@ -26,45 +26,50 @@ function tex(draw, bg) {
   return t;
 }
 function drawNaver(g) {
+  // the real mark: blocky geometric N (two bars + parallelogram diagonal)
   g.fillStyle = '#FFFFFF';
-  g.font = '900 150px Geist, sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('N', 128, 138);
+  g.fillRect(70, 66, 38, 124);
+  g.fillRect(148, 66, 38, 124);
+  g.beginPath();
+  g.moveTo(70, 66); g.lineTo(108, 66);
+  g.lineTo(186, 190); g.lineTo(148, 190);
+  g.closePath();
+  g.fill();
 }
 function drawLine(g) {
+  // real app icon: white speech bubble, LINE wordmark in green
   g.fillStyle = '#FFFFFF';
-  // speech bubble
   g.beginPath();
-  g.roundRect(48, 58, 160, 116, 44);
+  g.roundRect(38, 56, 180, 122, 52);
   g.fill();
   g.beginPath();
-  g.moveTo(84, 164); g.lineTo(70, 196); g.lineTo(116, 170);
+  g.moveTo(80, 168); g.lineTo(66, 202); g.lineTo(116, 174);
+  g.closePath();
   g.fill();
-  g.fillStyle = '#1FC160';
-  g.font = '900 44px Geist, sans-serif';
+  g.fillStyle = '#06C755';
+  g.font = '800 46px Geist, sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText('LINE', 128, 118);
 }
 function drawGoogle(g) {
-  // build the striped G on a TRANSPARENT scratch canvas (source-atop there
-  // only touches the glyph), then composite onto the white tile face
-  const c2 = document.createElement('canvas');
-  c2.width = c2.height = 256;
-  const h = c2.getContext('2d');
-  h.font = '900 170px Geist, sans-serif';
-  h.textAlign = 'center'; h.textBaseline = 'middle';
-  h.fillStyle = '#4285F4';
-  h.fillText('G', 128, 140);
-  h.globalCompositeOperation = 'source-atop';
-  [['#EA4335', -64], ['#FBBC05', -20], ['#34A853', 24], ['#4285F4', 68]]
-    .forEach(([col, off]) => {
-      h.fillStyle = col;
-      h.save();
-      h.translate(128, 128); h.rotate(-0.5);
-      h.fillRect(-170, off - 22, 340, 44);
-      h.restore();
-    });
-  g.drawImage(c2, 0, 0);
+  // the real G: a ring in four arcs + the blue horizontal bar. Canvas
+  // angles: 0 = east, positive = clockwise.
+  const cx = 128, cy = 128, R = 56, W = 42;
+  const D = Math.PI / 180;
+  const seg = (col, a0, a1) => {
+    g.strokeStyle = col;
+    g.lineWidth = W;
+    g.beginPath();
+    g.arc(cx, cy, R, a0 * D, a1 * D);
+    g.stroke();
+  };
+  seg('#4285F4', 0, 45);        // blue: lower-right, rises to meet the bar
+  seg('#34A853', 45, 135);      // green: bottom
+  seg('#FBBC05', 135, 225);     // yellow: left
+  seg('#EA4335', 225, 315);     // red: top — the 315-360 gap is the opening
+  // blue bar: from center to the ring's right edge, flush with the arc
+  g.fillStyle = '#4285F4';
+  g.fillRect(cx - 4, cy - W / 2, R + W / 2 + 4, W);
 }
 
 export function initWork() {
