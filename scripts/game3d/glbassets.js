@@ -69,14 +69,16 @@ export const TARGET_HEIGHTS = {
   bld_about_house: 3.625,
   bld_macrodoc: 3.625,
   bld_mathstreet: 3.875,
-  bld_mathwings: 2.5,
-  bld_funnify: 3.75,
-  // noir game-parlor booth: nearly cubic raw bbox (1.644w × 1.899h × 1.662d),
-  // so 2.875 lands the footprint at 2.49 × 2.52 — matching the voxel
-  // fallback's 2.5 × 2.5 collider (world.js sizes AABBs from the voxel model)
+  // 2026-07-11 재생성 4종 (테마 강조 리퀘스트): 높이는 새 bbox 비율에 맞춰
+  // 산출 — 풋프린트 계약은 world.js GLB_FOOTPRINT 참조.
+  // Wall St 아르데코 타워 (w/h .586, d/h .527) — mathstreet와 트윈 스카이라인
+  bld_mathwings: 3.9,
+  // 야외 게임쇼 세트 (w/h 1.60, d/h 1.38) — 지붕 없는 무대, 낮고 넓다
+  bld_funnify: 2.05,
+  // 느와르 포커 클럽 (w/h .88, d/h .78)
   bld_lasthand: 2.875,
-  // GUNBALL neon arena kiosk: compact — shortest building tier with bld_mathwings
-  bld_gunball: 2.75,
+  // 야외 미니 경기장: 오픈 보울 (w/h 2.86, d/h 2.92) — 의도적으로 낮다
+  bld_gunball: 1.15,
   // GOMOKULIKE hanok Go parlor: mid tier, no voxel fallback (footprint contract
   // 2.5 × 2.0 lives in world.js GLB_FOOTPRINT like bld_gunball)
   bld_gomokulike: 3.25,

@@ -340,7 +340,11 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
   // docs/GLB_PIPELINE.md §3 — colliders/markers/zoom are sized from these
   // exactly like the voxel footprints size everything else.
   const GLB_FOOTPRINT = {
-    gunball: { w: 2.42, h: 2.75, d: 2.24 },
+    // 2026-07-11 재생성분: TARGET_HEIGHTS × 측정 bbox 비율로 산출
+    gunball: { w: 3.29, h: 1.15, d: 3.36 },      // open bowl arena
+    funnify: { w: 3.28, h: 2.05, d: 2.83 },      // open-air game-show set
+    lasthand: { w: 2.53, h: 2.875, d: 2.24 },    // noir poker club
+    mathwings: { w: 2.29, h: 3.9, d: 2.06 },     // Wall St deco tower
     // hanok Go parlor — contract guide (no voxel fallback); refine to the
     // shipped GLB's measured bbox like gunball's if it lands off-guide
     gomokulike: { w: 2.5, h: 3.25, d: 2.0 }

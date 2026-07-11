@@ -24,15 +24,18 @@ function fill(v, x0, y0, z0, x1, y1, z1, pi) {
 }
 
 /* ------------------------------------------------------------------ *
- *  GOLDEN GATE — length 152 vox (19 wu), depth 10 (1.25 wu),          *
- *  towers to y45 (5.6 wu). y0 = sea surface.                          *
+ *  GOLDEN GATE — length 100 vox (12.5 wu), depth 10 (1.25 wu),        *
+ *  towers to y45 (5.6 wu). y0 = sea surface. Sized to SPAN the strait *
+ *  between the island's west coast and the sf_islet below — the       *
+ *  original 19 wu span paralleled the coast connecting nothing and    *
+ *  read wrong (user report 2026-07-11).                               *
  * ------------------------------------------------------------------ */
 function makeGoldenGate() {
   const OR = 0, DK = 1, ROAD = 2, STRIPE = 3;
   const v = [];
-  const L = 151;                       // last x
+  const L = 99;                        // last x
   const DECK = 14;                     // deck underside y
-  const towers = [44, 107];            // tower center-left x (legs 4 wide)
+  const towers = [26, 70];             // tower center-left x (legs 4 wide)
 
   /* anchor pylons at both ends (stepped, orange like the real approach) */
   for (const x0 of [0, L - 5]) {
@@ -96,20 +99,22 @@ function makeGoldenGate() {
 }
 
 /* ------------------------------------------------------------------ *
- *  NAMSAN HILL — round green mound islet, flat top for the tower GLB. *
- *  r 22 vox (2.75 wu), height 14 (1.75 wu). y0 = sea surface.         *
+ *  MOUND ISLETS — round green mounds with a flat top and a sand/rock  *
+ *  waterline skirt. y0 = sea surface.                                 *
+ *  namsan_hill: r 22 vox (2.75 wu), h 14 — carries the tower GLB.     *
+ *  sf_islet:    r 15 vox (1.9 wu), h 11 — the Golden Gate's far end.  *
  * ------------------------------------------------------------------ */
-function makeNamsanHill() {
+function makeMound(R, H, topR) {
   const GRASS = 0, GRASS_DK = 1, ROCK = 2, SAND = 3;
   const v = [];
-  const CX = 22.5, CZ = 22.5, H = 14, R = 22;
+  const C = R + 0.5;
   for (let y = 0; y <= H; y++) {
     // cosine shoulder: wide base, gentle dome, flat-ish top
     const t = y / H;
-    const r = y === H ? 7 : R * Math.sqrt(1 - t * t * 0.92);
-    for (let x = Math.floor(CX - r); x <= Math.ceil(CX + r); x++)
-      for (let z = Math.floor(CZ - r); z <= Math.ceil(CZ + r); z++) {
-        const dx = x + 0.5 - CX, dz = z + 0.5 - CZ;
+    const r = y === H ? topR : R * Math.sqrt(1 - t * t * 0.92);
+    for (let x = Math.floor(C - r); x <= Math.ceil(C + r); x++)
+      for (let z = Math.floor(C - r); z <= Math.ceil(C + r); z++) {
+        const dx = x + 0.5 - C, dz = z + 0.5 - C;
         if (dx * dx + dz * dz > r * r) continue;
         const edge = dx * dx + dz * dz > (r - 1.6) * (r - 1.6);
         let pi = GRASS;
@@ -121,9 +126,16 @@ function makeNamsanHill() {
   return v;
 }
 
+const MOUND_PALETTE = [
+  '#5C9E63',   // 0 hill grass (a hair deeper than lawn — reads "forested")
+  '#437B4C',   // 1 darker foliage patches
+  '#7A4C32',   // 2 rock at the waterline
+  '#D8B27F'    // 3 sand ring
+];
+
 export default {
   landmark_goldengate: {
-    size: [152, 46, 10],
+    size: [100, 46, 10],
     palette: [
       '#E85A33',   // 0 international orange (albedo — sun keeps it vivid)
       '#C2401F',   // 1 orange shade / cables / anchor
@@ -136,13 +148,15 @@ export default {
 
   namsan_hill: {
     size: [46, 15, 46],
-    palette: [
-      '#5C9E63',   // 0 hill grass (a hair deeper than lawn — reads "forested")
-      '#437B4C',   // 1 darker foliage patches
-      '#7A4C32',   // 2 rock at the waterline
-      '#D8B27F'    // 3 sand ring
-    ],
-    voxels: dedupe(makeNamsanHill()),
+    palette: MOUND_PALETTE,
+    voxels: dedupe(makeMound(22, 14, 7)),
     jitter: true, chamfer: 0.3, sunRim: true, seed: 11
+  },
+
+  sf_islet: {
+    size: [32, 12, 32],
+    palette: MOUND_PALETTE,
+    voxels: dedupe(makeMound(15, 11, 6)),
+    jitter: true, chamfer: 0.3, sunRim: true, seed: 17
   }
 };
