@@ -26,6 +26,8 @@ document.getElementById('year').textContent = String(new Date().getFullYear());
  *  HERO — progressive frame-sequence scrub (Seoul -> SF)               *
  * ------------------------------------------------------------------ */
 const FRAMES = 97;
+const START = 10;                // frames 0-9: Yoonki lands into the street —
+                                 // played once on load, scrub owns 10..96
 const SCRUB_END = 0.68;          // scroll fraction where the film finishes
 const hero = document.querySelector('.hero');
 const sticky = document.querySelector('.hero-sticky');
@@ -46,6 +48,7 @@ function initScrub() {
   const imgs = new Array(FRAMES).fill(null);
   const url = (i) => `assets/v2/hero/s${String(i).padStart(3, '0')}.webp`;
   let drawn = -1;
+  let introPlaying = DBG_P === null;   // the landing plays once on load
 
   // progressive fill: coarse pass first so scrubbing works within ~1s,
   // then refine — mid-scroll the nearest loaded frame stands in
@@ -56,6 +59,9 @@ function initScrub() {
     im.onload = () => { imgs[i] = im; draw(true); then && then(); };
     im.src = url(i);
   }
+  // the landing frames load first (they play immediately), then the
+  // coarse-to-fine passes fill the scrub
+  for (let i = 0; i <= START; i++) load(i);
   const passes = [8, 4, 2, 1];
   (function nextPass(p) {
     if (p >= passes.length) return;
@@ -98,9 +104,12 @@ function initScrub() {
   // slow again as SF settles. tf = film progress 0..1.
   const easeFilm = (x) => 0.35 * x + 0.65 * (x * x * (3 - 2 * x));
 
-  // text beat windows in FILM space (glued to imagery, immune to easing):
-  // frames 0-36 Seoul, 37-55 the morph (wordless — let it play), 56+ SF
-  const WINDOWS = [[0.05, 0.22], [0.26, 0.375], [0.62, 0.85]];
+  // text beat windows in FILM space (glued to imagery, immune to easing).
+  // Scrub covers frames 10-96: Seoul until abs frame 36 (t 0.30), the morph
+  // 37-55 (wordless — let it play), SF from 56 (t 0.535).
+  // Beat 0 opens at -1: the greeting is ON SCREEN from the first paint
+  // and every window holds as long as its scenery allows.
+  const WINDOWS = [[-1, 0.135], [0.15, 0.30], [0.55, 0.97]];
   const FADE_IN = 0.045, FADE_OUT = 0.055;
 
   // split each beat line into word spans so the words cascade up out of
@@ -127,6 +136,18 @@ function initScrub() {
     el.querySelectorAll('.w2').forEach((w, wi) => w.style.setProperty('--i', wi));
   });
 
+  // the greeting cascades up once on load (scroll owns only its exit)
+  {
+    const first = beats[0];
+    first.style.opacity = 1;
+    const t0 = performance.now();
+    (function rise(now) {
+      const k = clamp((now - t0 - 1050) / 950, 0, 1);  // rises as he lands
+      first.style.setProperty('--r', (1 - Math.pow(1 - k, 3)) * 100);
+      if (k < 1) requestAnimationFrame(rise);
+    })(t0);
+  }
+
   let ticking = false;
   function onScroll() {
     if (ticking) return;
@@ -137,7 +158,8 @@ function initScrub() {
       const p = DBG_P !== null ? DBG_P
         : clamp((scrollY - hero.offsetTop) / max, 0, 1);
       const tf = easeFilm(clamp(p / SCRUB_END, 0, 1));
-      target = Math.round(tf * (FRAMES - 1));
+      if (!introPlaying || p > 0.004)
+        target = START + Math.round(tf * (FRAMES - 1 - START));
       draw();
       let maxA = 0;
       beats.forEach((el, bi) => {
@@ -148,8 +170,9 @@ function initScrub() {
         maxA = Math.max(maxA, alpha);
         el.style.opacity = alpha;
         // words rise while entering (tIn only — never re-descend); on the
-        // way out the whole line lifts and fades instead
-        el.style.setProperty('--r', tIn * 100);
+        // way out the whole line lifts and fades instead. Beat 0's rise
+        // belongs to the load cascade, scroll only lifts it out.
+        if (bi > 0) el.style.setProperty('--r', tIn * 100);
         el.style.transform = `translateX(-50%) translateY(${-tOut * 26}px)`;
       });
       const lk = clamp((p - 0.70) / 0.10, 0, 1);
@@ -174,6 +197,21 @@ function initScrub() {
   addEventListener('scroll', onScroll, { passive: true });
   fit();
   onScroll();
+
+  // arrival: Yoonki drops into the street once the page opens (frames
+  // 0-9 play once; the scrub owns frame 10 onward)
+  if (introPlaying) {
+    const ti0 = performance.now();
+    (function intro(now) {
+      const k = clamp((now - ti0 - 250) / 850, 0, 1);
+      if (scrollY < 40) {
+        target = Math.round((1 - Math.pow(1 - k, 2)) * START);
+        draw();
+      }
+      if (k < 1) requestAnimationFrame(intro);
+      else { introPlaying = false; onScroll(); }
+    })(ti0);
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -199,7 +237,7 @@ function lazy(selector, loader) {
   setTimeout(go, 3500);
 }
 lazy('.work', () => import('./work.js').then((m) => m.initWork()));
-lazy('.products', () => import('./capsules.js').then((m) => m.initCapsules()));
+lazy('.products', () => import('./cards.js').then((m) => m.initCards()));
 
 /* ------------------------------------------------------------------ *
  *  ABOUT — word reveal                                                 *

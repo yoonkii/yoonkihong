@@ -323,17 +323,30 @@ section { position: relative; }
 }
 .capsule-fallback img { width: 44px; height: 44px; }
 
+.card-veil {
+  position: fixed; inset: 0;
+  z-index: 49;
+  background: rgba(24, 28, 38, 0.45);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.card-veil.open { opacity: 1; }
+.card-veil[hidden] { display: none; }
+
 .capsule-card {
   position: fixed;
   left: 50%; top: 50%;
   transform: translate(-50%, -46%) scale(0.96);
   z-index: 50;
-  width: min(430px, calc(100vw - 40px));
+  width: min(560px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
   background: var(--card);
   border: 1px solid var(--hairline);
   border-radius: 18px;
-  box-shadow: 0 30px 90px rgba(30, 36, 48, 0.28);
-  padding: 26px 26px 24px;
+  box-shadow: 0 30px 90px rgba(30, 36, 48, 0.35);
+  padding: 20px 24px 24px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.28s ease, transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -345,15 +358,31 @@ section { position: relative; }
 }
 .cc-close {
   position: absolute; top: 10px; right: 14px;
+  z-index: 2;
   font-size: 26px; line-height: 1;
-  background: none; border: none; cursor: pointer;
+  background: rgba(250, 247, 241, 0.85); border: none; cursor: pointer;
+  border-radius: 50%;
+  width: 32px; height: 32px;
   color: var(--ink-soft);
 }
 .cc-close:hover { color: var(--accent); }
-.cc-sprite { image-rendering: pixelated; margin-bottom: 6px; }
-.capsule-card h3 { font-size: 24px; letter-spacing: -0.02em; }
-.capsule-card > p { color: var(--ink-soft); font-weight: 600; font-size: 14.5px; margin-top: 2px; }
-.cc-desc { margin-top: 12px; font-size: 14.5px; line-height: 1.6; color: var(--ink); font-weight: 400 !important; }
+.cc-shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  margin-bottom: 16px;
+  background: #EDEAE2;
+}
+.cc-shot[hidden] { display: none; }
+.cc-head { display: flex; align-items: center; gap: 14px; }
+.cc-sprite { image-rendering: pixelated; flex: 0 0 auto; }
+.capsule-card h3 { font-size: 23px; letter-spacing: -0.02em; }
+.cc-head p { color: var(--ink-soft); font-weight: 600; font-size: 14px; margin-top: 2px; }
+.cc-desc { margin-top: 14px; font-size: 14.5px; line-height: 1.65; color: var(--ink); font-weight: 400 !important; }
 .cc-visit {
   display: inline-block;
   margin-top: 18px;

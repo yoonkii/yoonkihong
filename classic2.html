@@ -101,19 +101,25 @@
 
   <!-- ============ SECTION 4 — PRODUCTS (hanging capsules) ================ -->
   <section class="products" id="products" aria-labelledby="products-h">
-    <h2 id="products-h" class="sec-h"><span class="sec-kicker">Products</span>Pull a capsule</h2>
-    <p class="products-hint">Everything here is live and real — hover, swat, open.</p>
+    <h2 id="products-h" class="sec-h"><span class="sec-kicker">Products</span>Pick a card</h2>
+    <p class="products-hint">Every card is a real, live thing I built — hover to pull one from the fan, click for the full story.</p>
     <div class="capsule-stage">
       <canvas id="capsule-canvas" aria-hidden="true"></canvas>
       <ul class="capsule-fallback" id="capsule-fallback" hidden></ul>
     </div>
+    <div class="card-veil" id="card-veil" hidden></div>
     <div class="capsule-card" id="capsule-card" hidden>
       <button class="cc-close" id="cc-close" aria-label="Close">&times;</button>
-      <img class="cc-sprite" id="cc-sprite" alt="" width="96" height="96">
-      <h3 id="cc-name"></h3>
-      <p id="cc-tagline"></p>
+      <img class="cc-shot" id="cc-shot" alt="" loading="lazy">
+      <div class="cc-head">
+        <img class="cc-sprite" id="cc-sprite" alt="" width="64" height="64">
+        <div>
+          <h3 id="cc-name"></h3>
+          <p id="cc-tagline"></p>
+        </div>
+      </div>
       <p class="cc-desc" id="cc-desc"></p>
-      <a class="cc-visit" id="cc-visit" target="_blank" rel="noopener">Visit &rarr;</a>
+      <a class="cc-visit" id="cc-visit" target="_blank" rel="noopener">Visit the live project &rarr;</a>
     </div>
   </section>
 
