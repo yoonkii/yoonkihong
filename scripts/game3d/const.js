@@ -5,7 +5,8 @@
    paths radiating to every zone — About house on the formal north axis,
    three 2-building districts (NW: macrodoc+lasthand, NE: math games
    mathstreet+mathwings, SW: gunball+funnify), the fenced egg
-   nursery on the south axis, and the Demo Lab yard off the SE staircase.
+   nursery on the south axis, and the DEMO ISLAND across the walkable
+   Golden Gate off the west coast (DEMO_LAB / WALKWAYS below).
    District pairing is dark-facade balanced: bld_gunball and bld_lasthand
    are the island's two near-black buildings, and side by side they read
    as one dark hole at title/overworld zoom (VISUAL_PLAYBOOK: never pure
@@ -24,7 +25,7 @@ export const REDUCED = (() => {
    with the styles/main.css ?v= token in index.html — bump BOTH whenever any
    asset is re-exported, so returning visitors never get a mixed old/new set
    (GitHub Pages caches assets for ~10 min, browsers heuristically longer). */
-export const ASSET_V = '20260711b';
+export const ASSET_V = '20260711c';
 
 /* ---- player locomotion -------------------------------------------------
    2026-07: top speed +30% (4.0 -> 5.2 wu/s); accel/decel damp rates x1.3
@@ -38,8 +39,8 @@ export const PLAYER_MOVE = { maxSpeed: 5.2, accel: 11.7, decel: 15.6 };
    Authored directly (no runtime jogs): central plaza rows 11-16, spokes =
    2x2 stair blocks (the tile-grid version of a gentle curve), courts are
    the 2-wide "district streets" fronting each building pair. The nursery
-   picket ring is baked here; the Demo Lab wood ring + gate is drawn by
-   buildMap() from DEMO_LAB so the yard stays data-driven. */
+   picket ring is baked here. Rows 13-14 col 2-3 are the Golden Gate
+   bridgehead (tree-ring gap + approach path to the DEMO ISLAND). */
 const RAW_MAP = [
   'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
   'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
@@ -54,8 +55,8 @@ const RAW_MAP = [
   'WWTGGGGGGGGGPPPGGGGPPGGGGPPPGGGGGGGGGTWW',
   'WWTGGGGGGGGGGPPPPFPPPPFPPPPGGGGGGGGGGTWW',
   'WWTGLLLLLGGGGGGPPPPPPPPPPGGGGGGGGGGGGTWW',
-  'WWTGLLLLLGGGGGGGGPPPPPPGGGGGGGGGGWWWGTWW',
-  'WWTGLLLLLGGGGGPPPPPPPPPPPGGGGGGGFWWWGTWW',
+  'WWPPLLLLLGGGGGGGGPPPPPPGGGGGGGGGGWWWGTWW',
+  'WWPPLLLLLGGGGGPPPPPPPPPPPGGGGGGGFWWWGTWW',
   'WWTGGGGGGGGGGGPPPPPPPPPPPPPGGGGGGWWWGTWW',
   'WWTGGGGGGGGGGGPPGFPPPPFGGPPPPGGGGGGGGTWW',
   'WWTGGGGGGGGGGGPPGGGPPGGGGGGPPPPGGGGGGTWW',
@@ -81,33 +82,41 @@ export const MAP_H = 30;
 // behind the NE district's rooflines from the SE camera — extra secret).
 export const SECRET_GAP = [[30, 2], [31, 2]];
 export const SECRET_POS = { x: 30.5, z: 2.55 };
-// Demo lab yard: SE corner off the plaza's SE staircase, wood-fenced with
-// a gate on the north run that the staircase lands on.
+// Demo lab (2026-07-11): moved from the fenced SE yard to the DEMO ISLAND —
+// the sf_islet plateau across the Golden Gate. No fence ring anymore: the
+// plateau's own cliff edge is the boundary (WALKWAYS below define where the
+// player can stand). Coordinates are off-map (x < 0) on purpose.
 export const DEMO_LAB = {
-  x0: 30, y0: 20, x1: 35, y1: 25,          // inclusive tile rect (fence ring)
-  gate: [[31, 20], [32, 20]],              // fence gap on the north run
-  sign: { x: 34.5, z: 24.5 },              // DEMO LAB board inside, facing camera
-  wip: { x: 31.8, z: 24.3 },               // under-construction signpost
+  x0: -14, y0: 10, x1: -7, y1: 17,         // islet tile rect (fence styling)
+  // NB: keep the bridge-mouth corridor CLEAR — the road lands on the
+  // plateau at z 13.3-14.7, x ≥ -10.2 (the empty-yard pedestals at slots
+  // 0/2/4 and the wip sign get colliders)
+  sign: { x: -11.6, z: 14.4 },             // DEMO LAB board, straight ahead
+  wip: { x: -9.6, z: 15.5 },               // "cooking demos" signpost, south
   slots: [                                  // pre-authored demo stall spots
-    { x: 31.7, z: 22.4 }, { x: 33.2, z: 22.3 }, { x: 34.5, z: 22.4 },
-    { x: 32.3, z: 24.0 }, { x: 34.2, z: 23.9 }
+    { x: -12.2, z: 12.4 }, { x: -10.8, z: 12.0 }, { x: -9.4, z: 12.5 },
+    { x: -12.6, z: 13.9 }, { x: -12.4, z: 15.2 }
   ]
 };
+
+// Walkable overrides (createColliders.addWalkable): world-space rects where
+// the "water/out-of-map = solid" tile rule is suppressed. Covers the Golden
+// Gate road tiles (z 13-14) and the demo islet plateau. Physical edges come
+// from BRIDGE_RAILS + the rects themselves (outside = water = blocked).
+export const WALKWAYS = [
+  { x0: -10, z0: 13, x1: 3, z1: 15 },        // bridge road (tiles z13-14)
+  { x0: -13.4, z0: 11, x1: -7.6, z1: 16 }    // islet plateau (tiles x-13..-8)
+];
+// collider strips along the bridge parapets — road surface is 1.25 wu wide
+// (world z 13.375..14.625), rails keep the 0.3-radius player on it
+export const BRIDGE_RAILS = [
+  { x0: -9.4, z0: 13.0, x1: 2.35, z1: 13.375 },
+  { x0: -9.4, z0: 14.625, x1: 2.35, z1: 15.0 }
+];
 
 export function buildMap() {
   const tiles = RAW_MAP.map(r => r.split(''));
   for (const [x, y] of SECRET_GAP) tiles[y][x] = 'G';
-  // Demo lab: wood ring drawn from the const (gate tiles stay path)
-  const L = DEMO_LAB;
-  const gate = new Set(L.gate.map(([x, y]) => x + ',' + y));
-  for (let x = L.x0; x <= L.x1; x++) {
-    if (!gate.has(x + ',' + L.y0)) tiles[L.y0][x] = 'X';
-    if (!gate.has(x + ',' + L.y1)) tiles[L.y1][x] = 'X';
-  }
-  for (let y = L.y0; y <= L.y1; y++) {
-    if (!gate.has(L.x0 + ',' + y)) tiles[y][L.x0] = 'X';
-    if (!gate.has(L.x1 + ',' + y)) tiles[y][L.x1] = 'X';
-  }
   return tiles;
 }
 
@@ -183,9 +192,13 @@ export const NURSERY_GAZEBO = { x: 20.5, z: 23.4, r: 1.05 };
 export const LANDMARKS = [
   { name: 'landmark_namsan', glb: true, x: 28.2, z: -0.9, y: -0.25, yaw: 0,
     hill: { model: 'namsan_hill', y: -1.95 } },
-  { name: 'landmark_goldengate', voxel: true, x: -3.55, z: 13.5, y: -1.9,
+  // WALKABLE since 2026-07-11: road top and islet plateau both land at
+  // exactly y 0 when placed at y −2.0 (see landmarks.js). z 14.0 centers
+  // the 1.25-wu road on the tile-13/14 seam; islet at (−10.5, 13.5) puts
+  // every walkable tile center within its 3.0-wu plateau.
+  { name: 'landmark_goldengate', voxel: true, x: -3.55, z: 14.0, y: -2.0,
     yaw: 0 },
-  { name: 'sf_islet', voxel: true, x: -10.4, z: 13.5, y: -1.95, yaw: 0 }
+  { name: 'sf_islet', voxel: true, x: -10.5, z: 13.5, y: -2.0, yaw: 0 }
 ];
 
 // YOONKI voxel letters on the lawn wedge NW of the plaza, read over the

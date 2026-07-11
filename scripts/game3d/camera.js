@@ -242,9 +242,14 @@ export function createCameraRig(aspect) {
           ix = Math.sin(p) * 0.15; iz = Math.sin(p * 2) * 0.1;
         }
         const lam = REDUCED ? 20 : 6;
-        const tx = clamp(playerPos.x + state.look.x + ix, 6.5, 33.5);
-        // tz max 25.2: at the south POIs (demo lab / nursery) the frame
-        // stays weighted onto the island instead of half-empty water
+        // west excursion: the Golden Gate walkway + demo islet live off-map
+        // at x<0 (z band 11-16.5) — the camera follows across the strait
+        // there; everywhere else the island-weighted clamp holds
+        const westLimit =
+          (playerPos.z > 10.5 && playerPos.z < 16.5) ? -10.5 : 6.5;
+        const tx = clamp(playerPos.x + state.look.x + ix, westLimit, 33.5);
+        // tz max 25.2: at the south POIs (nursery etc.) the frame stays
+        // weighted onto the island instead of half-empty water
         const tz = clamp(playerPos.z + state.look.z + iz, 4.5, 25.2);
         state.target.x = damp(state.target.x, tx, lam, dt);
         state.target.y = damp(state.target.y, 0.4, lam, dt);

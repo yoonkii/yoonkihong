@@ -47,7 +47,15 @@ export function safeGeometry(name, opts) {
  *  COLLISION                                                           *
  * ------------------------------------------------------------------ */
 export function createColliders(tiles) {
+  // walkable overrides: world rects where the "water/out-of-map = solid"
+  // tile rule is suppressed (the Golden Gate road + the demo islet plateau,
+  // const.js WALKWAYS). Checked per tile CENTER, so rects should cover the
+  // centers of every tile they mean to free. AABBs/circles still apply.
+  const walkable = [];
+  function addWalkable(x0, z0, x1, z1) { walkable.push({ x0, z0, x1, z1 }); }
   const solid = (x, z) => {
+    for (const w of walkable)
+      if (x >= w.x0 && x <= w.x1 && z >= w.z0 && z <= w.z1) return false;
     const t = tileAt(tiles, Math.floor(x), Math.floor(z));
     return t === 'W' || t === 'T' || t === 'X';
   };
@@ -132,7 +140,7 @@ export function createColliders(tiles) {
     return hit;
   }
 
-  return { solid, aabbs, circles, addAABB, addCircle, moveCircle, blockedAt, lastNormal };
+  return { solid, aabbs, circles, addAABB, addCircle, addWalkable, moveCircle, blockedAt, lastNormal };
 }
 
 /* ------------------------------------------------------------------ *

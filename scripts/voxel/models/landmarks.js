@@ -34,55 +34,64 @@ function makeGoldenGate() {
   const OR = 0, DK = 1, ROAD = 2, STRIPE = 3;
   const v = [];
   const L = 99;                        // last x
-  const DECK = 14;                     // deck underside y
+  const DECK = 14;                     // deck underside y; road TOP = 16 vox
+                                       // = 2.0 wu, so placed at y −2.0 the
+                                       // road surface sits EXACTLY at y 0 —
+                                       // the player walks it flush (2026-07-11
+                                       // walkable-bridge rework)
   const towers = [26, 70];             // tower center-left x (legs 4 wide)
 
-  /* anchor pylons at both ends (stepped, orange like the real approach) */
-  for (const x0 of [0, L - 5]) {
-    fill(v, x0, 0, 1, x0 + 5, DECK + 3, 8, DK);
-    fill(v, x0, DECK + 4, 2, x0 + 5, DECK + 5, 7, OR);   // cap
-  }
+  /* anchor pylons at both ends — BELOW deck only, the road passes over
+     them (the old above-deck caps walled off the walkway) */
+  for (const x0 of [0, L - 5]) fill(v, x0, 0, 1, x0 + 5, DECK - 1, 12, DK);
 
-  /* deck: road slab + orange side girders with a lip above the road */
-  fill(v, 2, DECK, 2, L - 2, DECK + 1, 7, OR);           // structure slab
-  for (let x = 2; x <= L - 2; x++) {
-    for (let z = 3; z <= 6; z++) v.push([x, DECK + 1, z, ROAD]);
+  /* deck: full-length slab + 10-vox (1.25 wu) walkable road z2..11 */
+  fill(v, 0, DECK, 2, L, DECK + 1, 11, OR);              // structure slab
+  for (let x = 0; x <= L; x++) {
+    for (let z = 2; z <= 11; z++) v.push([x, DECK + 1, z, ROAD]);
     if (x % 8 < 4) {                                     // dashed center line
-      v.push([x, DECK + 1, 4, STRIPE]);
+      v.push([x, DECK + 1, 6, STRIPE]);
+      v.push([x, DECK + 1, 7, STRIPE]);
     }
   }
-  fill(v, 2, DECK, 1, L - 2, DECK + 3, 1, OR);           // south girder
-  fill(v, 2, DECK, 8, L - 2, DECK + 3, 8, OR);           // north girder
-
-  /* towers: two legs, portal struts above deck, cap. Legs run to the sea. */
-  for (const tx of towers) {
-    for (const z0 of [0, 6]) fill(v, tx, 0, z0, tx + 3, 44, z0 + 3, OR);
-    fill(v, tx, 24, 1, tx + 3, 27, 8, OR);               // lower portal strut
-    fill(v, tx, 35, 1, tx + 3, 38, 8, OR);               // upper portal strut
-    fill(v, tx - 1, 43, 0, tx + 4, 45, 9, DK);           // cap band
-    // subtle shade course on the camera-side leg faces
-    fill(v, tx, 12, 6, tx + 3, 13, 9, DK);
+  /* parapets z0-1 / z12-13: base flush with the road top, then a post
+     rhythm and a floating top rail — knee-high, reads walkable */
+  for (const [z0, z1] of [[0, 1], [12, 13]]) {
+    fill(v, 0, DECK, z0, L, DECK + 2, z1, OR);           // base to road level
+    fill(v, 0, DECK + 4, z0, L, DECK + 4, z1, OR);       // top rail beam
+    for (let x = 0; x <= L; x += 6)
+      fill(v, x, DECK + 3, z0, x, DECK + 3, z1, DK);     // posts
   }
 
-  /* main cables (z 1 and 8): catenary mid-span, straight-ish side spans */
+  /* towers: slim legs OUTSIDE the road (z0-1 / z12-13), portal struts
+     high above head height (lowest at 3.75 wu −2.0 = 1.75 wu clearance
+     over the road — the 1.625 wu player walks under them clean) */
+  for (const tx of towers) {
+    for (const z0 of [0, 12]) fill(v, tx, 0, z0, tx + 3, 44, z0 + 1, OR);
+    fill(v, tx, 30, 1, tx + 3, 33, 12, OR);              // lower portal strut
+    fill(v, tx, 38, 1, tx + 3, 40, 12, OR);              // upper portal strut
+    fill(v, tx - 1, 43, 0, tx + 4, 45, 13, DK);          // cap band
+  }
+
+  /* main cables (z 0 and 13): catenary mid-span, straight-ish side spans */
   const t0 = towers[0] + 1.5, t1 = towers[1] + 1.5;      // tower centerlines
-  const TOP = 43, SAG = 19, ANCH = DECK + 4;
+  const TOP = 43, SAG = 21, ANCH = DECK + 5;
   const cableY = (x) => {
     if (x < t0) {                                        // left side span
-      const t = (x - 4) / (t0 - 4);
+      const t = (x - 2) / (t0 - 2);
       return ANCH + (TOP - ANCH) * t * t * 0.9 + (TOP - ANCH) * 0.1 * t;
     }
     if (x > t1) {                                        // right side span
-      const t = (L - 4 - x) / (L - 4 - t1);
+      const t = (L - 2 - x) / (L - 2 - t1);
       return ANCH + (TOP - ANCH) * t * t * 0.9 + (TOP - ANCH) * 0.1 * t;
     }
     const m = (t0 + t1) / 2;                             // main span parabola
     const k = (x - m) / (t1 - m);
     return SAG + (TOP - SAG) * k * k;
   };
-  for (let x = 4; x <= L - 4; x++) {
+  for (let x = 2; x <= L - 2; x++) {
     const y = Math.round(cableY(x));
-    for (const z of [1, 8]) {
+    for (const z of [0, 13]) {
       v.push([x, y, z, DK]);
       // keep the curve visually continuous on steep segments
       const yn = Math.round(cableY(x + 1));
@@ -91,27 +100,31 @@ function makeGoldenGate() {
     }
     // suspenders every 8 vox on the main span
     if (x > t0 + 4 && x < t1 - 4 && x % 8 === 0)
-      for (const z of [1, 8])
-        for (let yy = DECK + 4; yy < y; yy++) v.push([x, yy, z, DK]);
+      for (const z of [0, 13])
+        for (let yy = DECK + 5; yy < y; yy++) v.push([x, yy, z, DK]);
   }
 
   return v;
 }
 
 /* ------------------------------------------------------------------ *
- *  MOUND ISLETS — round green mounds with a flat top and a sand/rock  *
- *  waterline skirt. y0 = sea surface.                                 *
- *  namsan_hill: r 22 vox (2.75 wu), h 14 — carries the tower GLB.     *
- *  sf_islet:    r 15 vox (1.9 wu), h 11 — the Golden Gate's far end.  *
+ *  MOUND ISLETS — green mounds with a sand/rock waterline skirt.      *
+ *  y0 = sea surface.                                                  *
+ *  namsan_hill: dome, r 22 vox (2.75 wu), h 14 — carries the tower.   *
+ *  sf_islet: WALKABLE plateau (2026-07-11 Demo Lab island): height 16 *
+ *  vox = 2.0 wu, so placed at y −2.0 its flat top sits EXACTLY at     *
+ *  y 0 — the player steps off the Golden Gate onto it flush.          *
  * ------------------------------------------------------------------ */
-function makeMound(R, H, topR) {
+function makeMound(R, H, topR, plateau) {
   const GRASS = 0, GRASS_DK = 1, ROCK = 2, SAND = 3;
   const v = [];
   const C = R + 0.5;
   for (let y = 0; y <= H; y++) {
-    // cosine shoulder: wide base, gentle dome, flat-ish top
     const t = y / H;
-    const r = y === H ? topR : R * Math.sqrt(1 - t * t * 0.92);
+    // dome: cosine shoulder; plateau: gentle frustum taper to a WIDE top
+    const r = plateau
+      ? (R - (R - topR) * Math.pow(t, 1.3))
+      : (y === H ? topR : R * Math.sqrt(1 - t * t * 0.92));
     for (let x = Math.floor(C - r); x <= Math.ceil(C + r); x++)
       for (let z = Math.floor(C - r); z <= Math.ceil(C + r); z++) {
         const dx = x + 0.5 - C, dz = z + 0.5 - C;
@@ -119,6 +132,7 @@ function makeMound(R, H, topR) {
         const edge = dx * dx + dz * dz > (r - 1.6) * (r - 1.6);
         let pi = GRASS;
         if (y <= 1) pi = edge ? SAND : ROCK;             // waterline skirt
+        else if (plateau && y < H && edge) pi = ROCK;    // carved cliff side
         else if (edge && ((x * 7 + z * 13 + y * 3) % 11) < 3) pi = GRASS_DK;
         v.push([x, y, z, pi]);
       }
@@ -154,9 +168,9 @@ export default {
   },
 
   sf_islet: {
-    size: [32, 12, 32],
+    size: [66, 17, 66],
     palette: MOUND_PALETTE,
-    voxels: dedupe(makeMound(15, 11, 6)),
+    voxels: dedupe(makeMound(32, 16, 24, true)),
     jitter: true, chamfer: 0.3, sunRim: true, seed: 17
   }
 };

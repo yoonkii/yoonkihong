@@ -10,7 +10,8 @@ import * as THREE from 'three';
 import { buildGeometry } from './voxel/voxel.js';
 import {
   REDUCED, buildMap, tileAt, clamp, CAM,
-  NPC_POS, SECRET_POS, FOUNTAIN, MAP_W, MAP_H, SUN, HEMI
+  NPC_POS, SECRET_POS, FOUNTAIN, MAP_W, MAP_H, SUN, HEMI,
+  WALKWAYS, BRIDGE_RAILS
 } from './game3d/const.js';
 import { createSkyDome, createLights, createClouds } from './game3d/sky.js';
 import { buildGround, buildWater } from './game3d/ground.js';
@@ -227,6 +228,11 @@ async function boot() {
   /* ---- world + colliders --------------------------------------------------- */
   const projects = window.PROJECTS || [];
   const colliders = createColliders(tiles);
+  // Golden Gate crossing (2026-07-11): open the water tiles under the road
+  // and on the demo islet, then rail the deck edges so the player stays on
+  // the 1.25-wu roadway over the strait
+  for (const w of WALKWAYS) colliders.addWalkable(w.x0, w.z0, w.x1, w.z1);
+  for (const r of BRIDGE_RAILS) colliders.addAABB(r.x0, r.z0, r.x1, r.z1);
   const world = buildWorld(scene, tiles, projects, colliders, uTime, glb);
 
   bumpLoad(76, 'LOADING... FRIENDS');
@@ -545,21 +551,23 @@ async function boot() {
   ];
   function labScript() {
     return {
-      intro: 'Welcome to the DEMO LAB — the fenced yard where Yoonki\'s experiments '
-        + (world.hasDemos ? 'live' : 'will live') + ' before they grow into real products.',
+      intro: 'DEMO ISLAND — Yoonki is cooking demos... stay tuned!',
       menu: [
         { label: 'MORE', pages: world.hasDemos
           ? ['Step up to any stall and interact to try a demo.']
-          : ['The stalls are empty right now... but the crates keep arriving. Experiments are brewing — check back soon!'] },
+          : ['You crossed the Golden Gate for this? Respect. The kitchen is '
+            + 'hot and experiments are simmering — fresh demos will be '
+            + 'plated on this island soon.'] },
         { label: 'BACK', close: true }
       ]
     };
   }
   const WIP_SCRIPT = {
-    intro: 'UNDER CONSTRUCTION.',
+    intro: 'Yoonki is cooking demos... stay tuned!',
     menu: [
       { label: 'MORE', pages: [
-        'New demos are being assembled in here. The pedestals are ready and waiting. Come back soon!'
+        'Something is bubbling on the stove. The pedestals are ready and '
+        + 'waiting for fresh demos. Come back soon!'
       ] },
       { label: 'BACK', close: true }
     ]
@@ -876,6 +884,7 @@ async function boot() {
   let introSkippedAt = -1;
   let worldStartAt = -1;                     // set when the intro hands over
   let movedSinceStart = false;               // first walk input arms interact
+  let demoIslandSeen = false;                // one-shot analytics latch
   // the visitor's first interact must be DELIBERATE: measured start-key
   // mashing spans 0.8-1.5s of extra Enter/Space/A presses — far past any
   // few-hundred-ms grace window. Arm on the first movement input (the
@@ -1024,6 +1033,12 @@ async function boot() {
       marker.visible = false;
       markerFor = null;
       updateHighlight(null, dt);
+    }
+
+    // one-time: crossed the Golden Gate to the demo island
+    if (!demoIslandSeen && player.pos.x < -6) {
+      demoIslandSeen = true;
+      if (window.ywTrack) ywTrack('demo_island_visited');
     }
 
     if (!inHouse) {
