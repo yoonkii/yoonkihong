@@ -379,7 +379,8 @@ export function buildWorld(scene, tiles, projects, colliders, uTime, glb = {}) {
     gunball: { w: 3.29, h: 1.15, d: 3.36 },      // open bowl arena
     funnify: { w: 3.28, h: 2.05, d: 2.83 },      // open-air game-show set
     lasthand: { w: 2.43, h: 2.875, d: 2.0 },     // noir RPS poker club
-    mathwings: { w: 2.29, h: 3.9, d: 2.06 },     // Wall St deco tower
+    mathstreet: { w: 2.97, h: 3.3, d: 2.36 },    // giant calculator building
+    mathwings: { w: 2.38, h: 3.7, d: 2.35 },     // sky math academy tower
     // hanok Go parlor — contract guide (no voxel fallback); refine to the
     // shipped GLB's measured bbox like gunball's if it lands off-guide
     gomokulike: { w: 2.5, h: 3.25, d: 2.0 }

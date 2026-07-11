@@ -68,11 +68,12 @@ export const TARGET_HEIGHTS = {
   // footprint within ~10% — colliders are sized from it, see pipeline doc)
   bld_about_house: 3.625,
   bld_macrodoc: 3.625,
-  bld_mathstreet: 3.875,
-  // 2026-07-11 재생성 4종 (테마 강조 리퀘스트): 높이는 새 bbox 비율에 맞춰
-  // 산출 — 풋프린트 계약은 world.js GLB_FOOTPRINT 참조.
-  // Wall St 아르데코 타워 (w/h .586, d/h .527) — mathstreet와 트윈 스카이라인
-  bld_mathwings: 3.9,
+  // 2026-07-11 밤 재재생성 (피드백: 월스트리트 은유가 안 읽힘 → 순수 수학
+  // 테마): mathstreet = 거대 계산기 빌딩 (w/h .901, d/h .714),
+  // mathwings = 하늘 수학 아카데미 타워 (w/h .643, d/h .634 — 날개 포함).
+  // 높이는 bbox 비율 역산 — 풋프린트 계약은 world.js GLB_FOOTPRINT.
+  bld_mathstreet: 3.3,
+  bld_mathwings: 3.7,
   // 야외 게임쇼 세트 (w/h 1.60, d/h 1.38) — 지붕 없는 무대, 낮고 넓다
   bld_funnify: 2.05,
   // 느와르 포커 클럽 (w/h .88, d/h .78)

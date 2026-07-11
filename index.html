@@ -23,8 +23,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles/main.css?v=20260711e">
-  <script defer src="scripts/analytics.js?v=20260711e"></script>
+  <link rel="stylesheet" href="styles/main.css?v=20260711f">
+  <script defer src="scripts/analytics.js?v=20260711f"></script>
   <!-- kick off the render-critical three.js fetches with the HTML instead of
        waiting for the game3d.js -> three -> core discovery waterfall -->
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js">
@@ -40,18 +40,18 @@
        MUST mirror game3d.js GLB_CRITICAL and carry the current ASSET_V token
        (crossorigin=anonymous matches GLTFLoader's fetch: cors/same-origin —
        without it the preload double-downloads). Update on every ASSET_V bump. -->
-  <link rel="preload" href="assets/3d/player.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_about_house.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_macrodoc.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_mathstreet.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_mathwings.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_funnify.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_lasthand.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_gunball.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/bld_gomokulike.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/tree_a.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/tree_b.glb?v=20260711e" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="assets/3d/fountain.glb?v=20260711e" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/player.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_about_house.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_macrodoc.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_mathstreet.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_mathwings.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_funnify.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_lasthand.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_gunball.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/bld_gomokulike.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/tree_a.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/tree_b.glb?v=20260711f" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/3d/fountain.glb?v=20260711f" as="fetch" crossorigin="anonymous">
   <script type="importmap">
   {
     "imports": {
@@ -194,7 +194,7 @@
 
   <!-- mutable JS entry points carry the same ?v= token as main.css so a
        cached HTML can never mix an old entry module with new assets -->
-  <script src="data/projects.js?v=20260711e"></script>
+  <script src="data/projects.js?v=20260711f"></script>
   <script>
     // Boot watchdog: if the module graph never arrives (ancient browser,
     // no importmap, CDN block), fall back to the friendly card.
@@ -206,6 +206,6 @@
       if (f) f.hidden = false;
     }, 15000);
   </script>
-  <script type="module" src="scripts/game3d.js?v=20260711e"></script>
+  <script type="module" src="scripts/game3d.js?v=20260711f"></script>
 </body>
 </html>
