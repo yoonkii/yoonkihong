@@ -25,7 +25,7 @@ export const REDUCED = (() => {
    with the styles/main.css ?v= token in index.html — bump BOTH whenever any
    asset is re-exported, so returning visitors never get a mixed old/new set
    (GitHub Pages caches assets for ~10 min, browsers heuristically longer). */
-export const ASSET_V = '20260711c';
+export const ASSET_V = '20260711d';
 
 /* ---- player locomotion -------------------------------------------------
    2026-07: top speed +30% (4.0 -> 5.2 wu/s); accel/decel damp rates x1.3
@@ -192,11 +192,15 @@ export const NURSERY_GAZEBO = { x: 20.5, z: 23.4, r: 1.05 };
 export const LANDMARKS = [
   { name: 'landmark_namsan', glb: true, x: 28.2, z: -0.9, y: -0.25, yaw: 0,
     hill: { model: 'namsan_hill', y: -1.95 } },
-  // WALKABLE since 2026-07-11: road top and islet plateau both land at
-  // exactly y 0 when placed at y −2.0 (see landmarks.js). z 14.0 centers
-  // the 1.25-wu road on the tile-13/14 seam; islet at (−10.5, 13.5) puts
-  // every walkable tile center within its 3.0-wu plateau.
-  { name: 'landmark_goldengate', voxel: true, x: -3.55, z: 14.0, y: -2.0,
+  // WALKABLE since 2026-07-11: road top = 16 vox = 2.0 wu, so y −1.99
+  // parks the surface at +0.01 — a hair ABOVE the coast path and the
+  // islet grass it overlaps (both y 0). At exactly −2.0 the coplanar
+  // surfaces z-fought where the deck runs over land (the shimmering
+  // bridgehead tile, user report). 0.01 is invisible to the eye and to
+  // the y0-walking player, and stays under the 0.02 blob shadows.
+  // z 14.0 centers the 1.25-wu road on the tile-13/14 seam; islet at
+  // (−10.5, 13.5) puts every walkable tile center within its plateau.
+  { name: 'landmark_goldengate', voxel: true, x: -3.55, z: 14.0, y: -1.99,
     yaw: 0 },
   { name: 'sf_islet', voxel: true, x: -10.5, z: 13.5, y: -2.0, yaw: 0 }
 ];
