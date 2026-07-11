@@ -93,8 +93,9 @@ function initScrub() {
     ctx.drawImage(im, (cw - w) / 2, (ch - h) / 2, w, h);
   }
 
-  // text beat windows in scroll-progress space
-  const WINDOWS = [[0.035, 0.20], [0.25, 0.43], [0.47, 0.645]];
+  // text beat windows in scroll-progress space, aligned to the film:
+  // frames 0-36 Seoul, 37-55 the morph (wordless — let it play), 56+ SF
+  const WINDOWS = [[0.03, 0.15], [0.165, 0.26], [0.40, 0.56]];
   function beatAlpha(p, [a, b]) {
     const fade = 0.05;
     if (p < a || p > b) return 0;
@@ -112,11 +113,12 @@ function initScrub() {
         : clamp((scrollY - hero.offsetTop) / max, 0, 1);
       target = Math.round(clamp(p / SCRUB_END, 0, 1) * (FRAMES - 1));
       draw();
+      let maxA = 0;
       beats.forEach((el, bi) => {
         const a = beatAlpha(p, WINDOWS[bi]);
-        el.style.opacity = a;
-        el.style.transform = `translate(-50%, ${(1 - a) * 14}px)`;
-        // highlighter bar sweeps open with the beat, closes on the way out
+        maxA = Math.max(maxA, a);
+        el.style.opacity = Math.min(1, a * 1.6);
+        // the line rises out of its own clip box as the beat plays
         el.querySelector('.mk').style.setProperty('--r', (a * 100) + '%');
       });
       const lk = clamp((p - 0.70) / 0.10, 0, 1);
@@ -132,6 +134,9 @@ function initScrub() {
       const tail = clamp((lk - 0.75) / 0.25, 0, 1);
       lockin.querySelector('.hero-quiet').style.opacity = tail;
       lockin.querySelector('.hero-cta').style.opacity = tail;
+      // bottom scrim carries whichever type is on screen
+      document.getElementById('hero-scrim').style.opacity =
+        Math.max(maxA, lk) * 0.9;
       hint.style.opacity = p < 0.02 ? 1 : 0;
     });
   }

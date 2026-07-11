@@ -37,31 +37,97 @@ export function initCapsules() {
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const N = items.length;
   const SPACING = 2.05;
+  const texLoader = new THREE.TextureLoader();
+  // shared glass-gloss dab (radial white fade) — sells the "toy glass" read
+  const glossTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const rg = g.createRadialGradient(56, 52, 6, 64, 64, 62);
+    rg.addColorStop(0, 'rgba(255,255,255,1)');
+    rg.addColorStop(0.3, 'rgba(255,255,255,0.85)');
+    rg.addColorStop(0.55, 'rgba(255,255,255,0.15)');
+    rg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = rg;
+    g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  })();
   const capsules = items.map((p, i) => makeCapsule(p, i));
   capsules.forEach((c) => scene.add(c.group, c.line));
+  canvas.__caps = capsules;                      // dev handle for the pane
+
+  // wooden gacha rail the whole row hangs from
+  {
+    const railLen = (N - 1) * SPACING + 1.7;
+    const wood = new THREE.MeshStandardMaterial({ color: '#A9793F', roughness: 0.62 });
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, railLen, 18), wood);
+    rail.rotation.z = Math.PI / 2;
+    rail.position.set(0, 3.4, 0);
+    scene.add(rail);
+    const knobMat = new THREE.MeshStandardMaterial({ color: '#8A6332', roughness: 0.55 });
+    capsules.forEach((c) => {
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 12), knobMat);
+      knob.position.copy(c.pivot);
+      scene.add(knob);
+    });
+    const capGeo = new THREE.SphereGeometry(0.11, 14, 12);
+    [-railLen / 2, railLen / 2].forEach((x) => {
+      const end = new THREE.Mesh(capGeo, knobMat);
+      end.position.set(x, 3.4, 0);
+      scene.add(end);
+    });
+  }
 
   function makeCapsule(p, i) {
     const isSoon = p.kind === 'egg';
     const col = new THREE.Color(CAPSULE_COLORS[p.id] || '#CFCBC2');
     const group = new THREE.Group();
     const R = 0.62;
-    const matTop = new THREE.MeshStandardMaterial({
-      color: col, roughness: 0.28, metalness: 0,
-      transparent: isSoon, opacity: isSoon ? 0.55 : 1
+    // gacha-glass shells: translucent so the creature INSIDE reads through
+    const matTop = new THREE.MeshPhysicalMaterial({
+      color: col, roughness: 0.18, metalness: 0,
+      transparent: true, opacity: isSoon ? 0.34 : 0.44,
+      depthWrite: false
     });
-    const matBot = new THREE.MeshStandardMaterial({
-      color: '#F6EFE2', roughness: 0.35,
-      transparent: isSoon, opacity: isSoon ? 0.55 : 1
+    const matBot = new THREE.MeshPhysicalMaterial({
+      color: '#FBF6EA', roughness: 0.2,
+      transparent: true, opacity: isSoon ? 0.26 : 0.32,
+      depthWrite: false
     });
     const top = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), matTop);
     const bot = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), matBot);
-    const seam = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.005, R * 1.005, 0.075, 40),
-      new THREE.MeshStandardMaterial({ color: '#C9A25A', roughness: 0.3, metalness: 0.35,
-        transparent: isSoon, opacity: isSoon ? 0.6 : 1 }));
-    const loop = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.028, 10, 18),
-      seam.material);
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: '#E3BC72', roughness: 0.28, metalness: 0.4,
+      emissive: '#5A431C', emissiveIntensity: 0.35,
+      transparent: isSoon, opacity: isSoon ? 0.6 : 1
+    });
+    const seam = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.005, R * 1.005, 0.07, 40), goldMat);
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.028, 10, 18), goldMat);
     loop.position.y = R + 0.06;
-    group.add(top, bot, seam, loop);
+    // the resident: project creature floating inside the glass
+    const spriteUrl = p.sprite || ('images/game/creatures/' + (isSoon ? 'egg' : p.id) + '.png');
+    const stex = texLoader.load(spriteUrl, undefined, undefined, () => {
+      const egg = texLoader.load('images/game/creatures/egg.png');
+      egg.colorSpace = THREE.SRGBColorSpace;
+      resident.material.map = egg;
+      resident.material.needsUpdate = true;
+    });
+    stex.colorSpace = THREE.SRGBColorSpace;
+    const resident = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: stex, transparent: true, opacity: isSoon ? 0.55 : 1, depthWrite: false
+    }));
+    resident.scale.setScalar(0.78);
+    resident.position.y = -0.03;
+    resident.renderOrder = 1;
+    [top, bot].forEach((m) => { m.renderOrder = 2; });
+    seam.renderOrder = 3;
+    const gloss = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glossTex, transparent: true, opacity: 0.9, depthWrite: false
+    }));
+    gloss.scale.setScalar(0.3);
+    gloss.position.set(-0.22, 0.26, 0.56);
+    gloss.renderOrder = 4;
+    group.add(resident, top, bot, seam, loop, gloss);
 
     // pendulum state (verlet): pivot fixed, bob = capsule center
     const px = (i - (N - 1) / 2) * SPACING;
@@ -72,7 +138,7 @@ export function initCapsules() {
       new THREE.BufferGeometry().setFromPoints([pivot, bob]),
       new THREE.LineBasicMaterial({ color: 0x8A94A6, transparent: true, opacity: isSoon ? 0.4 : 0.8 }));
     return {
-      p, group, line, pivot, len, isSoon,
+      p, group, line, pivot, len, isSoon, shells: [top, bot],
       pos: bob.clone(), prev: bob.clone(), spin: 0, spinV: 0
     };
   }
@@ -138,7 +204,7 @@ export function initCapsules() {
   let hovered = null;
   function pick() {
     ray.setFromCamera(ptr, cam);
-    const meshes = capsules.map((c) => c.group.children[0]).concat(capsules.map((c) => c.group.children[1]));
+    const meshes = capsules.flatMap((c) => c.shells);
     const hit = ray.intersectObjects(meshes)[0];
     return hit ? capsules.find((k) => k.group === hit.object.parent) : null;
   }
@@ -179,7 +245,7 @@ export function initCapsules() {
 
   const G = new THREE.Vector3(0, -9.8, 0);
   const tmp = new THREE.Vector3();
-  const MAX_SWING = 0.42;          // rad from vertical — capsules sway, never orbit
+  const MAX_SWING = 0.3;           // rad from vertical — capsules sway, never orbit
   let last = performance.now();
   let t = 0;
   (function loop(now) {
@@ -198,7 +264,7 @@ export function initCapsules() {
 
     capsules.forEach((c, ci) => {
       // verlet integrate with firm damping
-      const v = c.pos.clone().sub(c.prev).multiplyScalar(0.965);
+      const v = c.pos.clone().sub(c.prev).multiplyScalar(0.958);
       c.prev.copy(c.pos);
       c.pos.add(v).addScaledVector(G, dt * dt);
       // idle breeze: barely-there life even with no cursor around
