@@ -149,7 +149,7 @@ const MOUND_PALETTE = [
 
 export default {
   landmark_goldengate: {
-    size: [100, 46, 10],
+    size: [100, 46, 14],
     palette: [
       '#E85A33',   // 0 international orange (albedo — sun keeps it vivid)
       '#C2401F',   // 1 orange shade / cables / anchor

@@ -6,3 +6,6 @@ node_modules/
 .gstack/
 assets/3d/concepts/
 assets/3d/*_old.glb
+
+# hero source sequences (web-ready versions live in assets/v2/hero2)
+assets/videos/
