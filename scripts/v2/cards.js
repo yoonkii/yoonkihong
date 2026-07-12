@@ -203,9 +203,10 @@ export function initCards() {
 
   const cards = items.map((p, i) => {
     const isSoon = p.kind === 'egg';
-    const faceMat = new THREE.MeshPhysicalMaterial({
-      map: makeFaceTexture(p, isSoon), roughness: 0.32, metalness: 0,
-      clearcoat: 0.45, clearcoatRoughness: 0.28, envMapIntensity: 0.2
+    // UNLIT face: the texture renders exactly as painted — no light rig
+    // can overexpose it (the glass look lives in the painted sheen)
+    const faceMat = new THREE.MeshBasicMaterial({
+      map: makeFaceTexture(p, isSoon)
     });
     const backMat = new THREE.MeshPhysicalMaterial({
       map: backTex, roughness: 0.35, metalness: 0,
@@ -242,7 +243,8 @@ export function initCards() {
   // the fan holds the stage for the first quarter of the scroll, then
   // hands over to the stack — arriving visitors always see the full deck
   const FAN_END = 0.24, TAIL = 0.06;
-  const STACK = { x: -2.1, gap: 1.78, z: 1.15, s: 1.2 };
+  // the presented card is BIG — it anchors the split screen
+  const STACK = { x: -1.95, gap: 2.0, z: 1.15, s: 1.38 };
   const smooth = (x) => x * x * (3 - 2 * x);
   const lerp = (a, b, t) => a + (b - a) * t;
   // continuous stack cursor: 0 = first card centered, N-1 = last
@@ -425,10 +427,10 @@ export function initCards() {
       const ar = Math.abs(rel);
       const focus = Math.max(0, 1 - ar);            // 1 at center, 0 past ±1
       const sx = STACK.x + ar * 0.06,
-            sy = -rel * STACK.gap + 0.14 + breathe * 0.6,
+            sy = -rel * STACK.gap + 0.3 + breathe * 0.6,
             sz = STACK.z - ar * 0.52 + L * 0.2,
             srz = rel * -0.03,
-            ss = lerp(0.82, STACK.s, smooth(focus)) + L * 0.03;
+            ss = lerp(0.88, STACK.s, smooth(focus)) + L * 0.03;
       m.position.set(lerp(fx, sx, showPhase), lerp(fy, sy, showPhase), lerp(fz, sz, showPhase));
       m.rotation.z = lerp(frz, srz, showPhase);
       m.rotation.y = REDUCED ? 0
