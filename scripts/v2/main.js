@@ -74,7 +74,11 @@ function initScrub() {
   const ctx = canvas.getContext('2d');
   const idle = document.getElementById('hero-idle');
   const imgs = new Array(FRAMES).fill(null);
-  const url = (i) => `assets/v2/hero2/s${String(i).padStart(3, '0')}.webp`;
+  // phones get the 960px rung (~8.5MB) instead of the 1920px one (~21MB)
+  // — chosen once at init off the same breakpoint the CSS uses
+  const DIR = matchMedia('(max-width: 720px)').matches
+    ? 'assets/v2/hero2/m/' : 'assets/v2/hero2/';
+  const url = (i) => `${DIR}s${String(i).padStart(3, '0')}.webp`;
   let drawn = -1;
 
   // progressive fill: coarse pass first so scrubbing works within ~1s,
@@ -83,7 +87,9 @@ function initScrub() {
     if (imgs[i]) return then && then();
     const im = new Image();
     im.decoding = 'async';
-    im.onload = () => { imgs[i] = im; draw(true); then && then(); };
+    // unforced: draw() skips when the nearest frame for the current
+    // target is already on the canvas — no 188-redraw flood during load
+    im.onload = () => { imgs[i] = im; draw(); then && then(); };
     im.src = url(i);
   }
   const passes = [8, 4, 2, 1];
@@ -243,6 +249,10 @@ function initScrub() {
   let typing = false, typeFrame = FRAMES - 1, typeDir = -1, typeT = 0;
   function typeLoop(now) {
     if (!typing) return;
+    if (scrollY >= hero.offsetHeight) {  // hero left the screen — sleep;
+      typing = false;                    // onScroll rearms on the way back
+      return;
+    }
     if (now - typeT > 115) {
       typeT = now;
       typeFrame += typeDir;
@@ -275,7 +285,7 @@ function initScrub() {
       if (!done) {
         typing = false;
         target = frameForT(tf);
-      } else if (!typing) {
+      } else if (!typing && scrollY < hero.offsetHeight) {
         typing = true;
         typeFrame = FRAMES - 1;
         typeDir = -1;
@@ -332,11 +342,12 @@ function initScrub() {
 function lazy(selector, loader, onFail) {
   const el = document.querySelector(selector);
   if (!el) return;
-  let done = false;
+  let done = false, poll = 0;
   const go = () => {
     if (done) return;
     done = true;
     io.disconnect();
+    clearInterval(poll);
     loader().catch((err) => {
       console.warn('[v2] section failed, fallback on:', err);
       onFail && onFail();      // import failure (CDN down) must still
@@ -346,10 +357,13 @@ function lazy(selector, loader, onFail) {
     if (es.some((e) => e.isIntersecting)) go();
   }, { rootMargin: '600px' });
   io.observe(el);
-  // safety nets: IO dispatch can lag in throttled/background tabs — load on
-  // first scroll intent or after idle anyway (still after first paint)
-  addEventListener('scroll', go, { once: true, passive: true });
-  setTimeout(go, 3500);
+  // safety net for throttled tabs where IO dispatch lags: a light poll
+  // that loads only when the section is genuinely CLOSE — the old
+  // load-on-first-scroll net used to boot both 3D sections right at the
+  // top of the hero, stealing bandwidth from the film
+  poll = setInterval(() => {
+    if (el.getBoundingClientRect().top < innerHeight + 900) go();
+  }, 2000);
 }
 // the DOM fallback for products lives HERE (not in cards.js) so it still
 // works when the three.js import itself fails; cards.js also calls it

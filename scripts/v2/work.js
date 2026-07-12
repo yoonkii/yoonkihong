@@ -160,16 +160,24 @@ export function initWork() {
   fit();
 
   const clock = new THREE.Clock();
-  let visible = true;
-  new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); },
-    { rootMargin: '100px' }).observe(canvas);
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // sleep while offscreen — the observer wakes the loop back up
+  let visible = true, rafOn = false;
+  function startLoop() {
+    if (!rafOn) { rafOn = true; requestAnimationFrame(loop); }
+  }
+  new IntersectionObserver((es) => {
+    visible = es.some((e) => e.isIntersecting);
+    if (visible) startLoop();
+  }, { rootMargin: '100px' }).observe(canvas);
 
-  (function loop() {
+  function loop() {
+    if (!visible) { rafOn = false; return; }
     requestAnimationFrame(loop);
-    if (!visible) return;
     const t = clock.getElapsedTime();
-    ray.setFromCamera(ptr, cam);
-    const hit = ray.intersectObjects(tiles)[0];
+    // no raycast until the pointer has actually entered the canvas
+    const hit = ptr.x > -2
+      ? (ray.setFromCamera(ptr, cam), ray.intersectObjects(tiles)[0]) : null;
     const hi = hit ? hit.object.userData.i : -1;
     if (hi !== hover) {
       hover = hi;
@@ -181,13 +189,16 @@ export function initWork() {
       const want = i === hover ? 1 : 0;
       m.userData.lift += (want - m.userData.lift) * 0.14;
       const L = m.userData.lift;
-      m.position.y = m.userData.base.y + Math.sin(t * 1.1 + i * 1.9) * 0.07 + L * 0.34;
-      m.rotation.x = Math.sin(t * 0.9 + i) * 0.045 - L * 0.1;
-      m.rotation.y = Math.sin(t * 0.7 + i * 2.4) * 0.06 + L * 0.16;
+      // reduced motion: no idle bobbing — tiles move only on hover
+      const bob = REDUCED ? 0 : Math.sin(t * 1.1 + i * 1.9) * 0.07;
+      m.position.y = m.userData.base.y + bob + L * 0.34;
+      m.rotation.x = (REDUCED ? 0 : Math.sin(t * 0.9 + i) * 0.045) - L * 0.1;
+      m.rotation.y = (REDUCED ? 0 : Math.sin(t * 0.7 + i * 2.4) * 0.06) + L * 0.16;
       m.scale.setScalar(1 + L * 0.06);
     });
     shelf.rotation.y = ptr.x > -2 ? ptr.x * 0.05 : 0;
     shelf.rotation.x = ptr.y > -2 ? -ptr.y * 0.03 : 0;
     renderer.render(scene, cam);
-  })();
+  }
+  startLoop();
 }

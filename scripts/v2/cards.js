@@ -8,7 +8,6 @@
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const CARD_COLORS = {
   macrodoc: '#7FD4D9', mathstreet: '#F7D75E', mathwings: '#8FB7F0',
@@ -149,40 +148,15 @@ function wrapText(g, text, x, y, maxW, lh, maxLines) {
   lines.forEach((ln, li) => g.fillText(ln, x, y + li * lh, maxW));
 }
 
-function makeBackTexture() {
-  const c = document.createElement('canvas');
-  c.width = CW; c.height = CH;
-  const g = c.getContext('2d');
-  g.fillStyle = '#242933';
-  g.fillRect(0, 0, CW, CH);
-  // double gold keyline
-  [[14, 2.5], [26, 1.5]].forEach(([inset, w]) => {
-    roundedPath(g, inset, inset, CW - inset * 2, CH - inset * 2, RAD - inset * 0.6);
-    g.strokeStyle = 'rgba(232,192,112,0.85)';
-    g.lineWidth = w;
-    g.stroke();
-  });
-  // monogram
-  g.fillStyle = '#E8C070';
-  g.font = '900 210px Geist, sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('Y', CW / 2, CH / 2 - 24);
-  g.font = '600 19px "Geist Mono", monospace';
-  g.fillStyle = 'rgba(232,192,112,0.7)';
-  g.fillText('Y O O N K I . W O R L D', CW / 2, CH - 78);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  return tex;
-}
-
 export function initCards(domFallback) {
   const DBG_SP_RAW = new URLSearchParams(location.search).get('sp');
   const DBG_SP_NUM = DBG_SP_RAW !== null ? parseFloat(DBG_SP_RAW) : NaN;
   const DBG_SP = Number.isFinite(DBG_SP_NUM) ? DBG_SP_NUM : null;
   const canvas = document.getElementById('capsule-canvas');
   const projects = (window.PROJECTS || []);
-  const live = projects.filter((p) => p.kind !== 'egg');
+  // 'x' is a social link, not a product — excluded from this page even
+  // if it is ever promoted from egg to creature in data/projects.js
+  const live = projects.filter((p) => p.kind !== 'egg' && p.id !== 'x');
   const soon = projects.filter((p) => p.kind === 'egg' && p.id !== 'x');
   const items = [...live, ...soon];
 
@@ -200,9 +174,6 @@ export function initCards(domFallback) {
 
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
-  // studio env gives the glass slabs their moving reflections
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.add(new THREE.HemisphereLight(0xffffff, 0xDCE6F0, 0.95));
   const key = new THREE.DirectionalLight(0xFFF3E0, 0.5);
   key.position.set(-3, 5, 8);
@@ -211,10 +182,9 @@ export function initCards(domFallback) {
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const N = items.length;
   const CTR = (N - 1) / 2;
-  const backTex = makeBackTexture();
-  const edgeMat = new THREE.MeshPhysicalMaterial({
-    color: '#F4F7FB', roughness: 0.3, clearcoat: 0.5, envMapIntensity: 0.35
-  });
+  // the cards never turn far enough to show their backs (max ~7° of
+  // sway), so edges and back share one simple lit material
+  const edgeMat = new THREE.MeshStandardMaterial({ color: '#F4F7FB', roughness: 0.45 });
   const fan = new THREE.Group();
   scene.add(fan);
 
@@ -225,13 +195,9 @@ export function initCards(domFallback) {
     const faceMat = new THREE.MeshBasicMaterial({
       map: makeFaceTexture(p, isSoon)
     });
-    const backMat = new THREE.MeshPhysicalMaterial({
-      map: backTex, roughness: 0.35, metalness: 0,
-      clearcoat: 0.5, clearcoatRoughness: 0.25, envMapIntensity: 0.35
-    });
     // a thin glass slab: the fat corner radius does the "liquid" silhouette
     const geo = new RoundedBoxGeometry(1.5, 2.1, 0.04, 5, 0.12);
-    const m = new THREE.Mesh(geo, [edgeMat, edgeMat, edgeMat, edgeMat, faceMat, backMat]);
+    const m = new THREE.Mesh(geo, [edgeMat, edgeMat, edgeMat, edgeMat, faceMat, edgeMat]);
     const k = i - CTR;
     const home = {
       x: k * 0.58,
@@ -261,7 +227,7 @@ export function initCards(domFallback) {
   // hands over to the stack — arriving visitors always see the full deck
   const FAN_END = 0.24, TAIL = 0.06;
   // the presented card is BIG — it anchors the split screen
-  const STACK = { x: -1.95, gap: 2.0, z: 1.15, s: 1.38 };
+  const STACK = { x: -2.1, gap: 2.0, z: 1.15, s: 1.38 };   // x re-set per aspect in fit()
   const smooth = (x) => x * x * (3 - 2 * x);
   const lerp = (a, b, t) => a + (b - a) * t;
   // continuous stack cursor: 0 = first card centered, N-1 = last
@@ -296,6 +262,23 @@ export function initCards(domFallback) {
   let stackMode = false;
   let lastStaged = null;
   let lastJFrac = 0;
+  // DOM writes are cached — the loop runs at 60fps but the panel only
+  // needs touching when its values actually move
+  let lastOp = -1, lastDy = 1e9;
+  function setPanel(op, dy) {
+    op = Math.round(op * 200) / 200;
+    dy = Math.round(dy * 2) / 2;
+    if (op !== lastOp) {
+      lastOp = op;
+      info.style.opacity = op;
+      info.classList.toggle('live', op > 0.5);
+      info.inert = op <= 0.5;
+    }
+    if (dy !== lastDy) {
+      lastDy = dy;
+      info.style.setProperty('--dy', dy + 'px');
+    }
+  }
   function setInfo(j) {
     infoJ = j;
     dots.forEach((d, di) => d.classList.toggle('on', di === j));
@@ -401,14 +384,21 @@ export function initCards(domFallback) {
   addEventListener('resize', fit);
   fit();
 
-  let visible = true;
-  new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); },
-    { rootMargin: '100px' }).observe(canvas);
+  // the render loop SLEEPS while the section is offscreen — the observer
+  // wakes it, and the loop stops rescheduling itself when hidden
+  let visible = true, rafOn = false;
+  function startLoop() {
+    if (!rafOn) { rafOn = true; requestAnimationFrame(loop); }
+  }
+  new IntersectionObserver((es) => {
+    visible = es.some((e) => e.isIntersecting);
+    if (visible) startLoop();
+  }, { rootMargin: '100px' }).observe(canvas);
 
   const clock = new THREE.Clock();
-  (function loop() {
+  function loop() {
+    if (!visible) { rafOn = false; return; }
     requestAnimationFrame(loop);
-    if (!visible) return;
     const t = clock.getElapsedTime();
 
     // pick — topmost hit wins (raycaster sorts by distance)
@@ -427,9 +417,12 @@ export function initCards(domFallback) {
       : Math.min(1, Math.max(0, (scrollY - section.offsetTop) / total));
 
     // fan -> split-screen blend, then the stack cursor takes over.
-    // The blend starts halfway into the fan's held stretch, so the deck
-    // sits centered for a beat before it begins to move
-    const showPhase = smooth(Math.min(1, Math.max(0, (P - 0.12) / (FAN_END - 0.13))));
+    // The blend starts halfway into the fan's held stretch and completes
+    // just before the stack cursor starts moving at FAN_END — derived,
+    // so retuning FAN_END can't break the invariant (or divide by zero)
+    const blendStart = FAN_END * 0.5;
+    const showPhase = smooth(Math.min(1, Math.max(0,
+      (P - blendStart) / Math.max(0.02, FAN_END - 0.01 - blendStart))));
     const jFrac = jFracOf(P);
     lastJFrac = jFrac;
     stackMode = showPhase > 0.5;
@@ -485,13 +478,9 @@ export function initCards(domFallback) {
         if (j !== infoJ) setInfo(j);
         const between = Math.abs(jFrac - j);         // 0 centered .. 0.5 mid-swap
         const op = showPhase * (1 - smooth(Math.min(1, Math.max(0, (between - 0.14) / 0.3))));
-        info.style.opacity = op;
-        if ((op > 0.5) !== !info.inert) info.inert = op <= 0.5;
-        info.style.setProperty('--dy', ((jFrac - j) * -34) + 'px');
-        info.classList.toggle('live', op > 0.5);
+        setPanel(op, (jFrac - j) * -34);
       } else {
-        info.style.opacity = 0;
-        info.classList.remove('live');
+        setPanel(0, 0);
       }
     }
 
@@ -502,6 +491,6 @@ export function initCards(domFallback) {
     fan.rotation.x += (-ty * 0.035 - fan.rotation.x) * 0.06;
 
     renderer.render(scene, cam);
-  })();
-
+  }
+  startLoop();
 }
