@@ -102,11 +102,20 @@
 
   <!-- ============ SECTION 4 — PRODUCTS (hanging capsules) ================ -->
   <section class="products" id="products" aria-labelledby="products-h">
-    <h2 id="products-h" class="sec-h"><span class="sec-kicker">Products</span>Pick a card</h2>
-    <p class="products-hint">Every card is a real, live thing I built — hover to pull one from the fan, click for the full story.</p>
-    <div class="capsule-stage">
-      <canvas id="capsule-canvas" aria-hidden="true"></canvas>
-      <ul class="capsule-fallback" id="capsule-fallback" hidden></ul>
+    <div class="products-sticky">
+      <h2 id="products-h" class="sec-h"><span class="sec-kicker">Products</span>Pick a card</h2>
+      <p class="products-hint">Every card is a real, live thing I built — hover to pull one from the fan, click for the full story, or just keep scrolling.</p>
+      <div class="capsule-stage">
+        <canvas id="capsule-canvas" aria-hidden="true"></canvas>
+        <ul class="capsule-fallback" id="capsule-fallback" hidden></ul>
+      </div>
+      <aside class="show-info" id="show-info" aria-hidden="true">
+        <p class="si-idx" id="si-idx"></p>
+        <h3 id="si-name"></h3>
+        <p class="si-tag" id="si-tag"></p>
+        <p class="si-desc" id="si-desc"></p>
+        <a class="si-visit" id="si-visit" target="_blank" rel="noopener">VISIT THE LIVE PROJECT &rarr;</a>
+      </aside>
     </div>
     <div class="card-veil" id="card-veil" hidden></div>
     <div class="capsule-card" id="capsule-card" hidden>

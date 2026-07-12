@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const CARD_COLORS = {
   macrodoc: '#7FD4D9', mathstreet: '#F7D75E', mathwings: '#8FB7F0',
@@ -15,7 +16,7 @@ const CARD_COLORS = {
   gomokulike: '#8FD05C', suno: '#F5A8C0', substack: '#C9B79C'
 };
 
-const CW = 512, CH = 716, RAD = 30;    // face texture space
+const CW = 512, CH = 716, RAD = 40;    // face texture space
 
 function roundedPath(g, x, y, w, h, r) {
   g.beginPath();
@@ -28,27 +29,44 @@ function makeFaceTexture(p, isSoon, onReady) {
   const g = c.getContext('2d');
   const col = CARD_COLORS[p.id] || '#CFCBC2';
 
+  function blob(x, y, r, alpha) {
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, colA(col, alpha));
+    rg.addColorStop(1, colA(col, 0));
+    g.fillStyle = rg;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
   function paint(sprite) {
-    // paper body (full bleed — the 3D geometry rounds the corners)
-    g.fillStyle = '#FDFAF2';
+    // liquid-glass slab: cool white glass with soft blobs of the project
+    // color floating in it — no hard bands, light does the structure
+    const base = g.createLinearGradient(0, 0, 0, CH);
+    base.addColorStop(0, '#FFFFFF');
+    base.addColorStop(0.5, '#F7FAFE');
+    base.addColorStop(1, '#EFF3FA');
+    g.fillStyle = base;
     g.fillRect(0, 0, CW, CH);
-    // header band in the project color (soft vertical ramp)
-    const ramp = g.createLinearGradient(0, 0, 0, 340);
-    ramp.addColorStop(0, col);
-    ramp.addColorStop(1, shade(col, -14));
-    g.fillStyle = ramp;
-    g.fillRect(0, 0, CW, 330);
-    // faint dot grid on the band — collectible-card texture
-    g.fillStyle = 'rgba(255,255,255,0.16)';
-    for (let y = 26; y < 320; y += 34)
-      for (let x = 22 + (y % 68 ? 17 : 0); x < CW; x += 34)
-        g.fillRect(x, y, 3, 3);
-    // creature, big and centered on the band
+    // the project color suffuses the glass, densest at the top
+    const tint = g.createLinearGradient(0, 0, 0, CH);
+    tint.addColorStop(0, colA(col, 0.5));
+    tint.addColorStop(0.5, colA(col, 0.16));
+    tint.addColorStop(1, colA(col, 0.06));
+    g.fillStyle = tint;
+    g.fillRect(0, 0, CW, CH);
+    blob(110, 150, 280, 0.8);
+    blob(430, 80, 220, 0.65);
+    blob(430, 640, 250, 0.35);
+    blob(60, 690, 180, 0.3);
+    // creature floats in the upper glass, resting on a soft shadow
     if (sprite) {
+      g.fillStyle = 'rgba(30,36,48,0.10)';
+      g.beginPath();
+      g.ellipse(CW / 2, 300, 92, 16, 0, 0, Math.PI * 2);
+      g.fill();
       g.imageSmoothingEnabled = false;             // keep the pixel art crisp
-      const S = 224;
-      if (isSoon) g.globalAlpha = 0.85;
-      g.drawImage(sprite, (CW - S) / 2, 62, S, S);
+      const S = 232;
+      if (isSoon) g.globalAlpha = 0.88;
+      g.drawImage(sprite, (CW - S) / 2, 66, S, S);
       g.globalAlpha = 1;
       g.imageSmoothingEnabled = true;
     }
@@ -56,22 +74,36 @@ function makeFaceTexture(p, isSoon, onReady) {
     g.fillStyle = '#22262E';
     g.font = '800 40px Geist, sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    g.fillText(p.name, CW / 2, 420, CW - 70);
+    g.fillText(p.name, CW / 2, 424, CW - 80);
     // tagline (wrap to two lines)
     g.font = '500 23px Geist, sans-serif';
     g.fillStyle = '#5D6470';
-    wrapText(g, p.tagline || '', CW / 2, 466, CW - 90, 32, 2);
-    // divider + footer
-    g.strokeStyle = 'rgba(34,38,46,0.14)';
+    wrapText(g, p.tagline || '', CW / 2, 470, CW - 96, 32, 2);
+    // footer
+    g.strokeStyle = 'rgba(34,38,46,0.12)';
     g.lineWidth = 2;
-    g.beginPath(); g.moveTo(60, CH - 92); g.lineTo(CW - 60, CH - 92); g.stroke();
+    g.beginPath(); g.moveTo(64, CH - 96); g.lineTo(CW - 64, CH - 96); g.stroke();
     g.font = '600 20px "Geist Mono", monospace';
     g.fillStyle = isSoon ? '#9A948A' : '#E8552F';
-    g.fillText(isSoon ? 'H A T C H I N G   S O O N' : 'O P E N   P R O J E C T   ↗', CW / 2, CH - 48);
-    // card keyline
-    roundedPath(g, 7, 7, CW - 14, CH - 14, RAD - 5);
-    g.strokeStyle = 'rgba(34,38,46,0.18)';
-    g.lineWidth = 3;
+    g.fillText(isSoon ? 'H A T C H I N G   S O O N' : 'O P E N   P R O J E C T   ↗', CW / 2, CH - 50);
+    // glass optics: diagonal sheen sweeping the top + inner glow border
+    g.save();
+    roundedPath(g, 6, 6, CW - 12, CH - 12, RAD);
+    g.clip();
+    const sh = g.createLinearGradient(0, 0, CW, CH * 0.6);
+    sh.addColorStop(0, 'rgba(255,255,255,0.38)');
+    sh.addColorStop(0.28, 'rgba(255,255,255,0.1)');
+    sh.addColorStop(0.55, 'rgba(255,255,255,0)');
+    g.fillStyle = sh;
+    g.fillRect(0, 0, CW, CH);
+    g.restore();
+    roundedPath(g, 9, 9, CW - 18, CH - 18, RAD - 6);
+    g.strokeStyle = 'rgba(255,255,255,0.9)';
+    g.lineWidth = 3.5;
+    g.stroke();
+    roundedPath(g, 3, 3, CW - 6, CH - 6, RAD - 2);
+    g.strokeStyle = 'rgba(34,38,46,0.10)';
+    g.lineWidth = 2;
     g.stroke();
     tex.needsUpdate = true;
     onReady && onReady();
@@ -87,10 +119,9 @@ function makeFaceTexture(p, isSoon, onReady) {
   return tex;
 }
 
-function shade(hex, amt) {
+function colA(hex, alpha) {
   const n = parseInt(hex.slice(1), 16);
-  const f = (v) => Math.max(0, Math.min(255, v + amt));
-  return 'rgb(' + f(n >> 16) + ',' + f((n >> 8) & 255) + ',' + f(n & 255) + ')';
+  return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
 }
 
 function wrapText(g, text, x, y, maxW, lh, maxLines) {
@@ -135,6 +166,8 @@ function makeBackTexture() {
 }
 
 export function initCards() {
+  const DBG_SP_RAW = new URLSearchParams(location.search).get('sp');
+  const DBG_SP = DBG_SP_RAW !== null ? parseFloat(DBG_SP_RAW) : null;
   const canvas = document.getElementById('capsule-canvas');
   const projects = (window.PROJECTS || []);
   const live = projects.filter((p) => p.kind !== 'egg');
@@ -150,8 +183,11 @@ export function initCards() {
 
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xDCE6F0, 1.25));
-  const key = new THREE.DirectionalLight(0xFFF3E0, 1.0);
+  // studio env gives the glass slabs their moving reflections
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xDCE6F0, 0.75));
+  const key = new THREE.DirectionalLight(0xFFF3E0, 0.8);
   key.position.set(-3, 5, 8);
   scene.add(key);
 
@@ -159,26 +195,32 @@ export function initCards() {
   const N = items.length;
   const CTR = (N - 1) / 2;
   const backTex = makeBackTexture();
-  const edgeMat = new THREE.MeshStandardMaterial({ color: '#EDE5D4', roughness: 0.7 });
+  const edgeMat = new THREE.MeshPhysicalMaterial({
+    color: '#F4F7FB', roughness: 0.2, clearcoat: 1, envMapIntensity: 0.7
+  });
   const fan = new THREE.Group();
   scene.add(fan);
 
   const cards = items.map((p, i) => {
     const isSoon = p.kind === 'egg';
-    const faceMat = new THREE.MeshStandardMaterial({
-      map: makeFaceTexture(p, isSoon), roughness: 0.55, metalness: 0
+    const faceMat = new THREE.MeshPhysicalMaterial({
+      map: makeFaceTexture(p, isSoon), roughness: 0.22, metalness: 0,
+      clearcoat: 1, clearcoatRoughness: 0.16, envMapIntensity: 0.4
     });
-    const backMat = new THREE.MeshStandardMaterial({
-      map: backTex, roughness: 0.5, metalness: 0
+    const backMat = new THREE.MeshPhysicalMaterial({
+      map: backTex, roughness: 0.3, metalness: 0,
+      clearcoat: 1, clearcoatRoughness: 0.2, envMapIntensity: 0.6
     });
-    // a thin plate: rounded box gives soft edges that catch the light
-    const geo = new RoundedBoxGeometry(1.5, 2.1, 0.05, 4, 0.055);
+    // a thin glass slab: the fat corner radius does the "liquid" silhouette
+    const geo = new RoundedBoxGeometry(1.5, 2.1, 0.04, 5, 0.12);
     const m = new THREE.Mesh(geo, [edgeMat, edgeMat, edgeMat, edgeMat, faceMat, backMat]);
     const k = i - CTR;
     const home = {
       x: k * 0.58,
       y: -Math.pow(Math.abs(k), 1.4) * 0.055,
-      z: (N - 1 - i) * 0.015,      // leftmost on top: read the fan L -> R
+      // leftmost on top; the gap comfortably exceeds card thickness so
+      // settling cards can never interpenetrate a neighbor (z-flicker fix)
+      z: (N - 1 - i) * 0.06,
       rz: -k * 0.072
     };
     m.userData = { i, p, isSoon, home, lift: 0 };
@@ -187,6 +229,37 @@ export function initCards() {
     fan.add(m);
     return m;
   });
+
+  /* ---------------- scroll showcase ----------------
+     Past the fan, the section keeps scrolling: one by one each card
+     glides out of the fan to the left and presents itself while its
+     story fades in on the right, then slips away for the next. */
+  const section = document.querySelector('.products');
+  const SEG_VH = 55;
+  if (!REDUCED) section.style.height = `calc(100vh + ${N * SEG_VH}vh)`;
+  const FAN_END = 0.08, TAIL = 0.02;
+  const SEG = (1 - FAN_END - TAIL) / N;
+  const SHOW = { x: -1.9, y: 0.05, z: 1.6, rz: 0.015, s: 1.18 };
+  const GONE = { x: -2.5, y: -3.6, z: 1.4, rz: 0.22, s: 1.0 };
+  const smooth = (x) => x * x * (3 - 2 * x);
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  const info = document.getElementById('show-info');
+  const siIdx = document.getElementById('si-idx');
+  const siName = document.getElementById('si-name');
+  const siTag = document.getElementById('si-tag');
+  const siDesc = document.getElementById('si-desc');
+  const siVisit = document.getElementById('si-visit');
+  let infoJ = -1;
+  function setInfo(j) {
+    infoJ = j;
+    const p = items[j];
+    siIdx.textContent = String(j + 1).padStart(2, '0') + ' / ' + String(N).padStart(2, '0');
+    siName.textContent = p.name;
+    siTag.textContent = p.tagline || '';
+    siDesc.textContent = p.desc || '';
+    if (p.url) { siVisit.href = p.url; siVisit.hidden = false; } else siVisit.hidden = true;
+  }
 
   /* ---------------- detail modal ---------------- */
   const card = document.getElementById('capsule-card');
@@ -250,6 +323,10 @@ export function initCards() {
     const distH = 2.05 / Math.tan(cam.fov * Math.PI / 360);
     cam.position.set(0, 0.12, Math.max(distW, distH, 5.5));
     cam.lookAt(0, 0.02, 0);
+    // narrow viewports present the card centered above the info panel
+    SHOW.x = cam.aspect < 1.1 ? 0 : -1.9;
+    SHOW.y = cam.aspect < 1.1 ? 0.6 : 0.05;
+    GONE.x = SHOW.x - 0.6;
   }
   addEventListener('resize', fit);
   fit();
@@ -273,9 +350,23 @@ export function initCards() {
       canvas.style.cursor = hi >= 0 ? 'pointer' : '';
     }
 
+    // section scroll progress drives the showcase (?sp=0.4 pins it in dev)
+    const total = section.offsetHeight - innerHeight;
+    const P = DBG_SP !== null ? DBG_SP
+      : REDUCED || total <= 0 ? 0
+      : Math.min(1, Math.max(0, (scrollY - section.offsetTop) / total));
+
+    // once the showcase starts, the waiting deck settles low and small,
+    // clearing the stage for the presented card + its story panel
+    const showPhase = smooth(Math.min(1, Math.max(0, (P - 0.02) / 0.07)));
+
     cards.forEach((m, i) => {
       const u = m.userData;
-      const isH = i === hover ? 1 : 0;
+      const lk = Math.min(1, Math.max(0, (P - (FAN_END + i * SEG)) / SEG));
+      const eIn = smooth(Math.min(1, lk / 0.22));
+      const eOut = lk === 0 ? 0 : smooth(Math.max(0, (lk - 0.78) / 0.22));
+      // hover pop only while the card still sits in the fan
+      const isH = i === hover && lk === 0 ? 1 : 0;
       u.lift += (isH - u.lift) * 0.14;
       const L = u.lift;
       // neighbors politely make room for the popped card
@@ -286,15 +377,42 @@ export function initCards() {
       }
       u.part = (u.part || 0) + (part - (u.part || 0)) * 0.12;
       const breathe = REDUCED ? 0 : Math.sin(t * 1.1 + i * 1.7) * 0.012;
-      m.position.x = u.home.x + u.part;
-      m.position.y = u.home.y + breathe + L * 0.5;
-      m.position.z = u.home.z + L * 0.55;
-      m.rotation.z = u.home.rz * (1 - L * 0.65);
-      m.rotation.y = REDUCED ? 0 : Math.sin(t * 0.8 + i) * 0.02 * (1 - L);
+      // fan pose (with hover pop, receding while the showcase runs)
+      // -> showcase pose -> exit pose
+      const fx = u.home.x * (1 - showPhase * 0.16) + u.part,
+            fy = u.home.y - showPhase * 1.35 + breathe * (1 - eIn) + L * 0.5,
+            fz = u.home.z + L * 0.55, frz = u.home.rz * (1 - L * 0.65),
+            fs = 1 + L * 0.05 - showPhase * 0.22;
+      const sx = lerp(fx, SHOW.x, eIn), sy = lerp(fy, SHOW.y, eIn),
+            sz = lerp(fz, SHOW.z, eIn), srz = lerp(frz, SHOW.rz, eIn),
+            ss = lerp(fs, SHOW.s, eIn);
+      m.position.set(lerp(sx, GONE.x, eOut), lerp(sy, GONE.y, eOut), lerp(sz, GONE.z, eOut));
+      m.rotation.z = lerp(srz, GONE.rz, eOut);
+      m.rotation.y = REDUCED ? 0
+        : Math.sin(t * 0.8 + i) * 0.02 * (1 - L) * (1 - eIn)
+          + Math.sin(t * 0.9) * 0.05 * eIn * (1 - eOut);   // presentation sway
       m.rotation.x = -L * 0.05;
-      const s = 1 + L * 0.05;
+      const s = lerp(ss, GONE.s, eOut);
       m.scale.set(s, s, s);
     });
+
+    // the story panel follows the showcased card
+    {
+      const j = Math.min(N - 1, Math.max(0, Math.floor((P - FAN_END) / SEG)));
+      if (P > FAN_END) {
+        if (j !== infoJ) setInfo(j);
+        const lk = Math.min(1, Math.max(0, (P - (FAN_END + j * SEG)) / SEG));
+        const opIn = smooth(Math.min(1, Math.max(0, (lk - 0.07) / 0.18)));
+        const opOut = smooth(Math.min(1, Math.max(0, (lk - 0.8) / 0.18)));
+        const op = opIn * (1 - opOut);
+        info.style.opacity = op;
+        info.style.setProperty('--dy', ((1 - opIn) * 26 - opOut * 26) + 'px');
+        info.classList.toggle('live', op > 0.5);
+      } else {
+        info.style.opacity = 0;
+        info.classList.remove('live');
+      }
+    }
 
     // the whole fan leans with the pointer — held in a hand, not pinned
     const tx = ptr.x > -2 ? ptr.x : 0;
