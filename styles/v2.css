@@ -322,7 +322,7 @@ section { position: relative; }
   right: 7vw;
   top: 52%;
   transform: translateY(calc(-50% + var(--dy, 0px)));
-  width: min(440px, 42vw);
+  width: min(480px, 44vw);
   padding: 30px 32px;
   background: rgba(252, 250, 245, 0.72);
   backdrop-filter: blur(16px);
@@ -334,6 +334,18 @@ section { position: relative; }
   pointer-events: none;
   will-change: opacity, transform;
 }
+.show-info .si-shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 14px;
+  border: 1px solid rgba(34, 38, 46, 0.1);
+  background: #E9EDF4;
+  margin-bottom: 20px;
+}
+.show-info .si-shot[hidden] { display: none; }
 .show-info .si-idx {
   font-family: "Geist Mono", monospace;
   font-size: 12px;

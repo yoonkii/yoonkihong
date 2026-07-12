@@ -230,19 +230,23 @@ export function initCards() {
     return m;
   });
 
-  /* ---------------- scroll showcase ----------------
-     Past the fan, the section keeps scrolling: one by one each card
-     glides out of the fan to the left and presents itself while its
-     story fades in on the right, then slips away for the next. */
+  /* ---------------- scroll showcase: split-screen stack ----------------
+     Past the fan, the section pins and turns into a split screen: the
+     cards re-stack VERTICALLY on the left (active card centered, its
+     neighbors peeking above and below) while the active project's
+     detail — screenshot, story, live link — sits on the right. Scroll
+     walks the stack card by card; clicking a peeking card jumps to it. */
   const section = document.querySelector('.products');
   const SEG_VH = 55;
   if (!REDUCED) section.style.height = `calc(100vh + ${N * SEG_VH}vh)`;
-  const FAN_END = 0.08, TAIL = 0.02;
-  const SEG = (1 - FAN_END - TAIL) / N;
-  const SHOW = { x: -1.9, y: 0.05, z: 1.6, rz: 0.015, s: 1.18 };
-  const GONE = { x: -2.5, y: -3.6, z: 1.4, rz: 0.22, s: 1.0 };
+  const FAN_END = 0.1, TAIL = 0.06;
+  const STACK = { x: -2.1, gap: 1.62, z: 1.15, s: 1.14 };
   const smooth = (x) => x * x * (3 - 2 * x);
   const lerp = (a, b, t) => a + (b - a) * t;
+  // continuous stack cursor: 0 = first card centered, N-1 = last
+  const jFracOf = (P) =>
+    Math.min(N - 1, Math.max(0, (P - FAN_END) / (1 - FAN_END - TAIL) * (N - 1)));
+  const pOf = (j) => FAN_END + (N > 1 ? j / (N - 1) : 0) * (1 - FAN_END - TAIL);
 
   const info = document.getElementById('show-info');
   const siIdx = document.getElementById('si-idx');
@@ -250,7 +254,10 @@ export function initCards() {
   const siTag = document.getElementById('si-tag');
   const siDesc = document.getElementById('si-desc');
   const siVisit = document.getElementById('si-visit');
+  const siShot = document.getElementById('si-shot');
   let infoJ = -1;
+  let stackMode = false;
+  let lastJFrac = 0;
   function setInfo(j) {
     infoJ = j;
     const p = items[j];
@@ -259,6 +266,13 @@ export function initCards() {
     siTag.textContent = p.tagline || '';
     siDesc.textContent = p.desc || '';
     if (p.url) { siVisit.href = p.url; siVisit.hidden = false; } else siVisit.hidden = true;
+    if (p.kind === 'egg') {
+      siShot.hidden = true;
+    } else {
+      siShot.hidden = false;
+      siShot.src = 'images/v2/shots/' + p.id + '.webp';
+      siShot.onerror = () => { siShot.hidden = true; };
+    }
   }
 
   /* ---------------- detail modal ---------------- */
@@ -307,10 +321,15 @@ export function initCards() {
   });
   canvas.addEventListener('pointerleave', () => { ptr.set(-2, -2); hover = -1; });
   canvas.addEventListener('click', () => {
-    if (hover >= 0) {
-      const u = cards[hover].userData;
-      openCard(u.p, u.isSoon);
+    if (hover < 0) return;
+    // in stack mode a peeking card is navigation: scroll the stack to it
+    if (stackMode && Math.abs(hover - Math.round(lastJFrac)) >= 1) {
+      const total = section.offsetHeight - innerHeight;
+      window.scrollTo({ top: section.offsetTop + pOf(hover) * total, behavior: 'smooth' });
+      return;
     }
+    const u = cards[hover].userData;
+    openCard(u.p, u.isSoon);
   });
 
   function fit() {
@@ -323,10 +342,8 @@ export function initCards() {
     const distH = 2.05 / Math.tan(cam.fov * Math.PI / 360);
     cam.position.set(0, 0.12, Math.max(distW, distH, 5.5));
     cam.lookAt(0, 0.02, 0);
-    // narrow viewports present the card centered above the info panel
-    SHOW.x = cam.aspect < 1.1 ? 0 : -1.9;
-    SHOW.y = cam.aspect < 1.1 ? 0.6 : 0.05;
-    GONE.x = SHOW.x - 0.6;
+    // narrow viewports center the stack above the bottom info panel
+    STACK.x = cam.aspect < 1.1 ? 0 : -2.1;
   }
   addEventListener('resize', fit);
   fit();
@@ -356,57 +373,60 @@ export function initCards() {
       : REDUCED || total <= 0 ? 0
       : Math.min(1, Math.max(0, (scrollY - section.offsetTop) / total));
 
-    // once the showcase starts, the waiting deck settles low and small,
-    // clearing the stage for the presented card + its story panel
-    const showPhase = smooth(Math.min(1, Math.max(0, (P - 0.02) / 0.07)));
+    // fan -> split-screen blend, then the stack cursor takes over
+    const showPhase = smooth(Math.min(1, Math.max(0, (P - 0.015) / (FAN_END - 0.03))));
+    const jFrac = jFracOf(P);
+    lastJFrac = jFrac;
+    stackMode = showPhase > 0.5;
 
     cards.forEach((m, i) => {
       const u = m.userData;
-      const lk = Math.min(1, Math.max(0, (P - (FAN_END + i * SEG)) / SEG));
-      const eIn = smooth(Math.min(1, lk / 0.22));
-      const eOut = lk === 0 ? 0 : smooth(Math.max(0, (lk - 0.78) / 0.22));
-      // hover pop only while the card still sits in the fan
-      const isH = i === hover && lk === 0 ? 1 : 0;
+      // hover pop in the fan; a gentle nudge for peeking stack cards
+      const isH = i === hover ? (stackMode ? 0.3 : 1) : 0;
       u.lift += (isH - u.lift) * 0.14;
       const L = u.lift;
-      // neighbors politely make room for the popped card
+      // neighbors politely make room for the popped card (fan only)
       let part = 0;
-      if (hover >= 0 && i !== hover) {
+      if (hover >= 0 && i !== hover && !stackMode) {
         const d = i - hover;
         part = Math.sign(d) * Math.max(0, 0.16 - Math.abs(d) * 0.06);
       }
       u.part = (u.part || 0) + (part - (u.part || 0)) * 0.12;
       const breathe = REDUCED ? 0 : Math.sin(t * 1.1 + i * 1.7) * 0.012;
-      // fan pose (with hover pop, receding while the showcase runs)
-      // -> showcase pose -> exit pose
-      const fx = u.home.x * (1 - showPhase * 0.16) + u.part,
-            fy = u.home.y - showPhase * 1.35 + breathe * (1 - eIn) + L * 0.5,
-            fz = u.home.z + L * 0.55, frz = u.home.rz * (1 - L * 0.65),
-            fs = 1 + L * 0.05 - showPhase * 0.22;
-      const sx = lerp(fx, SHOW.x, eIn), sy = lerp(fy, SHOW.y, eIn),
-            sz = lerp(fz, SHOW.z, eIn), srz = lerp(frz, SHOW.rz, eIn),
-            ss = lerp(fs, SHOW.s, eIn);
-      m.position.set(lerp(sx, GONE.x, eOut), lerp(sy, GONE.y, eOut), lerp(sz, GONE.z, eOut));
-      m.rotation.z = lerp(srz, GONE.rz, eOut);
+      // fan pose
+      const fx = u.home.x + u.part,
+            fy = u.home.y + breathe + L * 0.5,
+            fz = u.home.z + L * 0.55,
+            frz = u.home.rz * (1 - L * 0.65),
+            fs = 1 + L * 0.05;
+      // vertical stack pose: rel = signed distance from the stack cursor
+      const rel = i - jFrac;
+      const ar = Math.abs(rel);
+      const focus = Math.max(0, 1 - ar);            // 1 at center, 0 past ±1
+      const sx = STACK.x + ar * 0.06,
+            sy = -rel * STACK.gap + 0.14 + breathe * 0.6,
+            sz = STACK.z - ar * 0.38 + L * 0.2,
+            srz = rel * -0.03,
+            ss = lerp(0.82, STACK.s, smooth(focus)) + L * 0.03;
+      m.position.set(lerp(fx, sx, showPhase), lerp(fy, sy, showPhase), lerp(fz, sz, showPhase));
+      m.rotation.z = lerp(frz, srz, showPhase);
       m.rotation.y = REDUCED ? 0
-        : Math.sin(t * 0.8 + i) * 0.02 * (1 - L) * (1 - eIn)
-          + Math.sin(t * 0.9) * 0.05 * eIn * (1 - eOut);   // presentation sway
-      m.rotation.x = -L * 0.05;
-      const s = lerp(ss, GONE.s, eOut);
+        : Math.sin(t * 0.8 + i) * 0.02 * (1 - L) * (1 - showPhase)
+          + Math.sin(t * 0.9) * 0.045 * showPhase * focus;   // presentation sway
+      m.rotation.x = -L * 0.05 * (1 - showPhase);
+      const s = lerp(fs, ss, showPhase);
       m.scale.set(s, s, s);
     });
 
-    // the story panel follows the showcased card
+    // the detail panel tracks the active card, dipping between neighbors
     {
-      const j = Math.min(N - 1, Math.max(0, Math.floor((P - FAN_END) / SEG)));
-      if (P > FAN_END) {
+      const j = Math.min(N - 1, Math.max(0, Math.round(jFrac)));
+      if (showPhase > 0.25) {
         if (j !== infoJ) setInfo(j);
-        const lk = Math.min(1, Math.max(0, (P - (FAN_END + j * SEG)) / SEG));
-        const opIn = smooth(Math.min(1, Math.max(0, (lk - 0.07) / 0.18)));
-        const opOut = smooth(Math.min(1, Math.max(0, (lk - 0.8) / 0.18)));
-        const op = opIn * (1 - opOut);
+        const between = Math.abs(jFrac - j);         // 0 centered .. 0.5 mid-swap
+        const op = showPhase * (1 - smooth(Math.min(1, Math.max(0, (between - 0.14) / 0.3))));
         info.style.opacity = op;
-        info.style.setProperty('--dy', ((1 - opIn) * 26 - opOut * 26) + 'px');
+        info.style.setProperty('--dy', ((jFrac - j) * -34) + 'px');
         info.classList.toggle('live', op > 0.5);
       } else {
         info.style.opacity = 0;
