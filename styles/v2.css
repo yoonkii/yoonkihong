@@ -18,8 +18,9 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* NO smooth scrolling: gliding through an 1800vh scrubbed hero plays the
+   whole film in fast-forward. Anchors teleport (JS) instead. */
+html { scroll-behavior: auto; }
 
 body {
   font-family: "Geist", system-ui, sans-serif;
@@ -539,7 +540,9 @@ section { position: relative; }
   .corner-nav { top: 96px; right: 12px; gap: 12px; font-size: 11.5px; }
   .nav-socials { padding-left: 10px; gap: 9px; }
   .hero { height: 1250vh; }
-  .beat { white-space: normal; width: 92vw; }
+  .beat { white-space: normal; width: 92vw; font-size: clamp(27px, 7.2vw, 40px); }
+  .hero-headline { font-size: clamp(30px, 8.4vw, 44px); line-height: 1.24; }
+  .hero-quiet { font-size: 13.5px; }
   .work-cards { grid-template-columns: 1fr; }
   #work-canvas { height: 280px; }
   .hero-lockin { bottom: 9vh; }

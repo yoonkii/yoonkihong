@@ -22,6 +22,19 @@ if (DBG.get('solo')) {
 
 document.getElementById('year').textContent = String(new Date().getFullYear());
 
+// in-page anchors TELEPORT: smooth-scrolling through the 1800vh scrubbed
+// hero (or the pinned products showcase) plays every animation between
+// here and there in fast-forward — jarring, not delightful
+document.querySelectorAll('a[href^="#"]').forEach((a) => {
+  a.addEventListener('click', (e) => {
+    const el = document.querySelector(a.getAttribute('href'));
+    if (!el) return;
+    e.preventDefault();
+    el.scrollIntoView({ behavior: 'instant', block: 'start' });
+    history.pushState(null, '', a.getAttribute('href'));
+  });
+});
+
 /* ------------------------------------------------------------------ *
  *  HERO — progressive frame-sequence scrub (Seoul -> SF)               *
  * ------------------------------------------------------------------ */
@@ -104,14 +117,42 @@ function initScrub() {
   // and four scenes deserve steady pacing. tf = film progress 0..1.
   const easeFilm = (x) => 0.55 * x + 0.45 * (x * x * (3 - 2 * x));
 
-  // text beat windows in FILM space (glued to imagery, immune to easing).
+  // piecewise film map with DWELLS: when a scene finishes (Seoul built,
+  // SF settled, office assembled) the frame HOLDS for about half a
+  // scene's worth of scroll, so each completed tableau can be looked at
+  // before the film moves on. [frameStart, frameEnd, weight]
+  const SEGS = [
+    [0, 40, 40],       // seq1: void -> Seoul
+    [40, 40, 22],      //   dwell on finished Seoul
+    [41, 89, 48],      // seq2: Seoul -> SF
+    [89, 89, 22],      //   dwell on SF
+    [90, 138, 48],     // seq3: SF -> night office
+    [138, 138, 22],    //   dwell on the built office
+    [139, 187, 48]     // seq4: he sits down and types
+  ];
+  const SEG_TOTAL = SEGS.reduce((s, g) => s + g[2], 0);
+  function frameForT(t) {
+    let acc = 0;
+    for (const [f0, f1, w] of SEGS) {
+      const span = w / SEG_TOTAL;
+      if (t <= acc + span || acc + span >= 1 - 1e-6) {
+        const k = clamp((t - acc) / span, 0, 1);
+        return Math.round(f0 + (f1 - f0) * k);
+      }
+      acc += span;
+    }
+    return FRAMES - 1;
+  }
+
+  // text beat windows in FILM space (glued to imagery, immune to easing;
+  // includes the dwells — a line HOLDS over its finished tableau).
   // Each line enters WITH its scenery, not after it: the greeting hands
-  // off the moment the first Seoul pieces materialize (t≈0.05), SEOUL
-  // rises while the hanok street assembles, SAN FRANCISCO rises as the
-  // bridge emerges from the morph fog (t≈0.33), and the lock-in lands
-  // while the night office builds itself around him.
+  // off the moment the first Seoul pieces materialize, SEOUL rises while
+  // the hanok street assembles and holds through its dwell, SAN
+  // FRANCISCO rises as the bridge emerges from the fog and holds through
+  // its dwell, and the lock-in lands while the night office builds.
   // Beat 0 opens at -1: the greeting is ON SCREEN from the first paint.
-  const WINDOWS = [[-1, 0.06], [0.065, 0.29], [0.33, 0.55]];
+  const WINDOWS = [[-1, 0.05], [0.055, 0.235], [0.34, 0.515]];
   const FADE_IN = 0.045, FADE_OUT = 0.055;
 
   // split each beat line into word spans so the words cascade up out of
@@ -183,6 +224,22 @@ function initScrub() {
     }
   }
 
+  // end-of-film typing loop state (frames 176-187, ping-pong at ~9fps)
+  const TYPE_FROM = 176;
+  let typing = false, typeFrame = FRAMES - 1, typeDir = -1, typeT = 0;
+  function typeLoop(now) {
+    if (!typing) return;
+    if (now - typeT > 115) {
+      typeT = now;
+      typeFrame += typeDir;
+      if (typeFrame <= TYPE_FROM) { typeFrame = TYPE_FROM; typeDir = 1; }
+      else if (typeFrame >= FRAMES - 1) { typeFrame = FRAMES - 1; typeDir = -1; }
+      target = typeFrame;
+      draw();
+    }
+    requestAnimationFrame(typeLoop);
+  }
+
   let ticking = false;
   function onScroll() {
     if (ticking) return;
@@ -197,7 +254,20 @@ function initScrub() {
       // the wave if one is mid-air), then the scrub canvas fades in over
       // it — and hands back when you return to the top
       updateStage(p > 0.004);
-      target = Math.round(tf * (FRAMES - 1));
+      // once the film has fully played out, the last beat of typing
+      // loops gently (ping-pong) — he keeps building while the visitor
+      // reads the headline; any scroll-back returns control to the scrub
+      const done = tf >= 0.9995;
+      if (!done) {
+        typing = false;
+        target = frameForT(tf);
+      } else if (!typing) {
+        typing = true;
+        typeFrame = FRAMES - 1;
+        typeDir = -1;
+        typeT = 0;
+        requestAnimationFrame(typeLoop);
+      }
       draw();
       let maxA = 0;
       beats.forEach((el, bi) => {
@@ -214,9 +284,9 @@ function initScrub() {
         el.style.transform = `translateX(-50%) translateY(${-tOut * 26}px)`;
       });
       // the headline locks in WHILE the night office assembles around him
-      // (film t≈0.73) — "by night" settles as he sits down to build, then
-      // holds to the hero's end
-      const lk = clamp((p - 0.50) / 0.09, 0, 1);
+      // — "by night" settles as he sits down to build, then holds to the
+      // hero's end
+      const lk = clamp((p - 0.46) / 0.09, 0, 1);
       lockin.style.opacity = lk > 0 ? 1 : 0;
       lockin.style.transform = `translateX(-50%) translateY(${(1 - lk) * 20}px)`;
       lockin.style.pointerEvents = lk > 0.5 ? 'auto' : 'none';
