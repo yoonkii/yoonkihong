@@ -105,11 +105,13 @@ function initScrub() {
   const easeFilm = (x) => 0.55 * x + 0.45 * (x * x * (3 - 2 * x));
 
   // text beat windows in FILM space (glued to imagery, immune to easing).
-  // Film map: white void -> Seoul built by t≈0.11; Seoul holds to t≈0.28;
-  // Seoul->SF morph (wordless); SF solid t≈0.43-0.55; dissolve into the
-  // night office (wordless); he sits & types from t≈0.80 (the lock-in).
+  // Each line enters WITH its scenery, not after it: the greeting hands
+  // off the moment the first Seoul pieces materialize (t≈0.05), SEOUL
+  // rises while the hanok street assembles, SAN FRANCISCO rises as the
+  // bridge emerges from the morph fog (t≈0.33), and the lock-in lands
+  // while the night office builds itself around him.
   // Beat 0 opens at -1: the greeting is ON SCREEN from the first paint.
-  const WINDOWS = [[-1, 0.09], [0.13, 0.29], [0.46, 0.575]];
+  const WINDOWS = [[-1, 0.06], [0.065, 0.29], [0.33, 0.55]];
   const FADE_IN = 0.045, FADE_OUT = 0.055;
 
   // split each beat line into word spans so the words cascade up out of
@@ -181,9 +183,10 @@ function initScrub() {
         if (bi > 0) el.style.setProperty('--r', tIn * 100);
         el.style.transform = `translateX(-50%) translateY(${-tOut * 26}px)`;
       });
-      // the headline locks in WHILE he sits down to build (film t≈0.81) —
-      // "by night" lands over the night desk, then holds to the hero's end
-      const lk = clamp((p - 0.565) / 0.09, 0, 1);
+      // the headline locks in WHILE the night office assembles around him
+      // (film t≈0.73) — "by night" settles as he sits down to build, then
+      // holds to the hero's end
+      const lk = clamp((p - 0.50) / 0.09, 0, 1);
       lockin.style.opacity = lk > 0 ? 1 : 0;
       lockin.style.transform = `translateX(-50%) translateY(${(1 - lk) * 20}px)`;
       lockin.style.pointerEvents = lk > 0.5 ? 'auto' : 'none';
