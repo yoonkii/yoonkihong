@@ -192,12 +192,13 @@ function initScrub() {
   }
 
   // seq0 -> seq1 handoff without a jump cut: if the visitor scrolls while
-  // the wave is mid-air (idle loop ~3.2-6.85s), keep the video on stage
-  // and hurry it along (2.4x) until the hand is back down — only then
-  // crossfade to the scrub. Scrolling from a neutral pose hands off
-  // immediately, since seq1 opens on the same stance.
-  const WAVE_START = 3.2, WAVE_END = 6.85;
-  let settling = false;
+  // the wave is mid-air, keep the video on stage and hurry it along
+  // (2.4x) until the hand is back down — only then crossfade to the
+  // scrub. The idle video is a baked palindrome (8s forward + 8s
+  // reversed, so its loop point is seamless), which means the wave
+  // happens twice: once forward, once mirrored in the reversed half.
+  const WAVES = [[3.2, 6.85], [9.23, 12.88]];
+  let settling = false, settleUntil = 0;
   function updateStage(scrubbing) {
     if (!scrubbing) {
       settling = false;
@@ -208,8 +209,10 @@ function initScrub() {
       return;
     }
     const t = idle.currentTime;
-    if (!settling) settling = !idle.paused && t > WAVE_START && t < WAVE_END;
-    else settling = t < WAVE_END;          // done once the hand lands
+    if (!settling) {
+      const w = !idle.paused && WAVES.find(([a, b]) => t > a && t < b);
+      if (w) { settling = true; settleUntil = w[1]; }
+    } else settling = t < settleUntil;     // done once the hand lands
     if (settling) {
       idle.playbackRate = 2.4;
       if (idle.paused) idle.play().catch(() => {});
@@ -224,8 +227,9 @@ function initScrub() {
     }
   }
 
-  // end-of-film typing loop state (frames 176-187, ping-pong at ~9fps)
-  const TYPE_FROM = 176;
+  // end-of-film typing loop state: frames 182-187 only — the pose and
+  // chair are fully settled there, so the ping-pong reads as pure typing
+  const TYPE_FROM = 182;
   let typing = false, typeFrame = FRAMES - 1, typeDir = -1, typeT = 0;
   function typeLoop(now) {
     if (!typing) return;
