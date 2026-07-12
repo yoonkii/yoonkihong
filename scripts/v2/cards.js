@@ -186,8 +186,8 @@ export function initCards() {
   // studio env gives the glass slabs their moving reflections
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xDCE6F0, 0.75));
-  const key = new THREE.DirectionalLight(0xFFF3E0, 0.8);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xDCE6F0, 0.95));
+  const key = new THREE.DirectionalLight(0xFFF3E0, 0.5);
   key.position.set(-3, 5, 8);
   scene.add(key);
 
@@ -196,7 +196,7 @@ export function initCards() {
   const CTR = (N - 1) / 2;
   const backTex = makeBackTexture();
   const edgeMat = new THREE.MeshPhysicalMaterial({
-    color: '#F4F7FB', roughness: 0.2, clearcoat: 1, envMapIntensity: 0.7
+    color: '#F4F7FB', roughness: 0.3, clearcoat: 0.5, envMapIntensity: 0.35
   });
   const fan = new THREE.Group();
   scene.add(fan);
@@ -204,12 +204,12 @@ export function initCards() {
   const cards = items.map((p, i) => {
     const isSoon = p.kind === 'egg';
     const faceMat = new THREE.MeshPhysicalMaterial({
-      map: makeFaceTexture(p, isSoon), roughness: 0.22, metalness: 0,
-      clearcoat: 1, clearcoatRoughness: 0.16, envMapIntensity: 0.4
+      map: makeFaceTexture(p, isSoon), roughness: 0.32, metalness: 0,
+      clearcoat: 0.45, clearcoatRoughness: 0.28, envMapIntensity: 0.2
     });
     const backMat = new THREE.MeshPhysicalMaterial({
-      map: backTex, roughness: 0.3, metalness: 0,
-      clearcoat: 1, clearcoatRoughness: 0.2, envMapIntensity: 0.6
+      map: backTex, roughness: 0.35, metalness: 0,
+      clearcoat: 0.5, clearcoatRoughness: 0.25, envMapIntensity: 0.35
     });
     // a thin glass slab: the fat corner radius does the "liquid" silhouette
     const geo = new RoundedBoxGeometry(1.5, 2.1, 0.04, 5, 0.12);
@@ -239,7 +239,9 @@ export function initCards() {
   const section = document.querySelector('.products');
   const SEG_VH = 55;
   if (!REDUCED) section.style.height = `calc(100vh + ${N * SEG_VH}vh)`;
-  const FAN_END = 0.1, TAIL = 0.06;
+  // the fan holds the stage for the first quarter of the scroll, then
+  // hands over to the stack — arriving visitors always see the full deck
+  const FAN_END = 0.24, TAIL = 0.06;
   const STACK = { x: -2.1, gap: 1.62, z: 1.15, s: 1.14 };
   const smooth = (x) => x * x * (3 - 2 * x);
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -373,8 +375,10 @@ export function initCards() {
       : REDUCED || total <= 0 ? 0
       : Math.min(1, Math.max(0, (scrollY - section.offsetTop) / total));
 
-    // fan -> split-screen blend, then the stack cursor takes over
-    const showPhase = smooth(Math.min(1, Math.max(0, (P - 0.015) / (FAN_END - 0.03))));
+    // fan -> split-screen blend, then the stack cursor takes over.
+    // The blend starts halfway into the fan's held stretch, so the deck
+    // sits centered for a beat before it begins to move
+    const showPhase = smooth(Math.min(1, Math.max(0, (P - 0.12) / (FAN_END - 0.13))));
     const jFrac = jFracOf(P);
     lastJFrac = jFrac;
     stackMode = showPhase > 0.5;
