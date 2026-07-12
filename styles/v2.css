@@ -78,9 +78,38 @@ a { color: inherit; }
 .corner-nav a { text-decoration: none; opacity: 0.85; }
 .corner-nav a:hover { opacity: 1; color: var(--accent); }
 .nav-socials { display: flex; gap: 12px; padding-left: 14px; border-left: 1px solid var(--hairline); }
+/* small / short viewports: the hero film fills the frame with his FACE,
+   so the horizontal row (which spans the whole width on a phone) would
+   type right across it. Instead the nav hugs the right edge as a short
+   vertical rail of frosted pills — sky territory in every scene, and the
+   glass keeps it legible over the night-office frames too */
+@media (max-width: 720px), (max-height: 560px) {
+  .corner-nav {
+    top: 46px; right: 10px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .corner-nav a {
+    opacity: 1;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(250, 247, 241, 0.68);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 2px 10px rgba(20, 26, 38, 0.08);
+  }
+  .nav-socials { padding-left: 0; border-left: none; gap: 6px; }
+  .nav-socials a { padding: 6px 10px; }
+}
 
 /* ---------- hero ---------- */
-.hero { height: 1450vh; position: relative; }  /* 4 scenes, unhurried scrub */
+/* 4 scenes, unhurried scrub. Height + SCRUB_END (main.js) move TOGETHER:
+   film scroll length = height x SCRUB_END must stay ~1188vh so the scenes
+   keep their pacing — r26 trimmed only the post-film anchor tail */
+.hero { height: 1320vh; position: relative; }
 .hero-sticky {
   position: sticky; top: 0;
   height: 100vh; height: 100svh;
@@ -654,9 +683,7 @@ section { position: relative; }
 
 /* ---------- small screens ---------- */
 @media (max-width: 720px) {
-  .corner-nav { top: 96px; right: 12px; gap: 12px; font-size: 11.5px; }
-  .nav-socials { padding-left: 10px; gap: 9px; }
-  .hero { height: 1050vh; }
+  .hero { height: 955vh; }
   .beat { white-space: normal; width: 92vw; font-size: clamp(27px, 7.2vw, 40px); }
   .hero-headline { font-size: clamp(30px, 8.4vw, 44px); line-height: 1.24; }
   .work-cards { grid-template-columns: 1fr; }

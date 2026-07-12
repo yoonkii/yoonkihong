@@ -46,7 +46,10 @@ document.querySelectorAll('a[href^="#"]').forEach((a) => {
    (s041-089), SF dissolves into the night home office (s090-138), and
    he sits down to build (s139-187) — right where the headline lands. */
 const FRAMES = 188;
-const SCRUB_END = 0.82;          // scroll fraction where the film finishes
+const SCRUB_END = 0.9;           // scroll fraction where the film finishes
+                                 // (hero height shrank with it in r26 — the
+                                 // film's vh-per-frame pacing is unchanged,
+                                 // only the post-film anchor tail is shorter)
 const hero = document.querySelector('.hero');
 const sticky = document.querySelector('.hero-sticky');
 const canvas = document.getElementById('hero-canvas');
@@ -144,9 +147,26 @@ function initScrub() {
     [89, 89, 22],      //   dwell on SF
     [90, 138, 48],     // seq3: SF -> night office
     [138, 138, 12],    //   dwell on the built office (short — the
-    [139, 187, 48]     // headline already holds here) then he types
+                       //   headline already holds here; auto-play SKIPS it)
+    [139, 150, 8],     // seq4a: he turns toward the desk — brisk, because
+                       //   the source frames 143-150 are near-identical and
+                       //   a slow pass here reads as a stutter (r26 fix)
+    [150, 187, 40]     // seq4b: sit down, start typing
   ];
   const SEG_TOTAL = SEGS.reduce((s, g) => s + g[2], 0);
+  // auto-play must never freeze mid-flight: a dwell is for scrub-watchers
+  // who control their own pace — when the film is playing ITSELF, a held
+  // frame reads as a hitch, so the clock jumps a dwell the moment it
+  // lands inside one
+  function skipDwell(t) {
+    let acc = 0;
+    for (const [f0, f1, w] of SEGS) {
+      const span = w / SEG_TOTAL;
+      if (f0 === f1 && t > acc && t < acc + span) return acc + span;
+      acc += span;
+    }
+    return t;
+  }
   function frameForT(t) {
     let acc = 0;
     for (const [f0, f1, w] of SEGS) {
@@ -268,7 +288,11 @@ function initScrub() {
   // ITSELF — the visitor can park and watch him sit down and start
   // typing. Scrolling only ever fast-forwards past it (the film never
   // rewinds unless you scroll back above the lock-in, which resets).
-  const AUTO_FROM = 0.5;                 // scroll p that arms auto-play
+  const AUTO_FROM = 0.55;                // scroll p that arms auto-play
+  // reset only well ABOVE the arm line: without this hysteresis a visitor
+  // idling right at the boundary flip-flops arm/reset and the same beat
+  // (the head turn into seq4) replays over and over
+  const AUTO_RESET = AUTO_FROM - 0.05;
   const AUTO_RATE = 0.085;               // film-t per second (~4.5s tail)
   let autoTf = 0, autoOn = false, autoClock = 0;
   function autoLoop(now) {
@@ -277,10 +301,11 @@ function initScrub() {
     const max = hero.offsetHeight - innerHeight;
     const p = DBG_P !== null ? DBG_P
       : clamp((scrollY - hero.offsetTop) / max, 0, 1);
-    if (p < AUTO_FROM) { autoOn = false; autoTf = 0; return; }
+    if (p < AUTO_RESET) { autoOn = false; autoTf = 0; return; }
     const dt = Math.min(0.05, (now - autoClock) / 1000 || 0.016);
     autoClock = now;
     autoTf = Math.min(1, Math.max(autoTf, easeFilm(clamp(p / SCRUB_END, 0, 1))) + AUTO_RATE * dt);
+    autoTf = skipDwell(autoTf);
     target = frameForT(autoTf);
     draw();
     if (autoTf >= 0.9995) {              // film finished — typing takes over
@@ -307,7 +332,7 @@ function initScrub() {
       const p = DBG_P !== null ? DBG_P
         : clamp((scrollY - hero.offsetTop) / max, 0, 1);
       const tf = easeFilm(clamp(p / SCRUB_END, 0, 1));
-      if (p < AUTO_FROM) autoTf = 0;     // back above the lock-in: scroll owns
+      if (p < AUTO_RESET) autoTf = 0;    // back above the lock-in: scroll owns
       const eff = Math.max(tf, autoTf);  // the film never rewinds mid-auto
       // idle loop owns the stage until the first real scroll (finishing
       // the wave if one is mid-air), then the scrub canvas fades in over
@@ -350,7 +375,7 @@ function initScrub() {
       // the headline locks in WHILE the night office assembles around him
       // — "by night" settles as he sits down to build, then holds to the
       // hero's end
-      const lk = clamp((p - 0.55) / 0.09, 0, 1);
+      const lk = clamp((p - 0.6) / 0.09, 0, 1);
       lockin.style.opacity = lk > 0 ? 1 : 0;
       lockin.style.transform = `translateX(-50%) translateY(${(1 - lk) * 20}px)`;
       lockin.style.pointerEvents = lk > 0.5 ? 'auto' : 'none';

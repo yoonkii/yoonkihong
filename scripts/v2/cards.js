@@ -7,7 +7,6 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const CARD_COLORS = {
   macrodoc: '#7FD4D9', mathstreet: '#F7D75E', mathwings: '#8FB7F0',
@@ -16,6 +15,46 @@ const CARD_COLORS = {
 };
 
 const CW = 512, CH = 716, RAD = 40;    // face texture space
+
+/* card silhouette: an extruded rounded-rect. RoundedBoxGeometry rounds
+   EDGES, and on a 0.04-thin slab the radius is capped at depth/2 — the
+   corners stayed visually square while the painted keyline rounded (r25
+   report: "카드 모서리가 각져 보임"). The extruded shape cuts the true
+   corner radius (matched to the texture's RAD) into the silhouette. */
+function makeCardGeometry(w, h, d, r) {
+  const hw = w / 2, hh = h / 2;
+  const shape = new THREE.Shape();
+  shape.absarc(hw - r, hh - r, r, 0, Math.PI / 2);
+  shape.absarc(-hw + r, hh - r, r, Math.PI / 2, Math.PI);
+  shape.absarc(-hw + r, -hh + r, r, Math.PI, Math.PI * 1.5);
+  shape.absarc(hw - r, -hh + r, r, Math.PI * 1.5, Math.PI * 2);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: d, bevelEnabled: false, curveSegments: 10
+  });
+  geo.translate(0, 0, -d / 2);
+  // extrude UVs come out in shape units — remap the caps to 0..1 so the
+  // face texture spans the card exactly (the side walls are a solid
+  // color material, their UVs don't matter)
+  const uv = geo.attributes.uv, pos = geo.attributes.position;
+  for (let vi = 0; vi < uv.count; vi++)
+    uv.setXY(vi, (pos.getX(vi) + hw) / w, (pos.getY(vi) + hh) / h);
+  return geo;
+}
+
+/* soft drop shadow quad behind each card: neighboring cards are all the
+   same paper white, so where the stack (or fan) overlaps, the boundary
+   vanished — a blurred dark rounded-rect behind the card draws the seam */
+function makeShadowTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const g = c.getContext('2d');
+  g.filter = 'blur(16px)';
+  g.fillStyle = 'rgba(18, 24, 36, 0.62)';
+  g.beginPath();
+  g.roundRect(40, 40, 176, 176, 36);
+  g.fill();
+  return new THREE.CanvasTexture(c);
+}
 
 function roundedPath(g, x, y, w, h, r) {
   g.beginPath();
@@ -271,6 +310,15 @@ export function initCards(domFallback) {
   const fan = new THREE.Group();
   scene.add(fan);
 
+  // one geometry for all nine cards; radius = the texture keyline's RAD
+  // translated into card units, so silhouette and painted border agree
+  const cardGeo = makeCardGeometry(1.5, 2.1, 0.04, RAD / CW * 1.5);
+  const shadowGeo = new THREE.PlaneGeometry(1.5 * 1.26, 2.1 * 1.18);
+  const shadowMat = new THREE.MeshBasicMaterial({
+    map: makeShadowTexture(), transparent: true, opacity: 0.55,
+    depthWrite: false
+  });
+
   const cards = items.map((p, i) => {
     const isSoon = p.kind === 'egg';
     // UNLIT face: the texture renders exactly as painted — no light rig
@@ -278,9 +326,12 @@ export function initCards(domFallback) {
     const faceMat = new THREE.MeshBasicMaterial({
       map: makeFaceTexture(p, isSoon)
     });
-    // a thin glass slab: the fat corner radius does the "liquid" silhouette
-    const geo = new RoundedBoxGeometry(1.5, 2.1, 0.04, 5, 0.12);
-    const m = new THREE.Mesh(geo, [edgeMat, edgeMat, edgeMat, edgeMat, faceMat, edgeMat]);
+    // extrude groups: 0 = front/back caps, 1 = side walls
+    const m = new THREE.Mesh(cardGeo, [faceMat, edgeMat]);
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.position.set(0, -0.055, -0.1);
+    shadow.raycast = () => {};   // picking must only ever hit the card
+    m.add(shadow);
     const k = i - CTR;
     const home = {
       x: k * 0.58,
@@ -474,6 +525,10 @@ export function initCards(domFallback) {
     STACK.x = mob ? 0 : -1.5;
     STACK.s = mob ? 1.18 : 1.38;
     STACK.yOff = mob ? 0.6 : 0.15;   // full-height canvas: near-center
+    // phones: the dollied-in camera made the white top/bottom margins of
+    // neighboring cards touch the active card — widen the pitch so a
+    // strip of sky (plus the drop shadow) separates them
+    STACK.gap = mob ? 2.3 : 2.0;
   }
   addEventListener('resize', fit);
   fit();
