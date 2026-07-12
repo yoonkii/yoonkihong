@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600;1,800&family=Geist+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/v2.css">
-  <link rel="preload" href="assets/v2/hero/first.webp" as="image">
+  <link rel="preload" href="assets/v2/hero2/first.webp" as="image">
   <script type="importmap">
   {
     "imports": {
@@ -51,8 +51,11 @@
   <!-- ============ SECTION 1 — HERO (scroll-scrubbed Seoul -> SF) ========= -->
   <section class="hero" id="hero" aria-label="Intro">
     <div class="hero-sticky">
+      <img id="hero-poster" src="assets/v2/hero2/first.webp" alt="Illustrated 3D Yoonki greeting, before his story builds around him">
+      <video id="hero-idle" class="hero-idle" src="assets/v2/hero2/idle.mp4"
+        muted loop playsinline autoplay preload="auto"
+        poster="assets/v2/hero2/first.webp" aria-hidden="true"></video>
       <canvas id="hero-canvas" aria-hidden="true"></canvas>
-      <img id="hero-poster" src="assets/v2/hero/first.webp" alt="Illustrated 3D Yoonki waving, Seoul turning into San Francisco">
       <div class="hero-scrim" id="hero-scrim" aria-hidden="true"></div>
       <div class="hero-beats" aria-hidden="true">
         <p class="beat" data-beat="0" data-k="01 &middot; HELLO"><span class="mk">Hi, my name is <em>Yoonki!</em></span></p>

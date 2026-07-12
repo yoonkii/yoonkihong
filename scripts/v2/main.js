@@ -25,10 +25,14 @@ document.getElementById('year').textContent = String(new Date().getFullYear());
 /* ------------------------------------------------------------------ *
  *  HERO — progressive frame-sequence scrub (Seoul -> SF)               *
  * ------------------------------------------------------------------ */
-const FRAMES = 97;
-const START = 10;                // frames 0-9: Yoonki lands into the street —
-                                 // played once on load, scrub owns 10..96
-const SCRUB_END = 0.68;          // scroll fraction where the film finishes
+/* The hero is five sequences. Sequence 0 is an idle greeting that LOOPS
+   as a <video> while the visitor hasn't scrolled (he breathes, waves).
+   The first scroll hands off to a 188-frame scrub built from sequences
+   1-4: the white void builds into Seoul (s000-040), Seoul becomes SF
+   (s041-089), SF dissolves into the night home office (s090-138), and
+   he sits down to build (s139-187) — right where the headline lands. */
+const FRAMES = 188;
+const SCRUB_END = 0.72;          // scroll fraction where the film finishes
 const hero = document.querySelector('.hero');
 const sticky = document.querySelector('.hero-sticky');
 const canvas = document.getElementById('hero-canvas');
@@ -38,17 +42,17 @@ const hint = document.querySelector('.hero-scroll-hint');
 
 if (REDUCED) {
   document.body.classList.add('no-scrub');
-  document.getElementById('hero-poster').src = 'assets/v2/hero/poster.webp';
+  document.getElementById('hero-poster').src = 'assets/v2/hero2/poster.webp';
 } else {
   initScrub();
 }
 
 function initScrub() {
   const ctx = canvas.getContext('2d');
+  const idle = document.getElementById('hero-idle');
   const imgs = new Array(FRAMES).fill(null);
-  const url = (i) => `assets/v2/hero/s${String(i).padStart(3, '0')}.webp`;
+  const url = (i) => `assets/v2/hero2/s${String(i).padStart(3, '0')}.webp`;
   let drawn = -1;
-  let introPlaying = DBG_P === null;   // the landing plays once on load
 
   // progressive fill: coarse pass first so scrubbing works within ~1s,
   // then refine — mid-scroll the nearest loaded frame stands in
@@ -59,9 +63,6 @@ function initScrub() {
     im.onload = () => { imgs[i] = im; draw(true); then && then(); };
     im.src = url(i);
   }
-  // the landing frames load first (they play immediately), then the
-  // coarse-to-fine passes fill the scrub
-  for (let i = 0; i <= START; i++) load(i);
   const passes = [8, 4, 2, 1];
   (function nextPass(p) {
     if (p >= passes.length) return;
@@ -99,17 +100,16 @@ function initScrub() {
     ctx.drawImage(im, (cw - w) / 2, (ch - h) / 2, w, h);
   }
 
-  // The scrub is EASED, not linear: a gentle start (the first frames crawl,
-  // ~1/3 speed) so the Seoul street breathes, quicker through the morph,
-  // slow again as SF settles. tf = film progress 0..1.
-  const easeFilm = (x) => 0.35 * x + 0.65 * (x * x * (3 - 2 * x));
+  // Mild ease only — the idle loop already gives the opening its pause,
+  // and four scenes deserve steady pacing. tf = film progress 0..1.
+  const easeFilm = (x) => 0.55 * x + 0.45 * (x * x * (3 - 2 * x));
 
   // text beat windows in FILM space (glued to imagery, immune to easing).
-  // Scrub covers frames 10-96: Seoul until abs frame 36 (t 0.30), the morph
-  // 37-55 (wordless — let it play), SF from 56 (t 0.535).
-  // Beat 0 opens at -1: the greeting is ON SCREEN from the first paint
-  // and every window holds as long as its scenery allows.
-  const WINDOWS = [[-1, 0.135], [0.15, 0.30], [0.55, 0.97]];
+  // Film map: white void -> Seoul built by t≈0.11; Seoul holds to t≈0.28;
+  // Seoul->SF morph (wordless); SF solid t≈0.43-0.55; dissolve into the
+  // night office (wordless); he sits & types from t≈0.80 (the lock-in).
+  // Beat 0 opens at -1: the greeting is ON SCREEN from the first paint.
+  const WINDOWS = [[-1, 0.09], [0.13, 0.29], [0.46, 0.575]];
   const FADE_IN = 0.045, FADE_OUT = 0.055;
 
   // split each beat line into word spans so the words cascade up out of
@@ -142,7 +142,7 @@ function initScrub() {
     first.style.opacity = 1;
     const t0 = performance.now();
     (function rise(now) {
-      const k = clamp((now - t0 - 1050) / 950, 0, 1);  // rises as he lands
+      const k = clamp((now - t0 - 450) / 950, 0, 1);   // rises as he waves
       first.style.setProperty('--r', (1 - Math.pow(1 - k, 3)) * 100);
       if (k < 1) requestAnimationFrame(rise);
     })(t0);
@@ -158,8 +158,14 @@ function initScrub() {
       const p = DBG_P !== null ? DBG_P
         : clamp((scrollY - hero.offsetTop) / max, 0, 1);
       const tf = easeFilm(clamp(p / SCRUB_END, 0, 1));
-      if (!introPlaying || p > 0.004)
-        target = START + Math.round(tf * (FRAMES - 1 - START));
+      // idle loop owns the stage until the first real scroll, then the
+      // scrub canvas fades in over it (and hands back when you return)
+      const scrubbing = p > 0.004;
+      canvas.style.opacity = scrubbing ? 1 : 0;
+      idle.classList.toggle('off', scrubbing);
+      if (scrubbing) { if (!idle.paused) idle.pause(); }
+      else if (idle.paused) idle.play().catch(() => {});
+      target = Math.round(tf * (FRAMES - 1));
       draw();
       let maxA = 0;
       beats.forEach((el, bi) => {
@@ -175,7 +181,9 @@ function initScrub() {
         if (bi > 0) el.style.setProperty('--r', tIn * 100);
         el.style.transform = `translateX(-50%) translateY(${-tOut * 26}px)`;
       });
-      const lk = clamp((p - 0.70) / 0.10, 0, 1);
+      // the headline locks in WHILE he sits down to build (film t≈0.81) —
+      // "by night" lands over the night desk, then holds to the hero's end
+      const lk = clamp((p - 0.565) / 0.09, 0, 1);
       lockin.style.opacity = lk > 0 ? 1 : 0;
       lockin.style.transform = `translateX(-50%) translateY(${(1 - lk) * 20}px)`;
       lockin.style.pointerEvents = lk > 0.5 ? 'auto' : 'none';
@@ -197,21 +205,6 @@ function initScrub() {
   addEventListener('scroll', onScroll, { passive: true });
   fit();
   onScroll();
-
-  // arrival: Yoonki drops into the street once the page opens (frames
-  // 0-9 play once; the scrub owns frame 10 onward)
-  if (introPlaying) {
-    const ti0 = performance.now();
-    (function intro(now) {
-      const k = clamp((now - ti0 - 250) / 850, 0, 1);
-      if (scrollY < 40) {
-        target = Math.round((1 - Math.pow(1 - k, 2)) * START);
-        draw();
-      }
-      if (k < 1) requestAnimationFrame(intro);
-      else { introPlaying = false; onScroll(); }
-    })(ti0);
-  }
 }
 
 /* ------------------------------------------------------------------ *

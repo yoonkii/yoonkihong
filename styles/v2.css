@@ -72,7 +72,7 @@ a { color: inherit; }
 .nav-socials { display: flex; gap: 12px; padding-left: 14px; border-left: 1px solid var(--hairline); }
 
 /* ---------- hero ---------- */
-.hero { height: 1060vh; position: relative; }  /* long = unhurried scrub */
+.hero { height: 1800vh; position: relative; }  /* 4 scenes, unhurried scrub */
 .hero-sticky {
   position: sticky; top: 0;
   height: 100vh; height: 100svh;
@@ -81,14 +81,19 @@ a { color: inherit; }
     radial-gradient(120% 90% at 50% 108%, var(--cream) 0%, rgba(244, 232, 212, 0) 55%),
     linear-gradient(180deg, var(--sky) 0%, #DDEFF9 60%, var(--paper) 100%);
 }
-#hero-canvas, #hero-poster {
+#hero-canvas, #hero-poster, .hero-idle {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
 }
+/* the idle greeting loop sits under the scrub canvas; the two crossfade
+   on the first scroll (and back again when you return to the top) */
+.hero-idle { transition: opacity 0.4s ease; }
+.hero-idle.off { opacity: 0; }
+#hero-canvas { opacity: 0; transition: opacity 0.4s ease; }
 #hero-poster { display: none; }
 .no-scrub #hero-poster { display: block; }
-.no-scrub #hero-canvas { display: none; }
+.no-scrub #hero-canvas, .no-scrub .hero-idle { display: none; }
 
 .hero-beats { position: absolute; inset: 0; pointer-events: none; }
 /* beats live in the LOWER third (reference layout: type overlaps the
@@ -533,7 +538,7 @@ section { position: relative; }
 @media (max-width: 720px) {
   .corner-nav { top: 96px; right: 12px; gap: 12px; font-size: 11.5px; }
   .nav-socials { padding-left: 10px; gap: 9px; }
-  .hero { height: 900vh; }
+  .hero { height: 1250vh; }
   .beat { white-space: normal; width: 92vw; }
   .work-cards { grid-template-columns: 1fr; }
   #work-canvas { height: 280px; }
