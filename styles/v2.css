@@ -156,14 +156,30 @@ a { color: inherit; }
   opacity: 0;
   will-change: transform, opacity;
 }
+/* chapter eyebrow, same voice as the beats */
+.lockin-k {
+  font-family: "Geist Mono", monospace;
+  font-size: clamp(10px, 0.85vw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  color: rgba(255, 246, 232, 0.72);
+  margin-bottom: 1.1em;
+  text-shadow: 0 1px 6px rgba(15, 22, 34, 0.5);
+}
 .hero-headline {
-  font-size: clamp(28px, 4.8vw, 68px);
-  line-height: 1.12;
-  font-weight: 800;
-  letter-spacing: -0.028em;
+  font-size: clamp(25px, 3.5vw, 50px);
+  line-height: 1.22;
+  font-weight: 700;
+  letter-spacing: -0.015em;
   text-wrap: balance;
-  color: #FFF8EC;
-  text-shadow: 0 2px 16px rgba(15, 22, 34, 0.4), 0 1px 2px rgba(15, 22, 34, 0.45);
+  color: rgba(255, 246, 232, 0.96);
+  text-shadow: 0 2px 12px rgba(15, 22, 34, 0.4), 0 1px 2px rgba(15, 22, 34, 0.45);
+}
+.hero-headline strong {
+  font-weight: 900;
+  color: #FFC048;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 14px rgba(15, 22, 34, 0.35);
 }
 .hl-line { display: block; overflow: hidden; padding-bottom: 0.09em; }
 .hl-line .mk {
@@ -171,8 +187,8 @@ a { color: inherit; }
   transform: translateY(calc((100% - var(--r, 0%)) * 0.92));
   will-change: transform;
 }
-.hl-day { color: rgba(255, 248, 236, 0.66); }
-.hl-accent { font-style: italic; color: var(--accent); }
+.hl-day { color: rgba(255, 248, 236, 0.6); }
+.hl-accent { font-style: italic; font-weight: 800; color: #FF7A4D; }
 .hero-quiet {
   margin-top: 16px;
   font-size: clamp(13px, 1.35vw, 16px);

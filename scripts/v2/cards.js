@@ -178,7 +178,7 @@ export function initCards() {
     const home = {
       x: k * 0.58,
       y: -Math.pow(Math.abs(k), 1.4) * 0.055,
-      z: i * 0.015,
+      z: (N - 1 - i) * 0.015,      // leftmost on top: read the fan L -> R
       rz: -k * 0.072
     };
     m.userData = { i, p, isSoon, home, lift: 0 };

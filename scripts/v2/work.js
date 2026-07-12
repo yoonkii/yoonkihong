@@ -15,14 +15,15 @@ const COMPANIES = [
 
 function tex(draw, bg) {
   const c = document.createElement('canvas');
-  c.width = c.height = 256;
+  c.width = c.height = 512;                 // crisp on the bigger tiles
   const g = c.getContext('2d');
+  g.scale(2, 2);                            // draw functions work in 256-space
   g.fillStyle = bg;
   g.fillRect(0, 0, 256, 256);
   draw(g);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
+  t.anisotropy = 8;
   return t;
 }
 function drawNaver(g) {
@@ -37,24 +38,31 @@ function drawNaver(g) {
   g.fill();
 }
 function drawLine(g) {
-  // real app icon: white speech bubble, LINE wordmark in green
+  // real app icon: fat white speech bubble (tail folding out of the
+  // bottom-left corner), LINE wordmark in green
   g.fillStyle = '#FFFFFF';
   g.beginPath();
-  g.roundRect(38, 56, 180, 122, 52);
+  g.roundRect(34, 52, 188, 134, 62);
   g.fill();
+  // tail: starts inside the bubble's lower-left, sweeps down-left to a point
   g.beginPath();
-  g.moveTo(80, 168); g.lineTo(66, 202); g.lineTo(116, 174);
+  g.moveTo(96, 180);
+  g.lineTo(72, 212);
+  g.quadraticCurveTo(64, 220, 62, 208);
+  g.lineTo(58, 172);
   g.closePath();
   g.fill();
   g.fillStyle = '#06C755';
-  g.font = '800 46px Geist, sans-serif';
+  g.font = '900 50px Geist, "Helvetica Neue", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('LINE', 128, 118);
+  g.fillText('LINE', 128, 120);
 }
 function drawGoogle(g) {
-  // the real G: a ring in four arcs + the blue horizontal bar. Canvas
-  // angles: 0 = east, positive = clockwise.
-  const cx = 128, cy = 128, R = 56, W = 42;
+  // the real G: a ring in four arcs + the blue horizontal bar, at brand
+  // proportions (ring thickness ≈ 0.36 of outer radius; the opening sits
+  // between the bar and red's end at 315°). Canvas angles: 0 = east, CW+.
+  const cx = 128, cy = 128;
+  const RO = 88, W = 46, R = RO - W / 2;   // outer 88px, mid-line radius
   const D = Math.PI / 180;
   const seg = (col, a0, a1) => {
     g.strokeStyle = col;
@@ -63,13 +71,13 @@ function drawGoogle(g) {
     g.arc(cx, cy, R, a0 * D, a1 * D);
     g.stroke();
   };
-  seg('#4285F4', 0, 45);        // blue: lower-right, rises to meet the bar
-  seg('#34A853', 45, 135);      // green: bottom
-  seg('#FBBC05', 135, 225);     // yellow: left
-  seg('#EA4335', 225, 315);     // red: top — the 315-360 gap is the opening
-  // blue bar: from center to the ring's right edge, flush with the arc
+  seg('#4285F4', 0, 48);        // blue: from the bar down the right side
+  seg('#34A853', 46, 148);      // green: bottom
+  seg('#FBBC05', 146, 232);     // yellow: left
+  seg('#EA4335', 230, 315);     // red: top — 315-360 stays open
+  // blue bar: vertically centered, runs from mid-bowl flush to the outer edge
   g.fillStyle = '#4285F4';
-  g.fillRect(cx - 4, cy - W / 2, R + W / 2 + 4, W);
+  g.fillRect(cx - 2, cy - W / 2, RO + 2, W);
 }
 
 export function initWork() {
@@ -97,11 +105,11 @@ export function initWork() {
   const shelf = new THREE.Group();
   scene.add(shelf);
   const tiles = COMPANIES.map((co, i) => {
-    const geo = new RoundedBoxGeometry(1.9, 1.9, 0.62, 5, 0.22);
+    const geo = new RoundedBoxGeometry(2.35, 2.35, 0.72, 5, 0.27);
     const face = new THREE.MeshStandardMaterial({ map: tex(co.draw, co.bg), roughness: 0.32, metalness: 0 });
     const side = new THREE.MeshStandardMaterial({ color: co.bg, roughness: 0.4 });
     const m = new THREE.Mesh(geo, [side, side, side, side, face, side]);
-    m.position.x = (i - 1) * 3.1;
+    m.position.x = (i - 1) * 3.5;
     m.userData = { i, base: m.position.clone(), lift: 0 };
     shelf.add(m);
     return m;
@@ -109,7 +117,7 @@ export function initWork() {
   // connecting timeline thread
   {
     const g = new THREE.BufferGeometry().setFromPoints(
-      [new THREE.Vector3(-4.4, 0, -0.4), new THREE.Vector3(4.4, 0, -0.4)]);
+      [new THREE.Vector3(-5.0, 0, -0.4), new THREE.Vector3(5.0, 0, -0.4)]);
     scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xD8CFC0 })));
   }
 
@@ -138,6 +146,11 @@ export function initWork() {
     renderer.setSize(w, h, false);
     cam.aspect = w / h;
     cam.updateProjectionMatrix();
+    // keep the whole shelf in frame on narrow viewports
+    const halfW = 3.5 + 2.35 / 2 + 0.4;
+    const distW = halfW / Math.tan(cam.fov * Math.PI / 360) / cam.aspect;
+    cam.position.z = Math.max(9.5, distW);
+    cam.lookAt(0, 0, 0);
   }
   addEventListener('resize', fit);
   fit();
