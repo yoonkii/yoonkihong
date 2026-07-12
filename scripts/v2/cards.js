@@ -56,20 +56,24 @@ function makeFaceTexture(p, isSoon) {
     // face; the 3D geometry rounds the silhouette anyway
     g.fillStyle = '#FDFCF8';
     g.fillRect(0, 0, CW, CH);
+    // the artwork sits INSET on the paper (print margin) — full-bleed
+    // pixels smear around the rounded geometry's corner bevel otherwise
+    const M = 14;
     g.save();
-    roundedPath(g, 0, 0, CW, CH, RAD);
+    roundedPath(g, M, M, CW - M * 2, PH - M, 30);
     g.clip();
     if (shot) {
-      const s = Math.max(CW / shot.width, PH / shot.height);
-      g.drawImage(shot, (CW - shot.width * s) / 2, 0, shot.width * s, shot.height * s);
+      const aw = CW - M * 2, ah = PH - M;
+      const s = Math.max(aw / shot.width, ah / shot.height);
+      g.drawImage(shot, M + (aw - shot.width * s) / 2, M, shot.width * s, shot.height * s);
     } else {
       const ph = g.createLinearGradient(0, 0, 0, PH);
       ph.addColorStop(0, colA(col, 0.6));
       ph.addColorStop(1, colA(col, 0.15));
       g.fillStyle = ph;
-      g.fillRect(0, 0, CW, PH);
+      g.fillRect(M, M, CW - M * 2, PH - M);
     }
-    // the photo dissolves into the paper — no hard edge
+    // the artwork dissolves into the paper — no hard bottom edge
     const fade = g.createLinearGradient(0, PH - 92, 0, PH + 2);
     fade.addColorStop(0, 'rgba(253,252,248,0)');
     fade.addColorStop(1, 'rgba(253,252,248,1)');
@@ -190,7 +194,9 @@ function makeFaceTexture(p, isSoon) {
   if (!isSoon) {
     const sh = new Image();
     sh.onload = () => { shot = sh; paint(); };
-    sh.src = 'images/v2/shots/' + p.id + '.webp';
+    // illustrated artwork first; the live screenshot is the fallback
+    sh.onerror = () => { sh.onerror = null; sh.src = 'images/v2/shots/' + p.id + '.webp'; };
+    sh.src = 'images/v2/art/' + p.id + '.webp';
   }
   return tex;
 }
