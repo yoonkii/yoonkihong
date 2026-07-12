@@ -451,11 +451,12 @@ section { position: relative; }
 
 /* progress rail between the stack and the panel: one dot per project,
    the active one glows accent — click to jump the stack */
+/* chapter index on the far left edge — out of the card/panel lockup */
 .stack-rail {
   position: absolute;
-  left: 50%;
+  left: 4.5vw;
   top: 52%;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   gap: 12px;

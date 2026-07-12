@@ -467,9 +467,11 @@ export function initCards(domFallback) {
     cam.position.set(0, 0.12, baseDist);
     cam.lookAt(0, 0.02, 0);
     // narrow viewports: card centered, lifted above the bottom sheet,
-    // slightly smaller so it clears the dolly-in camera's frame
+    // slightly smaller so it clears the dolly-in camera's frame. Wide
+    // viewports pull the card toward center so card + panel read as one
+    // tight two-column lockup (the rail owns the far-left edge)
     const mob = cam.aspect < 1.1;
-    STACK.x = mob ? 0 : -2.1;
+    STACK.x = mob ? 0 : -1.5;
     STACK.s = mob ? 1.18 : 1.38;
     STACK.yOff = mob ? 0.6 : 0.15;   // full-height canvas: near-center
   }

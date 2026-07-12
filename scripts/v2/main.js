@@ -264,6 +264,39 @@ function initScrub() {
     requestAnimationFrame(typeLoop);
   }
 
+  // once the lock-in headline is on screen, the rest of the film plays
+  // ITSELF — the visitor can park and watch him sit down and start
+  // typing. Scrolling only ever fast-forwards past it (the film never
+  // rewinds unless you scroll back above the lock-in, which resets).
+  const AUTO_FROM = 0.5;                 // scroll p that arms auto-play
+  const AUTO_RATE = 0.085;               // film-t per second (~4.5s tail)
+  let autoTf = 0, autoOn = false, autoClock = 0;
+  function autoLoop(now) {
+    if (!autoOn) return;
+    if (scrollY >= hero.offsetHeight || document.hidden) { autoOn = false; return; }
+    const max = hero.offsetHeight - innerHeight;
+    const p = DBG_P !== null ? DBG_P
+      : clamp((scrollY - hero.offsetTop) / max, 0, 1);
+    if (p < AUTO_FROM) { autoOn = false; autoTf = 0; return; }
+    const dt = Math.min(0.05, (now - autoClock) / 1000 || 0.016);
+    autoClock = now;
+    autoTf = Math.min(1, Math.max(autoTf, easeFilm(clamp(p / SCRUB_END, 0, 1))) + AUTO_RATE * dt);
+    target = frameForT(autoTf);
+    draw();
+    if (autoTf >= 0.9995) {              // film finished — typing takes over
+      autoOn = false;
+      if (!typing && scrollY < hero.offsetHeight) {
+        typing = true;
+        typeFrame = FRAMES - 1;
+        typeDir = -1;
+        typeT = 0;
+        requestAnimationFrame(typeLoop);
+      }
+      return;
+    }
+    requestAnimationFrame(autoLoop);
+  }
+
   let ticking = false;
   function onScroll() {
     if (ticking) return;
@@ -274,6 +307,8 @@ function initScrub() {
       const p = DBG_P !== null ? DBG_P
         : clamp((scrollY - hero.offsetTop) / max, 0, 1);
       const tf = easeFilm(clamp(p / SCRUB_END, 0, 1));
+      if (p < AUTO_FROM) autoTf = 0;     // back above the lock-in: scroll owns
+      const eff = Math.max(tf, autoTf);  // the film never rewinds mid-auto
       // idle loop owns the stage until the first real scroll (finishing
       // the wave if one is mid-air), then the scrub canvas fades in over
       // it — and hands back when you return to the top
@@ -281,10 +316,15 @@ function initScrub() {
       // once the film has fully played out, the last beat of typing
       // loops gently (ping-pong) — he keeps building while the visitor
       // reads the headline; any scroll-back returns control to the scrub
-      const done = tf >= 0.9995;
+      const done = eff >= 0.9995;
       if (!done) {
         typing = false;
-        target = frameForT(tf);
+        target = frameForT(eff);
+        if (p >= AUTO_FROM && !autoOn) { // headline on screen: roll film
+          autoOn = true;
+          autoClock = 0;
+          requestAnimationFrame(autoLoop);
+        }
       } else if (!typing && scrollY < hero.offsetHeight) {
         typing = true;
         typeFrame = FRAMES - 1;
