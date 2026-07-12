@@ -80,7 +80,7 @@ a { color: inherit; }
 .nav-socials { display: flex; gap: 12px; padding-left: 14px; border-left: 1px solid var(--hairline); }
 
 /* ---------- hero ---------- */
-.hero { height: 1800vh; position: relative; }  /* 4 scenes, unhurried scrub */
+.hero { height: 1450vh; position: relative; }  /* 4 scenes, unhurried scrub */
 .hero-sticky {
   position: sticky; top: 0;
   height: 100vh; height: 100svh;
@@ -505,21 +505,28 @@ section { position: relative; }
    the screen (the hint would otherwise collide with the info panel) */
 .sec-h, .products-hint { transition: opacity 0.45s ease; }
 .products-sticky.staged .sec-h,
-.products-sticky.staged .products-hint { opacity: 0.18; }
+.products-sticky.staged .products-hint { opacity: 0; }
 @media (min-width: 761px) {
   .products-hint { max-width: 46vw; }
 }
-.capsule-stage { position: relative; }
+/* the 3D stage fills the whole pinned viewport so the presented card
+   sits at the true center of the screen; the (fading) header floats
+   above it and stays out of the pointer's way */
+.capsule-stage { position: absolute; inset: 0; }
+.capsule-stage.fall { position: static; }      /* DOM fallback: normal flow */
+.products-sticky .sec-h,
+.products-sticky .products-hint { position: relative; z-index: 1; pointer-events: none; }
 /* author display rules must not defeat the hidden attribute (the
    no-WebGL / no-CDN fallback path toggles these) */
 #capsule-canvas[hidden] { display: none; }
 .capsule-fallback[hidden] { display: none; }
 #capsule-canvas {
   width: 100%;
-  height: min(620px, 78vh);
+  height: 100%;
   display: block;
   touch-action: pan-y;
 }
+.capsule-stage.fall #capsule-canvas { height: min(620px, 78vh); }
 .capsule-fallback {
   list-style: none;
   width: min(1120px, 92vw);
@@ -639,7 +646,7 @@ section { position: relative; }
 @media (max-width: 720px) {
   .corner-nav { top: 96px; right: 12px; gap: 12px; font-size: 11.5px; }
   .nav-socials { padding-left: 10px; gap: 9px; }
-  .hero { height: 1250vh; }
+  .hero { height: 1050vh; }
   .beat { white-space: normal; width: 92vw; font-size: clamp(27px, 7.2vw, 40px); }
   .hero-headline { font-size: clamp(30px, 8.4vw, 44px); line-height: 1.24; }
   .work-cards { grid-template-columns: 1fr; }
@@ -658,6 +665,7 @@ section { position: relative; }
   .mk { transform: none !important; }
   /* products: the accessible list replaces the animated showcase */
   .products-sticky { position: static; height: auto; overflow: visible; }
+  .capsule-stage { position: static; }
   .show-info, .stack-rail { display: none; }
   .banner-dot, .hero-scroll-hint span { animation: none; }
   .about-reveal .w { opacity: 1; }

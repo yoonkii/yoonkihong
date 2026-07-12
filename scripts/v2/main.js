@@ -46,7 +46,7 @@ document.querySelectorAll('a[href^="#"]').forEach((a) => {
    (s041-089), SF dissolves into the night home office (s090-138), and
    he sits down to build (s139-187) — right where the headline lands. */
 const FRAMES = 188;
-const SCRUB_END = 0.72;          // scroll fraction where the film finishes
+const SCRUB_END = 0.82;          // scroll fraction where the film finishes
 const hero = document.querySelector('.hero');
 const sticky = document.querySelector('.hero-sticky');
 const canvas = document.getElementById('hero-canvas');
@@ -143,8 +143,8 @@ function initScrub() {
     [41, 89, 48],      // seq2: Seoul -> SF
     [89, 89, 22],      //   dwell on SF
     [90, 138, 48],     // seq3: SF -> night office
-    [138, 138, 22],    //   dwell on the built office
-    [139, 187, 48]     // seq4: he sits down and types
+    [138, 138, 12],    //   dwell on the built office (short — the
+    [139, 187, 48]     // headline already holds here) then he types
   ];
   const SEG_TOTAL = SEGS.reduce((s, g) => s + g[2], 0);
   function frameForT(t) {
@@ -310,7 +310,7 @@ function initScrub() {
       // the headline locks in WHILE the night office assembles around him
       // — "by night" settles as he sits down to build, then holds to the
       // hero's end
-      const lk = clamp((p - 0.46) / 0.09, 0, 1);
+      const lk = clamp((p - 0.55) / 0.09, 0, 1);
       lockin.style.opacity = lk > 0 ? 1 : 0;
       lockin.style.transform = `translateX(-50%) translateY(${(1 - lk) * 20}px)`;
       lockin.style.pointerEvents = lk > 0.5 ? 'auto' : 'none';
@@ -385,6 +385,8 @@ function productsFallback() {
   }
   ul.hidden = false;
   document.getElementById('capsule-canvas').hidden = true;
+  const stage = document.querySelector('.capsule-stage');
+  if (stage) stage.classList.add('fall');   // back to normal flow
 }
 
 // wait for the webfonts too — the 3D sections bake Geist into canvas

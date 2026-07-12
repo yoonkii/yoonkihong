@@ -22,11 +22,15 @@ function roundedPath(g, x, y, w, h, r) {
   g.roundRect(x, y, w, h, r);
 }
 
-function makeFaceTexture(p, isSoon, onReady) {
+function makeFaceTexture(p, isSoon) {
   const c = document.createElement('canvas');
   c.width = CW; c.height = CH;
   const g = c.getContext('2d');
   const col = CARD_COLORS[p.id] || '#CFCBC2';
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  let sprite = null, shot = null;
 
   function blob(x, y, r, alpha) {
     const rg = g.createRadialGradient(x, y, 0, x, y, r);
@@ -36,16 +40,91 @@ function makeFaceTexture(p, isSoon, onReady) {
     g.fillRect(x - r, y - r, r * 2, r * 2);
   }
 
-  function paint(sprite) {
-    // liquid-glass slab: cool white glass with soft blobs of the project
-    // color floating in it — no hard bands, light does the structure
+  function keyline() {
+    roundedPath(g, 3, 3, CW - 6, CH - 6, RAD - 2);
+    g.strokeStyle = 'rgba(34,38,46,0.10)';
+    g.lineWidth = 2;
+    g.stroke();
+  }
+
+  /* LIVE projects: an editorial photo card — the product screenshot up
+     top, the creature as a floating badge on the seam, name/tagline on
+     warm paper below, a LIVE chip in the project color */
+  function paintLive() {
+    const PH = 408;                          // photo area height
+    // fill the FULL rect — transparent texels render black on the unlit
+    // face; the 3D geometry rounds the silhouette anyway
+    g.fillStyle = '#FDFCF8';
+    g.fillRect(0, 0, CW, CH);
+    g.save();
+    roundedPath(g, 0, 0, CW, CH, RAD);
+    g.clip();
+    if (shot) {
+      const s = Math.max(CW / shot.width, PH / shot.height);
+      g.drawImage(shot, (CW - shot.width * s) / 2, 0, shot.width * s, shot.height * s);
+    } else {
+      const ph = g.createLinearGradient(0, 0, 0, PH);
+      ph.addColorStop(0, colA(col, 0.6));
+      ph.addColorStop(1, colA(col, 0.15));
+      g.fillStyle = ph;
+      g.fillRect(0, 0, CW, PH);
+    }
+    // the photo dissolves into the paper — no hard edge
+    const fade = g.createLinearGradient(0, PH - 92, 0, PH + 2);
+    fade.addColorStop(0, 'rgba(253,252,248,0)');
+    fade.addColorStop(1, 'rgba(253,252,248,1)');
+    g.fillStyle = fade;
+    g.fillRect(0, PH - 92, CW, 94);
+    g.restore();
+    // creature badge floating on the seam
+    if (sprite) {
+      g.save();
+      g.shadowColor = 'rgba(30,36,48,0.25)';
+      g.shadowBlur = 18;
+      g.shadowOffsetY = 6;
+      g.fillStyle = '#FFFFFF';
+      g.beginPath(); g.arc(96, 372, 58, 0, Math.PI * 2); g.fill();
+      g.restore();
+      g.strokeStyle = 'rgba(34,38,46,0.08)';
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(96, 372, 58, 0, Math.PI * 2); g.stroke();
+      g.imageSmoothingEnabled = false;
+      g.drawImage(sprite, 96 - 40, 372 - 40, 80, 80);
+      g.imageSmoothingEnabled = true;
+    }
+    // name + tagline, left aligned like the editorial reference
+    g.textAlign = 'left';
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = '#22262E';
+    g.font = '800 37px Geist, sans-serif';
+    g.fillText(p.name, 36, 496, CW - 72);
+    g.font = '500 21px Geist, sans-serif';
+    g.fillStyle = '#5D6470';
+    wrapText(g, p.tagline || '', 36, 534, CW - 80, 30, 2);
+    // footer: live chip in the project color + open cue
+    const chipW = 122;
+    g.fillStyle = colA(col, 0.3);
+    roundedPath(g, 36, CH - 86, chipW, 44, 22);
+    g.fill();
+    g.fillStyle = '#22262E';
+    g.font = '700 18px "Geist Mono", monospace';
+    g.textAlign = 'center';
+    g.fillText('● LIVE', 36 + chipW / 2, CH - 57);
+    g.textAlign = 'right';
+    g.fillStyle = '#E8552F';
+    g.font = '600 20px "Geist Mono", monospace';
+    g.fillText('OPEN →', CW - 36, CH - 57);
+    keyline();
+  }
+
+  /* eggs keep the liquid-glass look — a promise, not a product yet */
+  function paintEgg() {
     const base = g.createLinearGradient(0, 0, 0, CH);
     base.addColorStop(0, '#FFFFFF');
     base.addColorStop(0.5, '#F7FAFE');
     base.addColorStop(1, '#EFF3FA');
     g.fillStyle = base;
     g.fillRect(0, 0, CW, CH);
-    // the project color suffuses the glass, densest at the top
     const tint = g.createLinearGradient(0, 0, 0, CH);
     tint.addColorStop(0, colA(col, 0.5));
     tint.addColorStop(0.5, colA(col, 0.16));
@@ -56,36 +135,32 @@ function makeFaceTexture(p, isSoon, onReady) {
     blob(430, 80, 220, 0.65);
     blob(430, 640, 250, 0.35);
     blob(60, 690, 180, 0.3);
-    // creature floats in the upper glass, resting on a soft shadow
     if (sprite) {
       g.fillStyle = 'rgba(30,36,48,0.10)';
       g.beginPath();
       g.ellipse(CW / 2, 300, 92, 16, 0, 0, Math.PI * 2);
       g.fill();
-      g.imageSmoothingEnabled = false;             // keep the pixel art crisp
+      g.imageSmoothingEnabled = false;
       const S = 232;
-      if (isSoon) g.globalAlpha = 0.88;
+      g.globalAlpha = 0.88;
       g.drawImage(sprite, (CW - S) / 2, 66, S, S);
       g.globalAlpha = 1;
       g.imageSmoothingEnabled = true;
     }
-    // name
     g.fillStyle = '#22262E';
     g.font = '800 40px Geist, sans-serif';
-    g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.textAlign = 'center';
+    g.textBaseline = 'alphabetic';
     g.fillText(p.name, CW / 2, 424, CW - 80);
-    // tagline (wrap to two lines)
     g.font = '500 23px Geist, sans-serif';
     g.fillStyle = '#5D6470';
     wrapText(g, p.tagline || '', CW / 2, 470, CW - 96, 32, 2);
-    // footer
     g.strokeStyle = 'rgba(34,38,46,0.12)';
     g.lineWidth = 2;
     g.beginPath(); g.moveTo(64, CH - 96); g.lineTo(CW - 64, CH - 96); g.stroke();
     g.font = '600 20px "Geist Mono", monospace';
-    g.fillStyle = isSoon ? '#9A948A' : '#E8552F';
-    g.fillText(isSoon ? 'H A T C H I N G   S O O N' : 'O P E N   P R O J E C T   ↗', CW / 2, CH - 50);
-    // glass optics: diagonal sheen sweeping the top + inner glow border
+    g.fillStyle = '#9A948A';
+    g.fillText('H A T C H I N G   S O O N', CW / 2, CH - 50);
     g.save();
     roundedPath(g, 6, 6, CW - 12, CH - 12, RAD);
     g.clip();
@@ -100,21 +175,23 @@ function makeFaceTexture(p, isSoon, onReady) {
     g.strokeStyle = 'rgba(255,255,255,0.9)';
     g.lineWidth = 3.5;
     g.stroke();
-    roundedPath(g, 3, 3, CW - 6, CH - 6, RAD - 2);
-    g.strokeStyle = 'rgba(34,38,46,0.10)';
-    g.lineWidth = 2;
-    g.stroke();
-    tex.needsUpdate = true;
-    onReady && onReady();
+    keyline();
   }
 
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  paint(null);
-  const img = new Image();
-  img.onload = () => paint(img);
-  img.src = p.sprite || 'images/game/creatures/egg.png';
+  function paint() {
+    (isSoon ? paintEgg : paintLive)();
+    tex.needsUpdate = true;
+  }
+
+  paint();
+  const si = new Image();
+  si.onload = () => { sprite = si; paint(); };
+  si.src = p.sprite || 'images/game/creatures/egg.png';
+  if (!isSoon) {
+    const sh = new Image();
+    sh.onload = () => { shot = sh; paint(); };
+    sh.src = 'images/v2/shots/' + p.id + '.webp';
+  }
   return tex;
 }
 
@@ -289,13 +366,8 @@ export function initCards(domFallback) {
     siTag.textContent = p.tagline || '';
     siDesc.textContent = p.desc || '';
     if (p.url) { siVisit.href = p.url; siVisit.hidden = false; } else siVisit.hidden = true;
-    if (p.kind === 'egg') {
-      siShot.hidden = true;
-    } else {
-      siShot.hidden = false;
-      siShot.src = 'images/v2/shots/' + p.id + '.webp';
-      siShot.onerror = () => { siShot.hidden = true; };
-    }
+    // no screenshot in the panel — the presented card IS the imagery now
+    siShot.hidden = true;
   }
 
   /* ---------------- detail modal ---------------- */
@@ -386,7 +458,7 @@ export function initCards(domFallback) {
     const mob = cam.aspect < 1.1;
     STACK.x = mob ? 0 : -2.1;
     STACK.s = mob ? 1.18 : 1.38;
-    STACK.yOff = mob ? 0.55 : 0.3;
+    STACK.yOff = mob ? 0.6 : 0.15;   // full-height canvas: near-center
   }
   addEventListener('resize', fit);
   fit();
@@ -436,7 +508,7 @@ export function initCards(domFallback) {
     // but the stack presents ONE card — dolly in as the showcase takes
     // over so the presented card actually fills the screen
     if (cam.aspect < 1.1)
-      cam.position.z = baseDist - showPhase * (baseDist - 8);
+      cam.position.z = baseDist - showPhase * (baseDist - 8.6);
     stackMode = showPhase > 0.5;
     if (stackMode !== lastStaged) {
       lastStaged = stackMode;
