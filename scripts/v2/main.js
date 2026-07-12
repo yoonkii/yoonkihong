@@ -150,6 +150,39 @@ function initScrub() {
     })(t0);
   }
 
+  // seq0 -> seq1 handoff without a jump cut: if the visitor scrolls while
+  // the wave is mid-air (idle loop ~3.2-6.85s), keep the video on stage
+  // and hurry it along (2.4x) until the hand is back down — only then
+  // crossfade to the scrub. Scrolling from a neutral pose hands off
+  // immediately, since seq1 opens on the same stance.
+  const WAVE_START = 3.2, WAVE_END = 6.85;
+  let settling = false;
+  function updateStage(scrubbing) {
+    if (!scrubbing) {
+      settling = false;
+      idle.playbackRate = 1;
+      canvas.style.opacity = 0;
+      idle.classList.remove('off');
+      if (idle.paused) idle.play().catch(() => {});
+      return;
+    }
+    const t = idle.currentTime;
+    if (!settling) settling = !idle.paused && t > WAVE_START && t < WAVE_END;
+    else settling = t < WAVE_END;          // done once the hand lands
+    if (settling) {
+      idle.playbackRate = 2.4;
+      if (idle.paused) idle.play().catch(() => {});
+      canvas.style.opacity = 0;
+      idle.classList.remove('off');
+      requestAnimationFrame(onScroll);     // keep watching even if the
+    } else {                               // scroll wheel goes quiet
+      idle.playbackRate = 1;
+      if (!idle.paused) idle.pause();
+      canvas.style.opacity = 1;
+      idle.classList.add('off');
+    }
+  }
+
   let ticking = false;
   function onScroll() {
     if (ticking) return;
@@ -160,13 +193,10 @@ function initScrub() {
       const p = DBG_P !== null ? DBG_P
         : clamp((scrollY - hero.offsetTop) / max, 0, 1);
       const tf = easeFilm(clamp(p / SCRUB_END, 0, 1));
-      // idle loop owns the stage until the first real scroll, then the
-      // scrub canvas fades in over it (and hands back when you return)
-      const scrubbing = p > 0.004;
-      canvas.style.opacity = scrubbing ? 1 : 0;
-      idle.classList.toggle('off', scrubbing);
-      if (scrubbing) { if (!idle.paused) idle.pause(); }
-      else if (idle.paused) idle.play().catch(() => {});
+      // idle loop owns the stage until the first real scroll (finishing
+      // the wave if one is mid-air), then the scrub canvas fades in over
+      // it — and hands back when you return to the top
+      updateStage(p > 0.004);
       target = Math.round(tf * (FRAMES - 1));
       draw();
       let maxA = 0;
