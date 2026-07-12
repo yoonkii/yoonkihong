@@ -52,6 +52,8 @@ const canvas = document.getElementById('hero-canvas');
 const lockin = document.querySelector('.hero-lockin');
 const beats = [...document.querySelectorAll('.beat')];
 const hint = document.querySelector('.hero-scroll-hint');
+const hpRail = document.querySelector('.hero-progress');
+const hpFill = document.getElementById('hp-fill');
 
 if (REDUCED) {
   document.body.classList.add('no-scrub');
@@ -306,6 +308,9 @@ function initScrub() {
       document.getElementById('hero-scrim').style.opacity =
         Math.max(maxA, lk) * 0.9;
       hint.style.opacity = p < 0.02 ? 1 : 0;
+      // film progress rail: visible while the story scrubs, gone at rest
+      hpFill.style.height = (p * 100) + '%';
+      hpRail.classList.toggle('on', p > 0.01 && p < 0.985);
     });
   }
   addEventListener('scroll', onScroll, { passive: true });
