@@ -364,15 +364,15 @@ section { position: relative; }
 }
 .show-info {
   position: absolute;
-  right: 7vw;
+  right: 5.5vw;
   top: 52%;
   transform: translateY(calc(-50% + var(--dy, 0px)));
-  width: min(430px, 36vw);
-  max-height: calc(100vh - 150px);
+  width: min(580px, 44vw);
+  max-height: calc(100vh - 140px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 26px 28px;
+  padding: 28px 30px;
   background: rgba(252, 250, 245, 0.72);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -421,11 +421,11 @@ section { position: relative; }
 }
 .show-info .si-desc {
   margin-top: 12px;
-  font-size: 14px;
-  line-height: 1.62;
+  font-size: 14.5px;
+  line-height: 1.64;
   color: var(--ink-soft);
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -494,28 +494,37 @@ section { position: relative; }
   .show-info h3 { font-size: 24px; }
   .show-info .si-desc { -webkit-line-clamp: 3; font-size: 13.5px; }
 }
+/* the hint lives at the very bottom of the pinned viewport, clear of the
+   full-height card fan — a quiet mono caption, not body copy */
 .products-hint {
-  width: min(1120px, 92vw);
-  max-width: min(1120px, 92vw);
-  margin: 10px auto 0;
-  font-size: 14.5px;
+  position: absolute;
+  left: 50%;
+  bottom: 5.5vh;
+  transform: translateX(-50%);
+  z-index: 1;
+  margin: 0;
+  width: max-content;
+  max-width: 92vw;
+  font-family: "Geist Mono", monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
   color: var(--ink-soft);
+  pointer-events: none;
 }
 /* while the stack showcase runs, the header recedes so the stage owns
    the screen (the hint would otherwise collide with the info panel) */
 .sec-h, .products-hint { transition: opacity 0.45s ease; }
 .products-sticky.staged .sec-h,
 .products-sticky.staged .products-hint { opacity: 0; }
-@media (min-width: 761px) {
-  .products-hint { max-width: 46vw; }
-}
 /* the 3D stage fills the whole pinned viewport so the presented card
    sits at the true center of the screen; the (fading) header floats
    above it and stays out of the pointer's way */
 .capsule-stage { position: absolute; inset: 0; }
 .capsule-stage.fall { position: static; }      /* DOM fallback: normal flow */
-.products-sticky .sec-h,
-.products-sticky .products-hint { position: relative; z-index: 1; pointer-events: none; }
+.products-sticky .sec-h { position: relative; z-index: 1; pointer-events: none; }
 /* author display rules must not defeat the hidden attribute (the
    no-WebGL / no-CDN fallback path toggles these) */
 #capsule-canvas[hidden] { display: none; }

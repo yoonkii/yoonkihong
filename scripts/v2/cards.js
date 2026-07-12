@@ -372,8 +372,15 @@ export function initCards(domFallback) {
     siTag.textContent = p.tagline || '';
     siDesc.textContent = p.desc || '';
     if (p.url) { siVisit.href = p.url; siVisit.hidden = false; } else siVisit.hidden = true;
-    // no screenshot in the panel — the presented card IS the imagery now
-    siShot.hidden = true;
+    // the card face carries the illustration, the panel carries the REAL
+    // product: live screenshot on top (eggs have nothing to show yet)
+    if (p.kind === 'egg') {
+      siShot.hidden = true;
+    } else {
+      siShot.hidden = false;
+      siShot.src = 'images/v2/shots/' + p.id + '.webp';
+      siShot.onerror = () => { siShot.hidden = true; };
+    }
   }
 
   /* ---------------- detail modal ---------------- */
