@@ -124,15 +124,19 @@ export function initWork() {
   const ray = new THREE.Raycaster();
   const ptr = new THREE.Vector2(-2, -2);
   let hover = -1;
-  const touch = matchMedia('(pointer: coarse)').matches;
 
   canvas.addEventListener('pointermove', (e) => {
     const r = canvas.getBoundingClientRect();
     ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   });
-  canvas.addEventListener('pointerleave', () => ptr.set(-2, -2));
-  canvas.addEventListener('click', () => {
-    if (touch && hover >= 0) light(hover);          // tap = select on mobile
+  canvas.addEventListener('pointerleave', () => { ptr.set(-2, -2); hover = -1; });
+  canvas.addEventListener('click', (e) => {
+    // pick at the click point itself — taps never fire pointermove first
+    const r = canvas.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, cam);
+    const hit = ray.intersectObjects(tiles)[0];
+    if (hit) light(hit.object.userData.i);
   });
 
   function light(i) {

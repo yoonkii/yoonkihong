@@ -499,6 +499,10 @@ section { position: relative; }
   .products-hint { max-width: 46vw; }
 }
 .capsule-stage { position: relative; }
+/* author display rules must not defeat the hidden attribute (the
+   no-WebGL / no-CDN fallback path toggles these) */
+#capsule-canvas[hidden] { display: none; }
+.capsule-fallback[hidden] { display: none; }
 #capsule-canvas {
   width: 100%;
   height: min(620px, 78vh);
@@ -638,6 +642,12 @@ section { position: relative; }
   .hero-sticky { position: relative; height: 100svh; }
   .beat { display: none; }
   .hero-lockin { opacity: 1 !important; }
+  /* no scrub JS runs, so nothing ever raises --r: the headline must not
+     stay clipped inside its mask line */
+  .mk { transform: none !important; }
+  /* products: the accessible list replaces the animated showcase */
+  .products-sticky { position: static; height: auto; overflow: visible; }
+  .show-info, .stack-rail { display: none; }
   .banner-dot, .hero-scroll-hint span { animation: none; }
   .about-reveal .w { opacity: 1; }
   .work-card { opacity: 1; transform: none; }

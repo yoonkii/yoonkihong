@@ -125,17 +125,28 @@ function colA(hex, alpha) {
 }
 
 function wrapText(g, text, x, y, maxW, lh, maxLines) {
+  // greedy wrap; if the text needs more lines than allowed, the last
+  // visible line keeps as many words as fit and gains an ellipsis —
+  // nothing is silently dropped mid-sentence
   const words = text.split(' ');
-  let line = '', lines = 0;
+  const lines = [];
+  let line = '';
   for (const w of words) {
     const probe = line ? line + ' ' + w : w;
     if (g.measureText(probe).width > maxW && line) {
-      g.fillText(line, x, y + lines * lh);
-      if (++lines >= maxLines - 1) { line = w; break; }
+      lines.push(line);
       line = w;
     } else line = probe;
   }
-  g.fillText(line, x, y + lines * lh, maxW);
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    let rest = lines.slice(maxLines - 1).join(' ');
+    while (rest.includes(' ') && g.measureText(rest + '…').width > maxW)
+      rest = rest.slice(0, rest.lastIndexOf(' '));
+    lines.length = maxLines - 1;
+    lines.push(rest + '…');
+  }
+  lines.forEach((ln, li) => g.fillText(ln, x, y + li * lh, maxW));
 }
 
 function makeBackTexture() {
@@ -165,19 +176,25 @@ function makeBackTexture() {
   return tex;
 }
 
-export function initCards() {
+export function initCards(domFallback) {
   const DBG_SP_RAW = new URLSearchParams(location.search).get('sp');
-  const DBG_SP = DBG_SP_RAW !== null ? parseFloat(DBG_SP_RAW) : null;
+  const DBG_SP_NUM = DBG_SP_RAW !== null ? parseFloat(DBG_SP_RAW) : NaN;
+  const DBG_SP = Number.isFinite(DBG_SP_NUM) ? DBG_SP_NUM : null;
   const canvas = document.getElementById('capsule-canvas');
   const projects = (window.PROJECTS || []);
   const live = projects.filter((p) => p.kind !== 'egg');
   const soon = projects.filter((p) => p.kind === 'egg' && p.id !== 'x');
   const items = [...live, ...soon];
 
+  // reduced motion gets the plain accessible list — every project name,
+  // description and link reachable with zero animation
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches && domFallback)
+    return domFallback();
+
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  } catch (e) { return fallback(items); }
+  } catch (e) { return domFallback && domFallback(); }
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -251,6 +268,10 @@ export function initCards() {
   const jFracOf = (P) =>
     Math.min(N - 1, Math.max(0, (P - FAN_END) / (1 - FAN_END - TAIL) * (N - 1)));
   const pOf = (j) => FAN_END + (N > 1 ? j / (N - 1) : 0) * (1 - FAN_END - TAIL);
+  function scrollToCard(j) {
+    const total = section.offsetHeight - innerHeight;
+    window.scrollTo({ top: section.offsetTop + pOf(j) * total, behavior: 'smooth' });
+  }
 
   const sticky = document.querySelector('.products-sticky');
   // progress rail: one clickable dot per project
@@ -259,10 +280,7 @@ export function initCards() {
     const b = document.createElement('button');
     b.type = 'button';
     b.title = p.name;
-    b.addEventListener('click', () => {
-      const total = section.offsetHeight - innerHeight;
-      window.scrollTo({ top: section.offsetTop + pOf(j) * total, behavior: 'smooth' });
-    });
+    b.addEventListener('click', () => scrollToCard(j));
     rail.appendChild(b);
     return b;
   });
@@ -276,6 +294,7 @@ export function initCards() {
   const siShot = document.getElementById('si-shot');
   let infoJ = -1;
   let stackMode = false;
+  let lastStaged = null;
   let lastJFrac = 0;
   function setInfo(j) {
     infoJ = j;
@@ -307,8 +326,11 @@ export function initCards() {
   document.getElementById('cc-close').addEventListener('click', closeCard);
   veil.addEventListener('click', closeCard);
   addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCard(); });
+  let hideTimer = 0;
   function openCard(p, isSoon) {
-    ccName.textContent = p.name;
+    clearTimeout(hideTimer);               // a reopen within the close
+    ccName.textContent = p.name;           // animation must not be hidden
+                                           // by the stale timer
     ccTag.textContent = p.tagline || '';
     ccDesc.textContent = p.desc || '';
     ccSprite.src = p.sprite || 'images/game/creatures/egg.png';
@@ -326,9 +348,10 @@ export function initCards() {
     requestAnimationFrame(() => { card.classList.add('open'); veil.classList.add('open'); });
   }
   function closeCard() {
+    if (card.hidden) return;               // Escape with no modal open
     card.classList.remove('open');
     veil.classList.remove('open');
-    setTimeout(() => { card.hidden = true; veil.hidden = true; }, 300);
+    hideTimer = setTimeout(() => { card.hidden = true; veil.hidden = true; }, 300);
   }
 
   /* ---------------- pointer ---------------- */
@@ -340,15 +363,25 @@ export function initCards() {
     ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   });
   canvas.addEventListener('pointerleave', () => { ptr.set(-2, -2); hover = -1; });
-  canvas.addEventListener('click', () => {
-    if (hover < 0) return;
+  // clicks pick at the CLICK coordinates, not the hover state — taps on
+  // touch devices fire click without any pointermove, so hover-based
+  // picking would make the whole section dead on phones
+  function pickAt(e) {
+    const r = canvas.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, cam);
+    const hit = ray.intersectObjects(cards)[0];
+    return hit ? hit.object.userData.i : -1;
+  }
+  canvas.addEventListener('click', (e) => {
+    const j = pickAt(e);
+    if (j < 0) return;
     // in stack mode a peeking card is navigation: scroll the stack to it
-    if (stackMode && Math.abs(hover - Math.round(lastJFrac)) >= 1) {
-      const total = section.offsetHeight - innerHeight;
-      window.scrollTo({ top: section.offsetTop + pOf(hover) * total, behavior: 'smooth' });
+    if (stackMode && Math.abs(j - Math.round(lastJFrac)) >= 1) {
+      scrollToCard(j);
       return;
     }
-    const u = cards[hover].userData;
+    const u = cards[j].userData;
     openCard(u.p, u.isSoon);
   });
 
@@ -400,7 +433,11 @@ export function initCards() {
     const jFrac = jFracOf(P);
     lastJFrac = jFrac;
     stackMode = showPhase > 0.5;
-    sticky.classList.toggle('staged', stackMode);
+    if (stackMode !== lastStaged) {
+      lastStaged = stackMode;
+      sticky.classList.toggle('staged', stackMode);
+      rail.inert = !stackMode;     // rail dots leave the tab order while
+    }                              // the rail is invisible
 
     cards.forEach((m, i) => {
       const u = m.userData;
@@ -449,6 +486,7 @@ export function initCards() {
         const between = Math.abs(jFrac - j);         // 0 centered .. 0.5 mid-swap
         const op = showPhase * (1 - smooth(Math.min(1, Math.max(0, (between - 0.14) / 0.3))));
         info.style.opacity = op;
+        if ((op > 0.5) !== !info.inert) info.inert = op <= 0.5;
         info.style.setProperty('--dy', ((jFrac - j) * -34) + 'px');
         info.classList.toggle('live', op > 0.5);
       } else {
@@ -466,20 +504,4 @@ export function initCards() {
     renderer.render(scene, cam);
   })();
 
-  function fallback(list) {
-    const ul = document.getElementById('capsule-fallback');
-    ul.hidden = false;
-    canvas.hidden = true;
-    for (const p of list) {
-      const li = document.createElement('li');
-      const a = document.createElement(p.url ? 'a' : 'span');
-      if (p.url) { a.href = p.url; a.target = '_blank'; a.rel = 'noopener'; }
-      const img = document.createElement('img');
-      img.src = p.sprite || 'images/game/creatures/egg.png';
-      img.alt = '';
-      a.append(img, document.createTextNode(p.name + (p.kind === 'egg' ? ' · soon' : '')));
-      li.appendChild(a);
-      ul.appendChild(li);
-    }
-  }
 }

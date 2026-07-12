@@ -12,7 +12,8 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // ?solo=work|products collapses the hero so a section sits in the first
 // viewport — the local preview pane can't rasterize scrolled captures
 const DBG = new URLSearchParams(location.search);
-const DBG_P = DBG.get('p') !== null ? parseFloat(DBG.get('p')) : null;
+const DBG_P_NUM = DBG.get('p') !== null ? parseFloat(DBG.get('p')) : NaN;
+const DBG_P = Number.isFinite(DBG_P_NUM) ? DBG_P_NUM : null;
 if (DBG.get('solo')) {
   document.querySelector('.hero').style.display = 'none';
   for (const sel of ['work', 'about', 'products'])
@@ -58,6 +59,13 @@ const hpFill = document.getElementById('hp-fill');
 if (REDUCED) {
   document.body.classList.add('no-scrub');
   document.getElementById('hero-poster').src = 'assets/v2/hero2/poster.webp';
+  // the hidden idle video must not keep downloading and looping for a
+  // visitor who asked for less motion — cancel its fetch outright
+  const idle = document.getElementById('hero-idle');
+  idle.removeAttribute('autoplay');
+  idle.pause();
+  idle.removeAttribute('src');
+  idle.load();
 } else {
   initScrub();
 }
@@ -321,7 +329,7 @@ function initScrub() {
 /* ------------------------------------------------------------------ *
  *  LAZY three.js sections                                              *
  * ------------------------------------------------------------------ */
-function lazy(selector, loader) {
+function lazy(selector, loader, onFail) {
   const el = document.querySelector(selector);
   if (!el) return;
   let done = false;
@@ -329,7 +337,10 @@ function lazy(selector, loader) {
     if (done) return;
     done = true;
     io.disconnect();
-    loader().catch((err) => console.warn('[v2] section failed, fallback on:', err));
+    loader().catch((err) => {
+      console.warn('[v2] section failed, fallback on:', err);
+      onFail && onFail();      // import failure (CDN down) must still
+    });                        // leave a working section behind
   };
   const io = new IntersectionObserver((es) => {
     if (es.some((e) => e.isIntersecting)) go();
@@ -340,8 +351,38 @@ function lazy(selector, loader) {
   addEventListener('scroll', go, { once: true, passive: true });
   setTimeout(go, 3500);
 }
-lazy('.work', () => import('./work.js').then((m) => m.initWork()));
-lazy('.products', () => import('./cards.js').then((m) => m.initCards()));
+// the DOM fallback for products lives HERE (not in cards.js) so it still
+// works when the three.js import itself fails; cards.js also calls it
+// for the no-WebGL and reduced-motion paths
+function productsFallback() {
+  const ul = document.getElementById('capsule-fallback');
+  if (!ul || !ul.hidden) return;
+  const list = (window.PROJECTS || []).filter((p) => !(p.kind === 'egg' && p.id === 'x'));
+  for (const p of list) {
+    const li = document.createElement('li');
+    const a = document.createElement(p.url ? 'a' : 'span');
+    if (p.url) { a.href = p.url; a.target = '_blank'; a.rel = 'noopener'; }
+    const img = document.createElement('img');
+    img.src = p.sprite || 'images/game/creatures/egg.png';
+    img.alt = '';
+    a.append(img, document.createTextNode(p.name + (p.kind === 'egg' ? ' · soon' : '')));
+    li.appendChild(a);
+    ul.appendChild(li);
+  }
+  ul.hidden = false;
+  document.getElementById('capsule-canvas').hidden = true;
+}
+
+// wait for the webfonts too — the 3D sections bake Geist into canvas
+// textures, and a cold-cache paint before the woff2 arrives would bake
+// the fallback font permanently
+const fontsReady = (document.fonts && document.fonts.ready) || Promise.resolve();
+lazy('.work',
+  () => Promise.all([import('./work.js'), fontsReady]).then(([m]) => m.initWork()),
+  () => document.querySelectorAll('.work-card').forEach((c) => c.classList.add('lit')));
+lazy('.products',
+  () => Promise.all([import('./cards.js'), fontsReady]).then(([m]) => m.initCards(productsFallback)),
+  productsFallback);
 
 /* ------------------------------------------------------------------ *
  *  ABOUT — word reveal                                                 *
