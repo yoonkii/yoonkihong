@@ -301,7 +301,6 @@ function initScrub() {
         mk.style.setProperty('--r', (seg * 100) + '%');
       });
       const tail = clamp((lk - 0.75) / 0.25, 0, 1);
-      lockin.querySelector('.hero-quiet').style.opacity = tail;
       lockin.querySelector('.hero-cta').style.opacity = tail;
       // bottom scrim carries whichever type is on screen
       document.getElementById('hero-scrim').style.opacity =

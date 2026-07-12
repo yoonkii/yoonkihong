@@ -195,14 +195,6 @@ a { color: inherit; }
 }
 .hl-day { color: rgba(255, 248, 236, 0.6); }
 .hl-accent { font-style: italic; font-weight: 800; color: #FF7A4D; }
-.hero-quiet {
-  margin-top: 16px;
-  font-size: clamp(13px, 1.35vw, 16px);
-  color: rgba(255, 248, 236, 0.85);
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  text-shadow: 0 1px 3px rgba(15, 22, 34, 0.5);
-}
 .hero-cta {
   display: inline-block;
   margin-top: 24px;
@@ -330,6 +322,8 @@ section { position: relative; }
   transform: translateY(calc(-50% + var(--dy, 0px)));
   width: min(430px, 36vw);
   max-height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   padding: 26px 28px;
   background: rgba(252, 250, 245, 0.72);
@@ -342,10 +336,15 @@ section { position: relative; }
   pointer-events: none;
   will-change: opacity, transform;
 }
+/* the screenshot is the panel's flexible element: it shrinks first on
+   short viewports so the story and the live link are NEVER clipped */
 .show-info .si-shot {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
+  max-height: 28vh;
+  min-height: 100px;
+  flex: 0 1 auto;
   object-fit: cover;
   object-position: top;
   border-radius: 12px;
@@ -385,6 +384,8 @@ section { position: relative; }
 }
 .show-info .si-visit {
   display: inline-block;
+  align-self: flex-start;
+  flex-shrink: 0;
   margin-top: 18px;
   font-family: "Geist Mono", monospace;
   font-size: 12.5px;
@@ -396,6 +397,41 @@ section { position: relative; }
 .show-info .si-visit:hover { color: var(--accent); }
 .show-info .si-visit[hidden] { display: none; }
 .show-info.live { pointer-events: auto; }
+@media (max-height: 780px) {
+  .show-info h3 { font-size: 24px; }
+  .show-info .si-desc { -webkit-line-clamp: 3; }
+}
+
+/* progress rail between the stack and the panel: one dot per project,
+   the active one glows accent — click to jump the stack */
+.stack-rail {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+.products-sticky.staged .stack-rail { opacity: 1; pointer-events: auto; }
+.stack-rail button {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(34, 38, 46, 0.22);
+  cursor: pointer;
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+.stack-rail button:hover { background: rgba(34, 38, 46, 0.45); }
+.stack-rail button.on {
+  background: var(--accent);
+  transform: scale(1.45);
+}
+@media (max-width: 760px) { .stack-rail { display: none; } }
 @media (max-width: 760px) {
   .show-info {
     right: 50%;
@@ -409,9 +445,18 @@ section { position: relative; }
 }
 .products-hint {
   width: min(1120px, 92vw);
+  max-width: min(1120px, 92vw);
   margin: 10px auto 0;
   font-size: 14.5px;
   color: var(--ink-soft);
+}
+/* while the stack showcase runs, the header recedes so the stage owns
+   the screen (the hint would otherwise collide with the info panel) */
+.sec-h, .products-hint { transition: opacity 0.45s ease; }
+.products-sticky.staged .sec-h,
+.products-sticky.staged .products-hint { opacity: 0.18; }
+@media (min-width: 761px) {
+  .products-hint { max-width: 46vw; }
 }
 .capsule-stage { position: relative; }
 #capsule-canvas {
@@ -542,7 +587,6 @@ section { position: relative; }
   .hero { height: 1250vh; }
   .beat { white-space: normal; width: 92vw; font-size: clamp(27px, 7.2vw, 40px); }
   .hero-headline { font-size: clamp(30px, 8.4vw, 44px); line-height: 1.24; }
-  .hero-quiet { font-size: 13.5px; }
   .work-cards { grid-template-columns: 1fr; }
   #work-canvas { height: 280px; }
   .hero-lockin { bottom: 9vh; }

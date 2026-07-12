@@ -242,13 +242,28 @@ export function initCards() {
   // the fan holds the stage for the first quarter of the scroll, then
   // hands over to the stack — arriving visitors always see the full deck
   const FAN_END = 0.24, TAIL = 0.06;
-  const STACK = { x: -2.1, gap: 1.62, z: 1.15, s: 1.14 };
+  const STACK = { x: -2.1, gap: 1.78, z: 1.15, s: 1.2 };
   const smooth = (x) => x * x * (3 - 2 * x);
   const lerp = (a, b, t) => a + (b - a) * t;
   // continuous stack cursor: 0 = first card centered, N-1 = last
   const jFracOf = (P) =>
     Math.min(N - 1, Math.max(0, (P - FAN_END) / (1 - FAN_END - TAIL) * (N - 1)));
   const pOf = (j) => FAN_END + (N > 1 ? j / (N - 1) : 0) * (1 - FAN_END - TAIL);
+
+  const sticky = document.querySelector('.products-sticky');
+  // progress rail: one clickable dot per project
+  const rail = document.getElementById('stack-rail');
+  const dots = items.map((p, j) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = p.name;
+    b.addEventListener('click', () => {
+      const total = section.offsetHeight - innerHeight;
+      window.scrollTo({ top: section.offsetTop + pOf(j) * total, behavior: 'smooth' });
+    });
+    rail.appendChild(b);
+    return b;
+  });
 
   const info = document.getElementById('show-info');
   const siIdx = document.getElementById('si-idx');
@@ -262,6 +277,7 @@ export function initCards() {
   let lastJFrac = 0;
   function setInfo(j) {
     infoJ = j;
+    dots.forEach((d, di) => d.classList.toggle('on', di === j));
     const p = items[j];
     siIdx.textContent = String(j + 1).padStart(2, '0') + ' / ' + String(N).padStart(2, '0');
     siName.textContent = p.name;
@@ -382,6 +398,7 @@ export function initCards() {
     const jFrac = jFracOf(P);
     lastJFrac = jFrac;
     stackMode = showPhase > 0.5;
+    sticky.classList.toggle('staged', stackMode);
 
     cards.forEach((m, i) => {
       const u = m.userData;
@@ -409,7 +426,7 @@ export function initCards() {
       const focus = Math.max(0, 1 - ar);            // 1 at center, 0 past ±1
       const sx = STACK.x + ar * 0.06,
             sy = -rel * STACK.gap + 0.14 + breathe * 0.6,
-            sz = STACK.z - ar * 0.38 + L * 0.2,
+            sz = STACK.z - ar * 0.52 + L * 0.2,
             srz = rel * -0.03,
             ss = lerp(0.82, STACK.s, smooth(focus)) + L * 0.03;
       m.position.set(lerp(fx, sx, showPhase), lerp(fy, sy, showPhase), lerp(fz, sz, showPhase));
