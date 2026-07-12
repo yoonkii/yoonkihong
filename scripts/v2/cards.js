@@ -227,7 +227,8 @@ export function initCards(domFallback) {
   // hands over to the stack — arriving visitors always see the full deck
   const FAN_END = 0.24, TAIL = 0.06;
   // the presented card is BIG — it anchors the split screen
-  const STACK = { x: -2.1, gap: 2.0, z: 1.15, s: 1.38 };   // x re-set per aspect in fit()
+  // x / s / yOff are re-set per aspect in fit()
+  const STACK = { x: -2.1, gap: 2.0, z: 1.15, s: 1.38, yOff: 0.3 };
   const smooth = (x) => x * x * (3 - 2 * x);
   const lerp = (a, b, t) => a + (b - a) * t;
   // continuous stack cursor: 0 = first card centered, N-1 = last
@@ -368,6 +369,7 @@ export function initCards(domFallback) {
     openCard(u.p, u.isSoon);
   });
 
+  let baseDist = 9;
   function fit() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     renderer.setSize(w, h, false);
@@ -376,10 +378,15 @@ export function initCards(domFallback) {
     const halfW = CTR * 0.58 + 1.75;               // fan half-width + margin
     const distW = halfW / Math.tan(cam.fov * Math.PI / 360) / cam.aspect;
     const distH = 2.05 / Math.tan(cam.fov * Math.PI / 360);
-    cam.position.set(0, 0.12, Math.max(distW, distH, 5.5));
+    baseDist = Math.max(distW, distH, 5.5);
+    cam.position.set(0, 0.12, baseDist);
     cam.lookAt(0, 0.02, 0);
-    // narrow viewports center the stack above the bottom info panel
-    STACK.x = cam.aspect < 1.1 ? 0 : -2.1;
+    // narrow viewports: card centered, lifted above the bottom sheet,
+    // slightly smaller so it clears the dolly-in camera's frame
+    const mob = cam.aspect < 1.1;
+    STACK.x = mob ? 0 : -2.1;
+    STACK.s = mob ? 1.18 : 1.38;
+    STACK.yOff = mob ? 0.55 : 0.3;
   }
   addEventListener('resize', fit);
   fit();
@@ -425,6 +432,11 @@ export function initCards(domFallback) {
       (P - blendStart) / Math.max(0.02, FAN_END - 0.01 - blendStart))));
     const jFrac = jFracOf(P);
     lastJFrac = jFrac;
+    // phones: the fan needs a distant camera to frame the whole spread,
+    // but the stack presents ONE card — dolly in as the showcase takes
+    // over so the presented card actually fills the screen
+    if (cam.aspect < 1.1)
+      cam.position.z = baseDist - showPhase * (baseDist - 8);
     stackMode = showPhase > 0.5;
     if (stackMode !== lastStaged) {
       lastStaged = stackMode;
@@ -457,7 +469,7 @@ export function initCards(domFallback) {
       const ar = Math.abs(rel);
       const focus = Math.max(0, 1 - ar);            // 1 at center, 0 past ±1
       const sx = STACK.x + ar * 0.06,
-            sy = -rel * STACK.gap + 0.3 + breathe * 0.6,
+            sy = -rel * STACK.gap + STACK.yOff + breathe * 0.6,
             sz = STACK.z - ar * 0.52 + L * 0.2,
             srz = rel * -0.03,
             ss = lerp(0.88, STACK.s, smooth(focus)) + L * 0.03;

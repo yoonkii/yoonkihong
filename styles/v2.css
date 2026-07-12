@@ -47,8 +47,15 @@ a { color: inherit; }
   color: #F6F9FF;
   background: #1E2430;
 }
-.game-banner strong { color: #FFD94A; }
+.game-banner strong { color: #FFD94A; white-space: nowrap; }
 .game-banner:hover strong { text-decoration: underline; }
+/* one tidy line on phones: short copy, no awkward wrap */
+.bn-short { display: none; }
+@media (max-width: 720px) {
+  .game-banner { font-size: 12.5px; padding: 8px 12px; white-space: nowrap; }
+  .bn-long { display: none; }
+  .bn-short { display: inline; }
+}
 .banner-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: #57D98A;
@@ -477,11 +484,15 @@ section { position: relative; }
     right: 50%;
     transform: translate(50%, var(--dy, 0px));
     top: auto;
-    bottom: 5vh;
-    width: 88vw;
+    bottom: 3vh;
+    width: 90vw;
+    max-height: 46vh;
+    padding: 18px 20px;
     text-align: center;
   }
-  .show-info .si-desc { -webkit-line-clamp: 3; }
+  .show-info .si-shot { max-height: 18vh; margin-bottom: 12px; }
+  .show-info h3 { font-size: 24px; }
+  .show-info .si-desc { -webkit-line-clamp: 3; font-size: 13.5px; }
 }
 .products-hint {
   width: min(1120px, 92vw);
