@@ -112,7 +112,11 @@ a { color: inherit; }
 .hero { height: 1320vh; position: relative; }
 .hero-sticky {
   position: sticky; top: 0;
-  height: 100vh; height: 100svh;
+  /* dvh, not svh: svh is the SMALL viewport — on iOS, once the URL bar
+     collapses mid-scroll the real viewport grows past it and a strip of
+     page background peeked out under the film (r28 report). dvh tracks
+     the bar live; the film canvas refits on the resize events it emits */
+  height: 100vh; height: 100dvh;
   overflow: hidden;
   background:
     radial-gradient(120% 90% at 50% 108%, var(--cream) 0%, rgba(244, 232, 212, 0) 55%),
@@ -385,7 +389,7 @@ section { position: relative; }
 .products-sticky {
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100vh; height: 100dvh;   /* same iOS URL-bar gap fix as the hero */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -694,7 +698,7 @@ section { position: relative; }
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .hero { height: auto; }
-  .hero-sticky { position: relative; height: 100svh; }
+  .hero-sticky { position: relative; height: 100vh; height: 100dvh; }
   .beat { display: none; }
   .hero-lockin { opacity: 1 !important; }
   /* no scrub JS runs, so nothing ever raises --r: the headline must not

@@ -354,7 +354,8 @@ function initScrub() {
     return (lo + hi) / 2 * SCRUB_END;
   }
   const DRIFT_STOPS = [pForT(DWELLS[0][0]), pForT(DWELLS[1][0]), 0.7];
-  const DRIFT_RATE = 0.05;    // hero-p per second — a gentle glide
+  const DRIFT_RATE = 0.025;   // hero-p per second — a gentle glide
+                              // (0.05 read as rushed on device — r28)
   const IDLE_MS = 550;
   let idleTimer = 0, drifting = false, driftRaf = 0, expectY = -1;
 
