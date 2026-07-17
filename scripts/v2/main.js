@@ -322,6 +322,95 @@ function initScrub() {
     requestAnimationFrame(autoLoop);
   }
 
+  /* -------------------- scene-anchor drift (r27) --------------------
+     Park anywhere mid-scene and the page glides ITSELF to the next
+     anchor — the moment a scene finishes assembling — then rests there
+     until the visitor scrolls again. Because the glide moves the real
+     scroll position, everything scroll-derived (film, beats, scrim,
+     progress rail) follows for free and no reconciliation between a
+     "drifted" film and the scrollbar is ever needed. Anchors:
+       1. Seoul complete  (start of the Seoul dwell)
+       2. SF complete     (start of the SF dwell)
+       3. the lock-in tableau (p 0.7 — past AUTO_FROM, so the film
+          autoplay carries seq4 while the page rises the headline)
+     Wheel / touch / key input cancels instantly: the visitor always
+     outranks the glide. */
+  const DWELLS = [];
+  {
+    let acc = 0;
+    for (const [f0, f1, w] of SEGS) {
+      const span = w / SEG_TOTAL;
+      if (f0 === f1) DWELLS.push([acc, acc + span]);
+      acc += span;
+    }
+  }
+  // invert easeFilm (monotonic) -> the scroll p that shows film-t
+  function pForT(t) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (easeFilm(mid) < t) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2 * SCRUB_END;
+  }
+  const DRIFT_STOPS = [pForT(DWELLS[0][0]), pForT(DWELLS[1][0]), 0.7];
+  const DRIFT_RATE = 0.05;    // hero-p per second — a gentle glide
+  const IDLE_MS = 550;
+  let idleTimer = 0, drifting = false, driftRaf = 0, expectY = -1;
+
+  function cancelDrift() {
+    drifting = false;
+    cancelAnimationFrame(driftRaf);
+  }
+  function armIdle() {
+    clearTimeout(idleTimer);
+    if (DBG_P !== null) return;          // pinned progress: never glide
+    idleTimer = setTimeout(tryDrift, IDLE_MS);
+  }
+  function tryDrift() {
+    if (drifting || document.hidden) return;
+    if (document.querySelector('.capsule-card.open')) return;
+    const max = hero.offsetHeight - innerHeight;
+    if (max <= 0) return;
+    const p = (scrollY - hero.offsetTop) / max;
+    // only a committed scroller (past the greeting), only inside the
+    // hero, and never once the lock-in tableau is reached — the typing
+    // loop owns the rest
+    if (p < 0.03 || p > DRIFT_STOPS[2] - 0.012) return;
+    const tf = Math.max(easeFilm(clamp(p / SCRUB_END, 0, 1)), autoTf);
+    // already resting on a finished scene (inside the Seoul/SF dwell)?
+    // that IS the anchor — stay put. (The office dwell is not a resting
+    // place: its anchor experience is the lock-in tableau at p 0.7.)
+    if (DWELLS.slice(0, 2).some(([a, b]) => tf > a - 0.012 && tf < b + 0.008)) return;
+    const stop = DRIFT_STOPS.find((s) => s > p + 0.012);
+    if (stop === undefined) return;
+    drifting = true;
+    let driftP = p, last = 0;
+    (function glide(now) {
+      if (!drifting) return;
+      if (document.hidden) return cancelDrift();
+      const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+      last = now;
+      driftP = Math.min(stop, driftP + DRIFT_RATE * dt);
+      expectY = Math.round(hero.offsetTop + driftP * (hero.offsetHeight - innerHeight));
+      scrollTo(0, expectY);
+      if (driftP >= stop) { drifting = false; return; }  // rest at anchor
+      driftRaf = requestAnimationFrame(glide);
+    })(0);
+  }
+  // bookkeeping: our own scrollTo lands exactly on expectY — anything
+  // else is the visitor, who cancels the glide and re-arms the idle
+  addEventListener('scroll', () => {
+    if (drifting && Math.abs(scrollY - expectY) < 3) return;
+    cancelDrift();
+    armIdle();
+  }, { passive: true });
+  for (const ev of ['wheel', 'touchstart'])
+    addEventListener(ev, () => { cancelDrift(); armIdle(); }, { passive: true });
+  addEventListener('keydown', (e) => {
+    if (/^(Arrow|Page|Home|End)/.test(e.key) || e.key === ' ') { cancelDrift(); armIdle(); }
+  });
+
   let ticking = false;
   function onScroll() {
     if (ticking) return;
